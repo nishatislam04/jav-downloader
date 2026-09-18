@@ -60,18 +60,18 @@ Installed console entry points:
 
 Paste a supported URL in the browser, resolve metadata, then start the download. Progress updates live in the page. Files are written to your default **Downloads** folder (or `DOWNLOAD_DIR` if set).
 
-Built with **Vite + SolidJS** (`web/frontend/`). Production assets are committed under `src/uav_downloader/web/static/`, so **Termux does not need Node.js** — `make web` skips the build when `npm` is missing and serves the bundled UI.
+Built with **Vite + SolidJS** (`web/frontend/`). Production assets are committed under `src/uav_downloader/web/static/`, so **Termux does not need Node.js** — `make start` skips the build when `npm` is missing and serves the bundled UI.
 
 ### Run (desktop or Termux — same command)
 
 ```bash
 make install
-make web
+make start
 ```
 
 Open **http://127.0.0.1:8765/** in your browser.
 
-On Termux, `make web` auto-detects Android (`TERMUX_VERSION`), binds `0.0.0.0`, and defaults downloads to `~/storage/downloads`. Run `termux-setup-storage` once so that folder exists.
+On Termux, `make start` auto-detects Android (`TERMUX_VERSION`), binds `0.0.0.0`, and defaults downloads to `~/storage/downloads`. Run `termux-setup-storage` once so that folder exists.
 
 **Frontend development** (laptop only):
 
@@ -91,7 +91,7 @@ termux-setup-storage    # tap Allow — enables ~/storage/downloads
 git clone https://github.com/nishatislam04/jav-downloader.git
 cd jav-downloader
 make install
-make web              # same as desktop
+make start
 ```
 
 Optional env vars:

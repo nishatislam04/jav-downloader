@@ -1,5 +1,5 @@
 #!/data/data/com.termux/files/usr/bin/bash
-# Start the web UI in Termux — same as: make web
+# Start the web UI in Termux — same as: make start
 set -euo pipefail
 
 ROOT="$(cd "$(dirname "$0")/.." && pwd)"
@@ -11,4 +11,4 @@ if [[ ! -d .venv ]]; then
 fi
 
 # Grant storage access once: termux-setup-storage
-exec make web
+exec make start

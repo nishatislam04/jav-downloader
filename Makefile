@@ -1,4 +1,4 @@
-.PHONY: help install install-web web-build web-build-if-needed web web-api web-dev web-termux test
+.PHONY: help install install-web web-build web-build-if-needed start web web-api web-dev web-termux test
 
 PYTHON ?= python3
 VENV ?= .venv
@@ -22,7 +22,7 @@ help:
 	@echo "  make install       Create venv and install Python package"
 	@echo "  make install-web   Install frontend deps (npm)"
 	@echo "  make web-build     Force-build Solid UI into $(STATIC)"
-	@echo "  make web           Run web app (auto-build UI when npm is available)"
+	@echo "  make start         Run web app (auto-build UI when npm is available)"
 	@echo "  make web-api       Run Python API only on :$(WEB_PORT)"
 	@echo "  make web-dev       Vite dev server on :5173 (run web-api separately)"
 	@echo "  make test          Run pytest"
@@ -56,9 +56,12 @@ web-build-if-needed:
 		echo ">> npm not installed — using pre-built UI ($(STATIC))"; \
 	fi
 
-web: web-build-if-needed
+start: web-build-if-needed
 	@mkdir -p "$(DOWNLOAD_DIR)"
 	$(PY) -m uav_downloader.web.server --host "$(WEB_HOST)" --port "$(WEB_PORT)"
+
+web: start
+	@:
 
 web-api:
 	$(PY) -m uav_downloader.web.server --host "$(WEB_HOST)" --port "$(WEB_PORT)"
@@ -66,8 +69,8 @@ web-api:
 web-dev: install-web
 	cd $(FRONTEND) && $(NPM) run dev
 
-web-termux: web
-	@echo "web-termux is an alias for make web (Termux is auto-detected)"
+web-termux: start
+	@:
 
 test:
 	$(PY) -m pytest tests/ -q
