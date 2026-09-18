@@ -374,6 +374,37 @@ def _variant_height_bw(playlist):
     return height, bandwidth
 
 
+def parse_time_seconds(value):
+    """Parse seconds, MM:SS, or HH:MM:SS into a float second count."""
+    if value is None:
+        return None
+    if isinstance(value, bool):
+        raise ValueError('invalid time value')
+    if isinstance(value, (int, float)):
+        seconds = float(value)
+    else:
+        text = str(value).strip()
+        if not text:
+            return None
+        if re.fullmatch(r'\d+(\.\d+)?', text):
+            seconds = float(text)
+        else:
+            parts = text.split(':')
+            if not 2 <= len(parts) <= 3:
+                raise ValueError(f'invalid time format: {value}')
+            try:
+                nums = [float(part) for part in parts]
+            except ValueError as exc:
+                raise ValueError(f'invalid time format: {value}') from exc
+            if len(nums) == 2:
+                seconds = nums[0] * 60 + nums[1]
+            else:
+                seconds = nums[0] * 3600 + nums[1] * 60 + nums[2]
+    if seconds < 0:
+        raise ValueError('time cannot be negative')
+    return seconds
+
+
 def select_variant(playlists, pref):
     items = [(playlist, *_variant_height_bw(playlist)) for playlist in (playlists or [])]
     if not items:
@@ -494,8 +525,17 @@ class M3U8Crawler:
         if result: return result.group(1)
         return None
 
-    def __init__(self, url, savepath="", silence=False, max_workers=None):
+    def __init__(
+            self, url, savepath="", silence=False, max_workers=None,
+            cut_start=None, cut_end=None):
         self.silence = silence
+        self._cut_start_sec = parse_time_seconds(cut_start)
+        self._cut_end_sec = parse_time_seconds(cut_end)
+        if (self._cut_start_sec is not None and self._cut_end_sec is not None and
+                self._cut_end_sec <= self._cut_start_sec):
+            raise ValueError('cut end must be after cut start')
+        self._duration_sec = None
+        self._segment_durations = []
         self._tsList = []
         self._key_content = None   # raw bytes of AES key
         self._key_method = None    # e.g. 'AES-128'
@@ -609,8 +649,26 @@ class M3U8Crawler:
         if not os.path.exists(self._dest_folder):
             os.makedirs(self._dest_folder, exist_ok=True)
 
+    def _cut_output_suffix(self):
+        start = getattr(self, '_cut_start_sec', None)
+        end = getattr(self, '_cut_end_sec', None)
+        if start is None and end is None:
+            return ''
+        def _fmt(sec):
+            sec = max(0, int(sec or 0))
+            hours, rem = divmod(sec, 3600)
+            minutes, seconds = divmod(rem, 60)
+            if hours:
+                return f'{hours:02d}{minutes:02d}{seconds:02d}'
+            return f'{minutes:02d}{seconds:02d}'
+        left = _fmt(start or 0)
+        right = _fmt(end) if end is not None else 'end'
+        return f' [{left}-{right}]'
+
     def _get_video_savename(self):
-        return os.path.join(self._dest_folder, self._targetName + ".mp4")
+        return os.path.join(
+            self._dest_folder,
+            self._targetName + self._cut_output_suffix() + '.mp4')
 
     def _get_image_savename(self):
         if self._imageUrl is None: return None
@@ -697,6 +755,7 @@ class M3U8Crawler:
         self._media_sequence = getattr(m3u8obj, 'media_sequence', 0) or 0
         # Build segment URL list
         self._tsList = []
+        self._segment_durations = []
         for seg in m3u8obj.segments:
             uri = seg.uri
             if uri.startswith('https://') or uri.startswith('http://'):
@@ -704,8 +763,51 @@ class M3U8Crawler:
             else:
                 tsUrl = downloadurl + uri
             self._tsList.append(tsUrl)
+            try:
+                duration = float(getattr(seg, 'duration', 0) or 0)
+            except (TypeError, ValueError):
+                duration = 0.0
+            self._segment_durations.append(duration)
         if not self._tsList:
             raise Exception("m3u8 無有效片段（可能被阻擋或改版）")
+        self._apply_segment_time_cut()
+
+    def _apply_segment_time_cut(self):
+        start = getattr(self, '_cut_start_sec', None)
+        end = getattr(self, '_cut_end_sec', None)
+        if start is None and end is None:
+            return
+        if not self._tsList:
+            return
+        durations = getattr(self, '_segment_durations', None) or []
+        if len(durations) != len(self._tsList):
+            raise Exception('無法裁剪 HLS：缺少片段時間資訊')
+
+        filtered_urls = []
+        filtered_durations = []
+        cursor = 0.0
+        for url, duration in zip(self._tsList, durations):
+            seg_start = cursor
+            seg_end = cursor + max(duration, 0.0)
+            cursor = seg_end
+            if end is not None and seg_start >= end:
+                break
+            if start is not None and seg_end <= start:
+                continue
+            filtered_urls.append(url)
+            filtered_durations.append(duration)
+
+        if not filtered_urls:
+            raise Exception('裁剪時間範圍內沒有可下載的 HLS 片段')
+        self._tsList = filtered_urls
+        self._segment_durations = filtered_durations
+        if not self.silence:
+            end_label = f'{end}s' if end is not None else 'end'
+            start_label = f'{start or 0}s'
+            print(
+                f'[HLS] 裁剪片段 {start_label} → {end_label} '
+                f'({len(self._tsList)} segments)',
+                flush=True)
 
     def _make_cipher(self, seq_num=0):
         """Create a fresh AES cipher for one segment (thread-safe)."""

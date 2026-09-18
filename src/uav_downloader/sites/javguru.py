@@ -29,6 +29,7 @@ from uav_downloader.sites.base import (
     _get_session,
     _is_cf_interstitial,
 )
+from uav_downloader.sites.direct_mp4 import run_direct_download
 from uav_downloader.sites.supjav import _strip_fake_header
 
 _BLOCKED_MSG = (
@@ -642,71 +643,5 @@ class SiteJavGuru(M3U8Crawler):
         if self._m3u8url:
             return super().start_download()
         if getattr(self, '_direct_url', None):
-            return self._download_direct_mp4()
+            return run_direct_download(self)
         return super().start_download()
-
-    def _download_direct_mp4(self):
-        if self._cancel_job:
-            return False
-        self._cancel_job = False
-        self._create_dest_folder()
-        if self.is_target_video_exist():
-            print("檔案已存在!!", flush=True)
-            return True
-
-        out = self._get_video_savename()
-        part = out + '.part'
-        if os.path.exists(part):
-            try:
-                os.remove(part)
-            except OSError:
-                pass
-
-        referer = self._direct_referer or self.direct_default_referer
-        headers = {'Referer': referer}
-        start = time.time()
-        downloaded = 0
-        try:
-            resp = _get_session().get(
-                self._direct_url,
-                headers=headers,
-                timeout=60,
-                stream=True,
-                allow_redirects=True,
-                **config.proxy_request_kwargs(),
-            )
-            if getattr(resp, 'status_code', 0) != 200:
-                raise Exception(f"直接下載失敗 (HTTP {resp.status_code})")
-            total = int(resp.headers.get('content-length') or 0)
-            with open(part, 'wb') as handle:
-                for chunk in resp.iter_content(chunk_size=262144):
-                    if self._cancel_job:
-                        break
-                    if not chunk:
-                        continue
-                    speed_limiter.acquire(len(chunk))
-                    handle.write(chunk)
-                    downloaded += len(chunk)
-                    elapsed = time.time() - start
-                    speed = downloaded / elapsed if elapsed > 0 else 0
-                    if total > 0 and self._progress_callback:
-                        self._progress_callback(downloaded, total, speed)
-        except Exception:
-            if os.path.exists(part):
-                try:
-                    os.remove(part)
-                except OSError:
-                    pass
-            raise
-
-        if self._cancel_job:
-            if os.path.exists(part):
-                try:
-                    os.remove(part)
-                except OSError:
-                    pass
-            return False
-
-        os.replace(part, out)
-        print(f"\n下載完成: {os.path.basename(out)}", flush=True)
-        return True

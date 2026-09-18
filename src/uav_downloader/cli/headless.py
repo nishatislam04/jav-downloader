@@ -77,7 +77,12 @@ def main():
         print(f"\n========== {url} ==========", flush=True)
         try:
             site = M3U8Sites.CreateSite(
-                url, dest, max_workers=max_workers)
+                url,
+                dest,
+                max_workers=max_workers,
+                cut_start=os.environ.get('CUT_START'),
+                cut_end=os.environ.get('CUT_END'),
+            )
             if site is None:
                 print(f"[跳過] 不支援的網址: {url}", flush=True); fail += 1; continue
             if not site.is_url_vaildate():

@@ -105,9 +105,10 @@ def test_sources_from_api_skips_m3u8_and_empty_lists():
             assert data['id'] == 'stream-key'
             return FakeResp()
 
-    sources = _sources_from_api(
+    sources, duration_sec = _sources_from_api(
         FakeScraper(), 'stream-key', 'https://spankbang.com/a575a/video/example')
     labels = [item['label'] for item in sources]
+    assert duration_sec == 1234
     assert labels == ['240p', '720p', '1080p']
     assert sources[-1]['height'] == 1080
 
@@ -132,6 +133,7 @@ def test_get_url_infos_uses_stream_api_when_inline_missing(monkeypatch):
 
         def json(self):
             return {
+                'length': 1234,
                 '720p': ['https://cdn.example/17038702-720p.mp4?secure=x'],
                 '1080p': ['https://cdn.example/17038702-1080p.mp4?secure=x'],
             }

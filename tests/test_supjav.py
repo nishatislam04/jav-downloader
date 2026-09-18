@@ -46,6 +46,7 @@ _stub_runtime_dependency('m3u8', _m3u8_stub)
 _stub_runtime_dependency('customtkinter', _customtkinter_stub)
 
 from uav_downloader.sites import base as crawler_mod
+from uav_downloader.sites import direct_mp4 as direct_mp4_mod
 from uav_downloader.sites import supjav as supjav_mod
 from bs4 import BeautifulSoup
 from uav_downloader.sites.base import M3U8Crawler
@@ -342,15 +343,14 @@ def test_direct_download_uses_parallel_ranges_and_assembles_file(monkeypatch, tm
             start, end = (int(value) for value in range_header[6:].split('-', 1))
             return RangeResponse(start, end)
 
-    monkeypatch.setattr(supjav_mod, '_get_session', lambda: RangeSession(), raising=False)
-    monkeypatch.setattr(
-        supjav_mod,
-        '_make_scraper',
-        lambda: (_ for _ in ()).throw(AssertionError('range-capable downloads must not use the serial path')),
-    )
-    monkeypatch.setattr(supjav_mod.speed_limiter, 'acquire', lambda _size: None)
+    monkeypatch.setattr(direct_mp4_mod, '_get_session', lambda: RangeSession())
+    monkeypatch.setattr(direct_mp4_mod.speed_limiter, 'acquire', lambda _size: None)
 
     crawler = SiteSupJav.__new__(SiteSupJav)
+    crawler.direct_site_name = 'SupJav'
+    crawler.direct_default_referer = 'https://supjav.com/'
+    crawler._cut_start_sec = None
+    crawler._cut_end_sec = None
     crawler._cancel_job = False
     crawler._dest_folder = str(tmp_path)
     crawler._targetName = 'parallel'
@@ -403,11 +403,15 @@ def test_direct_parallel_range_resumes_after_connection_reset(monkeypatch, tmp_p
                     failed_once = True
             return RangeResponse(start, end, fail=fail)
 
-    monkeypatch.setattr(supjav_mod, '_get_session', lambda: RangeSession())
-    monkeypatch.setattr(supjav_mod, '_DIRECT_RETRY_BASE_DELAY', 0)
-    monkeypatch.setattr(supjav_mod.speed_limiter, 'acquire', lambda _size: None)
+    monkeypatch.setattr(direct_mp4_mod, '_get_session', lambda: RangeSession())
+    monkeypatch.setattr(direct_mp4_mod, '_DIRECT_RETRY_BASE_DELAY', 0)
+    monkeypatch.setattr(direct_mp4_mod.speed_limiter, 'acquire', lambda _size: None)
 
     crawler = SiteSupJav.__new__(SiteSupJav)
+    crawler.direct_site_name = 'SupJav'
+    crawler.direct_default_referer = 'https://supjav.com/'
+    crawler._cut_start_sec = None
+    crawler._cut_end_sec = None
     crawler._cancel_job = False
     crawler._dest_folder = str(tmp_path)
     crawler._targetName = 'resumed'
@@ -418,7 +422,8 @@ def test_direct_parallel_range_resumes_after_connection_reset(monkeypatch, tmp_p
 
     assert crawler._download_direct() is True
     assert (tmp_path / 'resumed.mp4').read_bytes() == payload
-    initial_starts = {start for start, _end in supjav_mod._split_byte_ranges(len(payload))}
+    initial_starts = {
+        start for start, _end in direct_mp4_mod.split_byte_ranges(len(payload))}
     resumed_starts = {
         int(value[6:].split('-', 1)[0])
         for value in calls
@@ -472,10 +477,14 @@ def test_direct_download_keeps_serial_fallback_without_range_support(monkeypatch
         def iter_content(self, chunk_size):
             yield payload
 
-    monkeypatch.setattr(supjav_mod, '_get_session', lambda: ProbeSession())
-    monkeypatch.setattr(supjav_mod.speed_limiter, 'acquire', lambda _size: None)
+    monkeypatch.setattr(direct_mp4_mod, '_get_session', lambda: ProbeSession())
+    monkeypatch.setattr(direct_mp4_mod.speed_limiter, 'acquire', lambda _size: None)
 
     crawler = SiteSupJav.__new__(SiteSupJav)
+    crawler.direct_site_name = 'SupJav'
+    crawler.direct_default_referer = 'https://supjav.com/'
+    crawler._cut_start_sec = None
+    crawler._cut_end_sec = None
     crawler._cancel_job = False
     crawler._dest_folder = str(tmp_path)
     crawler._targetName = 'serial'

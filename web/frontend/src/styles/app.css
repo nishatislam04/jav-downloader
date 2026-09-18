@@ -53,7 +53,8 @@ label {
   font-size: 0.9rem;
 }
 
-input[type='url'] {
+input[type='url'],
+input[type='text'] {
   width: 100%;
   padding: 12px 14px;
   border-radius: 10px;
@@ -61,6 +62,25 @@ input[type='url'] {
   background: #0c0e13;
   color: var(--text);
   font-size: 1rem;
+}
+
+.cut-row {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 12px;
+  margin-top: 12px;
+}
+
+.hint {
+  margin: 10px 0 0;
+  color: var(--muted);
+  font-size: 0.82rem;
+  line-height: 1.45;
+}
+
+.hint code {
+  font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  font-size: 0.8rem;
 }
 
 .actions {

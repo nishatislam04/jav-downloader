@@ -2,9 +2,7 @@
 # coding: utf-8
 
 import html
-import os
 import re
-import time
 from urllib.parse import urlsplit
 
 try:
@@ -22,9 +20,8 @@ from uav_downloader.sites.base import (
     fetch_with_mirrors,
     get_resolution_pref,
     request_headers,
-    speed_limiter,
-    _get_session,
 )
+from uav_downloader.sites.direct_mp4 import run_direct_download
 from uav_downloader.sites.hanime1 import _select_source
 
 _BLOCKED_MSG = (
@@ -55,15 +52,16 @@ def _make_scraper():
 
 def _prime_scraper(scraper):
     scraper.cookies.set('country', 'US', domain='.spankbang.com')
-    response = scraper.get(
-        _ROOT,
-        headers={'Referer': _ROOT},
-        timeout=30,
-        allow_redirects=True,
-        **config.proxy_request_kwargs(),
-    )
-    if int(getattr(response, 'status_code', 0) or 0) != 200:
-        raise Exception(f'SpankBang 初始化失敗 (HTTP {response.status_code})')
+    try:
+        scraper.get(
+            _ROOT,
+            headers={'Referer': _ROOT},
+            timeout=30,
+            allow_redirects=True,
+            **config.proxy_request_kwargs(),
+        )
+    except Exception:
+        pass
     return scraper
 
 
@@ -126,6 +124,14 @@ def _sources_from_api(scraper, stream_key, page_url):
     if not isinstance(payload, dict):
         raise Exception('SpankBang stream API 回傳格式異常')
 
+    length = payload.get('length')
+    duration_sec = None
+    if length not in (None, ''):
+        try:
+            duration_sec = float(length)
+        except (TypeError, ValueError):
+            duration_sec = None
+
     sources = []
     seen = set()
     for label, raw in payload.items():
@@ -146,7 +152,7 @@ def _sources_from_api(scraper, stream_key, page_url):
             'height': _quality_height(key),
             'label': key,
         })
-    return sources
+    return sources, duration_sec
 
 
 def _extract_stream_key(html_text):
@@ -245,7 +251,10 @@ class SiteSpankBang(M3U8Crawler):
                 stream_key = _extract_stream_key(html_text)
                 if not stream_key:
                     raise Exception('找不到 SpankBang stream key（版面改版？）')
-                sources = _sources_from_api(scraper, stream_key, self._url)
+                sources, duration_sec = _sources_from_api(
+                    scraper, stream_key, self._url)
+                if duration_sec is not None:
+                    self._duration_sec = duration_sec
 
             selected = _select_source(sources, get_resolution_pref())
             if not selected:
@@ -272,72 +281,5 @@ class SiteSpankBang(M3U8Crawler):
 
     def start_download(self):
         if getattr(self, '_direct_url', None):
-            return self._download_direct_mp4()
+            return run_direct_download(self)
         return super().start_download()
-
-    def _download_direct_mp4(self):
-        if self._cancel_job:
-            return False
-        self._cancel_job = False
-        self._create_dest_folder()
-        if self.is_target_video_exist():
-            print('檔案已存在!!', flush=True)
-            return True
-
-        out = self._get_video_savename()
-        part = out + '.part'
-        if os.path.exists(part):
-            try:
-                os.remove(part)
-            except OSError:
-                pass
-
-        referer = self._direct_referer or self.direct_default_referer
-        headers = {'Referer': referer}
-        start = time.time()
-        downloaded = 0
-        try:
-            resp = _get_session().get(
-                self._direct_url,
-                headers=headers,
-                timeout=60,
-                stream=True,
-                allow_redirects=True,
-                **config.proxy_request_kwargs(),
-            )
-            if getattr(resp, 'status_code', 0) not in (200, 206):
-                raise Exception(
-                    f'直接下載失敗 (HTTP {getattr(resp, "status_code", 0)})')
-            total = int(resp.headers.get('content-length') or 0)
-            with open(part, 'wb') as handle:
-                for chunk in resp.iter_content(chunk_size=262144):
-                    if self._cancel_job:
-                        break
-                    if not chunk:
-                        continue
-                    speed_limiter.acquire(len(chunk))
-                    handle.write(chunk)
-                    downloaded += len(chunk)
-                    elapsed = time.time() - start
-                    speed = downloaded / elapsed if elapsed > 0 else 0
-                    if total > 0 and self._progress_callback:
-                        self._progress_callback(downloaded, total, speed)
-        except Exception:
-            if os.path.exists(part):
-                try:
-                    os.remove(part)
-                except OSError:
-                    pass
-            raise
-
-        if self._cancel_job:
-            if os.path.exists(part):
-                try:
-                    os.remove(part)
-                except OSError:
-                    pass
-            return False
-
-        os.replace(part, out)
-        print(f'\n下載完成: {os.path.basename(out)}', flush=True)
-        return True

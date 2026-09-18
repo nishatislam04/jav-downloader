@@ -102,7 +102,12 @@ class WebHandler(BaseHTTPRequestHandler):
         dest = payload.get('dest_folder') or default_download_dir()
 
         if path == '/api/resolve':
-            result = service.resolve_url(payload.get('url', ''), dest_folder=dest)
+            result = service.resolve_url(
+                payload.get('url', ''),
+                dest_folder=dest,
+                cut_start=payload.get('cut_start'),
+                cut_end=payload.get('cut_end'),
+            )
             status = HTTPStatus.OK if result.get('ok') else HTTPStatus.UNPROCESSABLE_ENTITY
             _json_response(self, status, result)
             return
@@ -115,7 +120,13 @@ class WebHandler(BaseHTTPRequestHandler):
                     'error': 'URL is required',
                 })
                 return
-            job = service.start_download(MANAGER, url, dest_folder=dest)
+            job = service.start_download(
+                MANAGER,
+                url,
+                dest_folder=dest,
+                cut_start=payload.get('cut_start'),
+                cut_end=payload.get('cut_end'),
+            )
             _json_response(self, HTTPStatus.ACCEPTED, {
                 'ok': True,
                 'job': job.to_dict(),

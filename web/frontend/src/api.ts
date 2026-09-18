@@ -5,6 +5,7 @@ export type ResolveResult = {
   title?: string;
   thumbnail?: string;
   dest_folder?: string;
+  duration_sec?: number | null;
   exists?: boolean;
   error?: string;
 };
@@ -42,17 +43,22 @@ export function fetchHealth() {
   return request<{ ok: boolean; download_dir?: string }>('/api/health');
 }
 
-export function resolveUrl(url: string) {
+export type CutOptions = {
+  cut_start?: string;
+  cut_end?: string;
+};
+
+export function resolveUrl(url: string, options: CutOptions = {}) {
   return request<ResolveResult>('/api/resolve', {
     method: 'POST',
-    body: JSON.stringify({ url }),
+    body: JSON.stringify({ url, ...options }),
   });
 }
 
-export function startDownload(url: string) {
+export function startDownload(url: string, options: CutOptions = {}) {
   return request<{ ok: boolean; job?: Job; error?: string }>('/api/download', {
     method: 'POST',
-    body: JSON.stringify({ url }),
+    body: JSON.stringify({ url, ...options }),
   });
 }
 

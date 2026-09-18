@@ -14,7 +14,18 @@ def _site_label(site_cls) -> str:
     return getattr(site_cls, 'direct_site_name', None) or site_cls.__name__
 
 
-def resolve_url(url: str, dest_folder: str | None = None) -> dict:
+def _optional_time(value) -> str | None:
+    if value is None:
+        return None
+    text = str(value).strip()
+    return text or None
+
+
+def resolve_url(
+        url: str,
+        dest_folder: str | None = None,
+        cut_start: str | None = None,
+        cut_end: str | None = None) -> dict:
     """Collect metadata for a supported URL without starting a download."""
     url = (url or '').strip()
     if not url:
@@ -28,7 +39,13 @@ def resolve_url(url: str, dest_folder: str | None = None) -> dict:
     os.makedirs(dest, exist_ok=True)
 
     try:
-        site = sites.create_site(url, savepath=dest, silence=True)
+        site = sites.create_site(
+            url,
+            savepath=dest,
+            silence=True,
+            cut_start=_optional_time(cut_start),
+            cut_end=_optional_time(cut_end),
+        )
     except Exception as exc:
         return {'ok': False, 'error': str(exc)}
 
@@ -50,13 +67,16 @@ def resolve_url(url: str, dest_folder: str | None = None) -> dict:
         'thumbnail': getattr(site, '_imageUrl', None) or '',
         'dest_folder': site.dest_folder() or dest,
         'exists': site.is_target_video_exist(),
+        'duration_sec': getattr(site, '_duration_sec', None),
     }
 
 
 def start_download(
         manager: JobManager,
         url: str,
-        dest_folder: str | None = None) -> Job:
+        dest_folder: str | None = None,
+        cut_start: str | None = None,
+        cut_end: str | None = None) -> Job:
     """Queue a download and return its job record."""
     url = (url or '').strip()
     job = manager.create(url)
@@ -67,7 +87,13 @@ def start_download(
         manager.update(job.id, status=JobStatus.DOWNLOADING, dest_folder=dest)
         try:
             site_cls = sites.validate_url(url)
-            site = sites.create_site(url, savepath=dest, silence=True)
+            site = sites.create_site(
+                url,
+                savepath=dest,
+                silence=True,
+                cut_start=_optional_time(cut_start),
+                cut_end=_optional_time(cut_end),
+            )
             if site is None or not site.is_url_vaildate():
                 manager.update(
                     job.id,

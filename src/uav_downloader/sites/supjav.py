@@ -313,50 +313,8 @@ class SiteSupJav(M3U8Crawler):
             pass
 
     def _download_direct(self):
-        if self._cancel_job:
-            return False
-        self._cancel_job = False
-        self._create_dest_folder()
-        if self.is_target_video_exist():
-            print("檔案已存在!!", flush=True)
-            return True
-        out = self._get_video_savename()
-        part = out + '.part'
-        self._safe_remove(part)
-        ref = self._direct_referer or self.direct_default_referer
-        start = time.time()
-        try:
-            try:
-                ranged = self._download_direct_ranges(part, ref, start)
-            except Exception:
-                if self._cancel_job:
-                    raise
-                print(
-                    f'\n[{self.direct_site_name}] Parallel ranges failed; '
-                    'retrying with one resumable connection.',
-                    flush=True)
-                self._safe_remove(part)
-                ranged = None
-            if ranged is None:
-                done, total = self._download_direct_serial(part, ref, start)
-            else:
-                done, total = ranged
-        except Exception:
-            self._safe_remove(part)
-            raise
-        if self._cancel_job:
-            self._safe_remove(part)
-            return False
-        if total > 0 and done < int(total * 0.98):
-            self._safe_remove(part)
-            raise Exception("下載不完整（連線中斷？請重試）")
-        try:
-            os.replace(part, out)
-        except Exception:
-            self._safe_remove(part)
-            raise
-        print(f"\n下載完成: {os.path.basename(out)}", flush=True)
-        return True
+        from uav_downloader.sites.direct_mp4 import run_direct_download
+        return run_direct_download(self)
 
     def _download_direct_ranges(self, part, ref, start_time):
         """Use up to four HTTP Range connections when the host supports ranges.

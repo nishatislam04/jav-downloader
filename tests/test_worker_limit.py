@@ -86,10 +86,12 @@ def test_create_site_forwards_explicit_worker_limit(monkeypatch, tmp_path):
         def validate_url(cls, url):
             return 'video'
 
-        def __init__(self, url, savepath='', silence=False, max_workers=None):
+        def __init__(
+                self, url, savepath='', silence=False, max_workers=None,
+                cut_start=None, cut_end=None):
             captured.update(
                 url=url, savepath=savepath, silence=silence,
-                max_workers=max_workers)
+                max_workers=max_workers, cut_start=cut_start, cut_end=cut_end)
 
     monkeypatch.setattr(M3U8Sites, 'siteList', (_FakeSite,))
 
