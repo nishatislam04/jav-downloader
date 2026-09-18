@@ -9,6 +9,9 @@ from uav_downloader import sites
 from uav_downloader.web.jobs import Job, JobManager, JobStatus
 from uav_downloader.web.paths import default_download_dir
 
+_active_downloads: dict[str, object] = {}
+_active_lock = threading.Lock()
+
 
 def _site_label(site_cls) -> str:
     return getattr(site_cls, 'direct_site_name', None) or site_cls.__name__
@@ -129,36 +132,68 @@ def start_download(
             site._progress_callback = _on_progress
             manager.update(job.id, progress_unit=progress_unit)
 
-            if site.is_target_video_exist():
-                output = site._get_video_savename()
-                manager.update(
-                    job.id,
-                    status=JobStatus.COMPLETED,
-                    output_file=output,
-                    progress_pct=100.0,
-                    downloaded=1,
-                    total=1,
-                )
-                return
+            with _active_lock:
+                _active_downloads[job.id] = site
+            try:
+                if site.is_target_video_exist():
+                    output = site._get_video_savename()
+                    manager.update(
+                        job.id,
+                        status=JobStatus.COMPLETED,
+                        output_file=output,
+                        progress_pct=100.0,
+                        downloaded=1,
+                        total=1,
+                    )
+                    return
 
-            site.start_download()
-            output = site._get_video_savename()
-            if os.path.isfile(output):
-                manager.update(
-                    job.id,
-                    status=JobStatus.COMPLETED,
-                    output_file=output,
-                    progress_pct=100.0,
-                )
-            else:
-                manager.update(
-                    job.id,
-                    status=JobStatus.FAILED,
-                    error='Download finished but output file was not found',
-                )
+                site.start_download()
+                output = site._get_video_savename()
+                if os.path.isfile(output):
+                    size = os.path.getsize(output)
+                    manager.update(
+                        job.id,
+                        status=JobStatus.COMPLETED,
+                        output_file=output,
+                        progress_pct=100.0,
+                        downloaded=size,
+                        total=size,
+                    )
+                else:
+                    manager.update(
+                        job.id,
+                        status=JobStatus.FAILED,
+                        error='Download finished but output file was not found',
+                    )
+            finally:
+                with _active_lock:
+                    _active_downloads.pop(job.id, None)
         except Exception as exc:
             manager.update(job.id, status=JobStatus.FAILED, error=str(exc))
 
     thread = threading.Thread(target=_run, name=f'uav-web-{job.id}', daemon=True)
     thread.start()
     return job
+
+
+def cancel_download(manager: JobManager, job_id: str) -> bool:
+    """Stop an in-flight download job when possible."""
+    with _active_lock:
+        site = _active_downloads.get(job_id)
+    if site is not None:
+        site.cancel_download(cleanup=True)
+        manager.update(
+            job_id,
+            status=JobStatus.FAILED,
+            error='Download cancelled',
+        )
+        return True
+    job = manager.get(job_id)
+    if job is not None and job.status == JobStatus.DOWNLOADING:
+        manager.update(
+            job_id,
+            status=JobStatus.FAILED,
+            error='Download cancelled',
+        )
+        return True
+    return False

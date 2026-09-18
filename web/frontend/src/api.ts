@@ -65,3 +65,10 @@ export function startDownload(url: string, options: CutOptions = {}) {
 export function fetchJob(jobId: string) {
   return request<{ ok: boolean; job?: Job; error?: string }>(`/api/jobs/${jobId}`);
 }
+
+export function cancelJob(jobId: string) {
+  return request<{ ok: boolean; job?: Job; error?: string }>(
+    `/api/jobs/${jobId}/cancel`,
+    { method: 'POST', body: '{}' },
+  );
+}

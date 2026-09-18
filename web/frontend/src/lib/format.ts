@@ -24,8 +24,14 @@ export function formatProgress(job: {
   const pct = job.progress_pct || 0;
   const parts = [`${pct.toFixed(1)}%`];
 
-  if (job.progress_unit === 'bytes' && (job.total ?? 0) > 0) {
-    parts.push(`${formatBytes(job.downloaded ?? 0)} / ${formatBytes(job.total ?? 0)}`);
+  if (job.progress_unit === 'bytes') {
+    const downloaded = job.downloaded ?? 0;
+    const total = job.total ?? 0;
+    if (total > 0) {
+      parts.push(`${formatBytes(downloaded)} / ${formatBytes(total)}`);
+    } else if (downloaded > 0) {
+      parts.push(`${formatBytes(downloaded)} downloaded`);
+    }
   } else if (job.progress_unit === 'segments' && (job.total ?? 0) > 0) {
     parts.push(`${job.downloaded ?? 0} / ${job.total ?? 0} segments`);
   }

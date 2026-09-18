@@ -1,5 +1,6 @@
 import { createSignal, onCleanup, onMount, Show } from 'solid-js';
 import {
+  cancelJob,
   fetchHealth,
   fetchJob,
   resolveUrl,
@@ -20,6 +21,7 @@ export default function App() {
   const [resolved, setResolved] = createSignal<ResolveResult | null>(null);
   const [job, setJob] = createSignal<Job | null>(null);
   const [busy, setBusy] = createSignal(false);
+  const [cancelling, setCancelling] = createSignal(false);
 
   let pollTimer: ReturnType<typeof setInterval> | undefined;
 
@@ -93,6 +95,19 @@ export default function App() {
         : 'Metadata ready. Click Download.',
       'ok',
     );
+  }
+
+  async function handleCancel(jobId: string) {
+    setCancelling(true);
+    const data = await cancelJob(jobId);
+    setCancelling(false);
+    if (!data.ok || !data.job) {
+      setStatusMessage(data.error || 'Could not cancel download', 'error');
+      return;
+    }
+    setJob(data.job);
+    setBusy(false);
+    setStatusMessage('Download cancelled.', 'error');
   }
 
   async function handleDownload() {
@@ -193,7 +208,13 @@ export default function App() {
       </Show>
 
       <Show when={job()}>
-        {(current) => <ProgressCard job={current()} />}
+        {(current) => (
+          <ProgressCard
+            job={current()}
+            onCancel={handleCancel}
+            cancelling={cancelling()}
+          />
+        )}
       </Show>
 
       <section class="card foot">

@@ -62,6 +62,56 @@ def _has_time_cut(site):
             getattr(site, '_cut_end_sec', None) is not None)
 
 
+def probe_source_length(url, referer):
+    """Return total byte length for a direct URL when the host supports ranges."""
+    session = _get_session()
+    probe = None
+    try:
+        probe = session.get(
+            url,
+            headers={'Referer': referer, 'Range': 'bytes=0-0'},
+            timeout=60,
+            stream=True,
+            allow_redirects=True,
+            **config.proxy_request_kwargs(),
+        )
+        info = content_range(getattr(probe, 'headers', {}).get('content-range'))
+        if info:
+            return info[2]
+        if getattr(probe, 'status_code', 0) == 200:
+            return int(probe.headers.get('content-length') or 0)
+    except Exception:
+        return 0
+    finally:
+        if probe is not None:
+            try:
+                probe.close()
+            except Exception:
+                pass
+    return 0
+
+
+def estimate_cut_total_bytes(site, start_sec, end_sec, clip_duration, referer):
+    """Estimate output size for a time-range cut from source length and duration."""
+    full_size = probe_source_length(site._direct_url, referer)
+    video_duration = getattr(site, '_duration_sec', None)
+    try:
+        video_duration = float(video_duration)
+    except (TypeError, ValueError):
+        video_duration = 0.0
+    if full_size <= 0 or video_duration <= 0:
+        return 0
+    if clip_duration is not None:
+        clip_len = max(0.0, float(clip_duration))
+    elif end_sec is not None:
+        clip_len = max(0.0, float(end_sec) - float(start_sec or 0))
+    else:
+        clip_len = max(0.0, video_duration - float(start_sec or 0))
+    if clip_len <= 0:
+        return 0
+    return max(1, int(full_size * clip_len / video_duration))
+
+
 def run_direct_download(site):
     """Download site._direct_url to the final MP4 path with resume or time cut."""
     if site._cancel_job:
@@ -142,6 +192,9 @@ def _download_ffmpeg_cut(site, part, out, referer, label):
     os.close(fd)
     cmd.extend(['-c', 'copy', '-movflags', '+faststart', safe_part])
 
+    estimated_total = estimate_cut_total_bytes(
+        site, start_sec, end_sec, duration, referer)
+
     if not site.silence:
         end_label = f'{end_sec}s' if end_sec is not None else 'end'
         print(
@@ -174,7 +227,8 @@ def _download_ffmpeg_cut(site, part, out, referer, label):
                     downloaded = os.path.getsize(safe_part)
                     elapsed = time.time() - started
                     speed = downloaded / elapsed if elapsed > 0 else 0
-                    site._progress_callback(downloaded, 0, speed)
+                    total = estimated_total or downloaded
+                    site._progress_callback(downloaded, total, speed)
     finally:
         site._ffmpeg_proc = None
         if proc.stderr is not None:

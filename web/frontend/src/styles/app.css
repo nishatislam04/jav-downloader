@@ -163,6 +163,29 @@ button:disabled {
   transition: width 0.25s ease;
 }
 
+.progress-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.progress-head .label {
+  margin: 0;
+}
+
+button.cancel-btn {
+  background: transparent;
+  color: var(--muted);
+  border: 1px solid var(--border);
+  padding: 6px 12px;
+}
+
+button.cancel-btn:hover:not(:disabled) {
+  color: #ff8a8a;
+  border-color: #ff8a8a;
+}
+
 .progress-text {
   margin: 10px 0 0;
 }
