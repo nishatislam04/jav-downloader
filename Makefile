@@ -57,7 +57,7 @@ web-build-if-needed:
 	fi
 
 start: web-build-if-needed
-	@mkdir -p "$(DOWNLOAD_DIR)"
+	@[ -n "$(DOWNLOAD_DIR)" ] && mkdir -p "$(DOWNLOAD_DIR)" || true
 	$(PY) -m uav_downloader.web.server --host "$(WEB_HOST)" --port "$(WEB_PORT)"
 
 web: start
