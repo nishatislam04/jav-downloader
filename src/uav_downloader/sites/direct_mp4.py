@@ -7,6 +7,7 @@ from __future__ import annotations
 import concurrent.futures
 import os
 import re
+import select
 import subprocess
 import tempfile
 import threading
@@ -62,38 +63,149 @@ def _has_time_cut(site):
             getattr(site, '_cut_end_sec', None) is not None)
 
 
-def probe_source_length(url, referer):
+def _probe_headers(referer, extra_headers=None):
+    headers = {'Referer': referer}
+    if extra_headers:
+        headers.update(extra_headers)
+    return headers
+
+
+def probe_source_length(url, referer, extra_headers=None, session=None):
     """Return total byte length for a direct URL when the host supports ranges."""
-    session = _get_session()
-    probe = None
+    session = session or _get_session()
+    headers = _probe_headers(referer, extra_headers)
+    for method in ('head', 'get'):
+        probe = None
+        try:
+            request = getattr(session, method, session.get)
+            probe = request(
+                url,
+                headers={**headers, 'Range': 'bytes=0-0'} if method == 'get' else headers,
+                timeout=60,
+                stream=True,
+                allow_redirects=True,
+                **config.proxy_request_kwargs(),
+            )
+            info = content_range(getattr(probe, 'headers', {}).get('content-range'))
+            if info:
+                return info[2]
+            if getattr(probe, 'status_code', 0) == 200:
+                size = int(probe.headers.get('content-length') or 0)
+                if size > 0:
+                    return size
+        except Exception:
+            pass
+        finally:
+            if probe is not None:
+                try:
+                    probe.close()
+                except Exception:
+                    pass
+    return 0
+
+
+def _clip_duration_sec(site, start_sec, end_sec, clip_duration):
+    if clip_duration is not None:
+        return max(0.0, float(clip_duration))
+    if end_sec is not None:
+        return max(0.0, float(end_sec) - float(start_sec or 0))
+    video_duration = getattr(site, '_duration_sec', None)
     try:
-        probe = session.get(
-            url,
-            headers={'Referer': referer, 'Range': 'bytes=0-0'},
-            timeout=60,
-            stream=True,
-            allow_redirects=True,
-            **config.proxy_request_kwargs(),
-        )
-        info = content_range(getattr(probe, 'headers', {}).get('content-range'))
-        if info:
-            return info[2]
-        if getattr(probe, 'status_code', 0) == 200:
-            return int(probe.headers.get('content-length') or 0)
-    except Exception:
-        return 0
-    finally:
-        if probe is not None:
-            try:
-                probe.close()
-            except Exception:
-                pass
+        video_duration = float(video_duration)
+    except (TypeError, ValueError):
+        video_duration = 0.0
+    if video_duration > 0:
+        return max(0.0, video_duration - float(start_sec or 0))
+    return 0.0
+
+
+def _parse_ffmpeg_out_time_sec(line):
+    text = str(line or '').strip()
+    if not text.startswith('out_time'):
+        return None
+    _, _, value = text.partition('=')
+    value = value.strip()
+    if not value or value == 'N/A':
+        return None
+    if text.startswith('out_time_us='):
+        return int(value) / 1_000_000.0
+    if text.startswith('out_time_ms='):
+        return int(value) / 1000.0
+    if text.startswith('out_time='):
+        hours, minutes, seconds = value.split(':')
+        return (int(hours) * 3600) + (int(minutes) * 60) + float(seconds)
+    return None
+
+
+def _decode_pipe_line(line):
+    try:
+        return line.decode('utf-8', errors='replace')
+    except AttributeError:
+        return str(line)
+
+
+def _poll_pipe_lines(stream):
+    """Read any progress lines currently waiting on a pipe (never blocks)."""
+    if stream is None:
+        return []
+    fd = stream.fileno()
+    lines = []
+    while True:
+        ready, _, _ = select.select([fd], [], [], 0)
+        if not ready:
+            break
+        chunk = stream.readline()
+        if not chunk:
+            break
+        lines.append(_decode_pipe_line(chunk))
+    return lines
+
+
+def _read_ffmpeg_progress(proc, out_time_sec=0.0):
+    """Update encoded duration from any pending ffmpeg -progress output."""
+    latest = out_time_sec
+    for line in _poll_pipe_lines(getattr(proc, 'stdout', None)):
+        parsed = _parse_ffmpeg_out_time_sec(line)
+        if parsed is not None:
+            latest = parsed
+    return latest
+
+
+def _drain_stderr(proc, tail=''):
+    for line in _poll_pipe_lines(getattr(proc, 'stderr', None)):
+        tail = (tail + line)[-800:]
+    return tail
+
+
+def _emit_cut_progress(
+        site, downloaded, speed, out_time_sec, clip_len, estimated_total):
+    if not site._progress_callback:
+        return
+    total = _cut_progress_total(
+        estimated_total, downloaded, out_time_sec, clip_len)
+    if (downloaded <= 0 and out_time_sec > 0 and clip_len > 0 and
+            total <= 0):
+        total = estimated_total or 1000
+        downloaded = int(total * min(1.0, out_time_sec / clip_len))
+    elif (downloaded > 0 and total <= 0 and out_time_sec > 0 and
+          clip_len > 0):
+        total = max(downloaded, int(downloaded * clip_len / out_time_sec))
+    site._progress_callback(downloaded, total, speed)
+
+
+def _cut_progress_total(estimated_total, downloaded, out_time_sec, clip_len):
+    if estimated_total > 0:
+        return estimated_total
+    if downloaded > 0 and out_time_sec and out_time_sec > 0 and clip_len > 0:
+        return max(downloaded, int(downloaded * clip_len / out_time_sec))
     return 0
 
 
 def estimate_cut_total_bytes(site, start_sec, end_sec, clip_duration, referer):
     """Estimate output size for a time-range cut from source length and duration."""
-    full_size = probe_source_length(site._direct_url, referer)
+    extra = getattr(site, '_extra_headers', None) or {}
+    full_size = probe_source_length(
+        site._direct_url, referer, extra_headers=extra)
     video_duration = getattr(site, '_duration_sec', None)
     try:
         video_duration = float(video_duration)
@@ -176,9 +288,12 @@ def _download_ffmpeg_cut(site, part, out, referer, label):
         if duration <= 0:
             raise Exception('裁剪結束時間必須大於開始時間')
 
+    clip_len = _clip_duration_sec(site, start_sec, end_sec, duration)
+
     header_blob = f'Referer: {referer}\r\n'
     cmd = [
         ffmpeg, '-y', '-hide_banner', '-loglevel', 'error',
+        '-nostats', '-progress', 'pipe:1',
         '-headers', header_blob,
         '-ss', str(start_sec),
         '-i', site._direct_url,
@@ -206,12 +321,15 @@ def _download_ffmpeg_cut(site, part, out, referer, label):
     proc = subprocess.Popen(
         cmd,
         stdin=subprocess.DEVNULL,
-        stdout=subprocess.DEVNULL,
+        stdout=subprocess.PIPE,
         stderr=subprocess.PIPE,
         **_no_window_kwargs(),
     )
     site._ffmpeg_proc = proc
     stderr_tail = ''
+    out_time_sec = 0.0
+    if estimated_total > 0:
+        _emit_cut_progress(site, 0, 0.0, 0.0, clip_len, estimated_total)
     try:
         while True:
             if site._cancel_job:
@@ -219,23 +337,24 @@ def _download_ffmpeg_cut(site, part, out, referer, label):
                 proc.wait(timeout=5)
                 _safe_remove(safe_part)
                 return False
+            out_time_sec = _read_ffmpeg_progress(proc, out_time_sec)
+            stderr_tail = _drain_stderr(proc, stderr_tail)
             try:
                 proc.wait(timeout=0.5)
                 break
             except subprocess.TimeoutExpired:
-                if site._progress_callback and os.path.exists(safe_part):
-                    downloaded = os.path.getsize(safe_part)
-                    elapsed = time.time() - started
-                    speed = downloaded / elapsed if elapsed > 0 else 0
-                    total = estimated_total or downloaded
-                    site._progress_callback(downloaded, total, speed)
+                downloaded = (
+                    os.path.getsize(safe_part)
+                    if os.path.exists(safe_part) else 0)
+                elapsed = time.time() - started
+                speed = downloaded / elapsed if elapsed > 0 else 0
+                _emit_cut_progress(
+                    site, downloaded, speed, out_time_sec, clip_len,
+                    estimated_total)
     finally:
         site._ffmpeg_proc = None
-        if proc.stderr is not None:
-            try:
-                stderr_tail = proc.stderr.read().decode('utf-8', errors='replace')[-800:]
-            except Exception:
-                stderr_tail = ''
+        out_time_sec = _read_ffmpeg_progress(proc, out_time_sec)
+        stderr_tail = _drain_stderr(proc, stderr_tail)
 
     if (proc.returncode != 0 or not os.path.exists(safe_part) or
             os.path.getsize(safe_part) <= 0):
