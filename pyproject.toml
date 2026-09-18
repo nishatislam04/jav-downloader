@@ -5,8 +5,8 @@ build-backend = "setuptools.build_meta"
 [project]
 name = "uav-downloader"
 version = "3.1.4"
-description = "JableTV, MissAV, SupJav and Hanime1 downloader with unattended automation and local AI subtitles"
-readme = "README.en.md"
+description = "Headless downloader for JableTV, MissAV, SupJav, Hanime1, and Jav.guru"
+readme = "README.md"
 requires-python = ">=3.10"
 license = { file = "LICENSE" }
 authors = [{ name = "ALOS", email = "alos21750@users.noreply.github.com" }]
@@ -18,10 +18,8 @@ keywords = [
   "video-downloader",
   "av-downloader",
   "jav-downloader",
-  "automatic-downloader",
-  "unattended-downloader",
-  "ai-subtitles",
-  "docker",
+  "javguru",
+  "headless-downloader",
 ]
 classifiers = [
   "Development Status :: 5 - Production/Stable",
