@@ -275,20 +275,6 @@ def test_hanime1_is_registered_for_cli_and_gui_site_creation(monkeypatch):
     assert created.is_url_vaildate()
 
 
-def test_hanime1_is_exposed_by_every_desktop_browser_and_listing_detection():
-    from uav_downloader.legacy.browser import BrowsePanel
-    from uav_downloader.apps.browse import ModernApp, SITES as MODERN_SITES
-    from uav_downloader.apps.watch_categories import SITES as SMALLTOOL_SITES
-
-    assert MODERN_SITES['Hanime1']['browser'] is Hanime1Browser
-    assert SMALLTOOL_SITES['Hanime1']['browser'] is Hanime1Browser
-    assert BrowsePanel.SITES['Hanime1']['browser'] is Hanime1Browser
-    assert ModernApp._is_listing_url(
-        None, 'https://hanime1.me/watch?v=407751') is False
-    assert ModernApp._is_listing_url(
-        None, 'https://hanime1.me/search?genre=3DCG') is True
-
-
 def test_hanime1_identity_and_chinese_subtitle_listing_evidence_are_fail_closed():
     video_url = 'https://hanime1.me/watch?v=407751'
     trusted = {

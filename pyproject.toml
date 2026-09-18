@@ -43,10 +43,6 @@ uav = "uav_downloader.cli.main:main"
 uav-downloader = "uav_downloader.cli.main:main"
 uav-downloader-cli = "uav_downloader.cli.headless:main"
 
-[project.gui-scripts]
-uav-browser = "uav_downloader.entrypoints.browse:main"
-uav-watcher = "uav_downloader.entrypoints.watch:main"
-
 [tool.setuptools]
 package-dir = { "" = "src" }
 

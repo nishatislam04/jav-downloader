@@ -80,15 +80,6 @@ def test_supjav_validate_url_is_anchored():
     assert SiteSupJav.validate_url('https://jable.tv/videos/x/') is None
 
 
-def test_supjav_video_urls_are_not_listing_urls():
-    from uav_downloader.apps.browse import ModernApp
-
-    assert ModernApp._is_listing_url(None, 'https://supjav.com/12345.html') is False
-    assert ModernApp._is_listing_url(None, 'https://supjav.com/zh/12345.html') is False
-    assert ModernApp._is_listing_url(None, 'https://supjav.com/ja/12345.html') is False
-    assert ModernApp._is_listing_url(None, 'https://supjav.com/zh/popular') is True
-
-
 def test_supjav_page_url():
     assert SupJavBrowser.page_url('https://supjav.com/category/uncensored-jav', 2) == 'https://supjav.com/category/uncensored-jav/page/2'
     assert SupJavBrowser.page_url('https://supjav.com/popular?sort=week', 2) == 'https://supjav.com/popular?sort=week&page=2'
