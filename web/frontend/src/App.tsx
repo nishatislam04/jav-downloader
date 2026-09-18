@@ -108,8 +108,10 @@ export default function App() {
   return (
     <main class="shell">
       <header>
-        <h1>UAV Downloader</h1>
-        <p class="subtitle">Paste a supported video URL, resolve metadata, then download.</p>
+        <h1>JAV Downloader</h1>
+        <p class="subtitle">
+          Paste a JableTV, MissAV, SupJav, Hanime1, Jav.guru, or SpankBang URL.
+        </p>
       </header>
 
       <section class="card">

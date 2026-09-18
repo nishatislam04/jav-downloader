@@ -147,7 +147,7 @@ class WebHandler(BaseHTTPRequestHandler):
 
 
 def main(argv: list[str] | None = None) -> int:
-    parser = argparse.ArgumentParser(description='UAV Downloader web UI')
+    parser = argparse.ArgumentParser(description='JAV Downloader web UI')
     parser.add_argument(
         '--host',
         default=os.environ.get('UAV_WEB_HOST', '127.0.0.1'),
@@ -165,7 +165,7 @@ def main(argv: list[str] | None = None) -> int:
     os.makedirs(download_dir, exist_ok=True)
 
     server = ThreadingHTTPServer((args.host, args.port), WebHandler)
-    print(f'UAV Web UI running at http://{args.host}:{args.port}/', flush=True)
+    print(f'JAV Downloader web UI at http://{args.host}:{args.port}/', flush=True)
     print(f'Downloads save to: {download_dir}', flush=True)
     try:
         server.serve_forever()
