@@ -5,7 +5,7 @@ build-backend = "setuptools.build_meta"
 [project]
 name = "uav-downloader"
 version = "3.1.4"
-description = "Headless downloader for JableTV, MissAV, SupJav, Hanime1, and Jav.guru"
+description = "Headless downloader for JableTV, MissAV, SupJav, Hanime1, Jav.guru, and SpankBang"
 readme = "README.md"
 requires-python = ">=3.10"
 license = { file = "LICENSE" }
@@ -19,6 +19,7 @@ keywords = [
   "av-downloader",
   "jav-downloader",
   "javguru",
+  "spankbang",
   "headless-downloader",
 ]
 classifiers = [

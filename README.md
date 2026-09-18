@@ -20,12 +20,15 @@
 | SupJav | ✓ |
 | Hanime1 | ✓ |
 | Jav.guru | ✓ |
+| SpankBang | ✓ |
 
 Additional legacy URL adapters remain registered for compatibility. Sites and CDNs can change without notice; if one stops working, update to the latest version and open an Issue with a reproducible URL.
 
 **Hanime1** covers official `watch?v=` URLs plus signed MP4 resolution with quality preference, ranged connections, resume, and serial fallback.
 
 **Jav.guru** resolves multi-server STREAM embeds (SB, TV, VO, LU, DD, JK, and related mirrors) with automatic fallback when one host fails.
+
+**SpankBang** resolves signed progressive MP4 links from the page stream API (`data-streamkey` → `/api/videos/stream`) with quality preference support.
 
 ## Quick start
 

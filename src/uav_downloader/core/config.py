@@ -16,6 +16,7 @@ MIRRORS = {
     'jable':  ['jable.tv', 'fs1.app'],
     'supjav': ['supjav.com'],
     'javguru': ['jav.guru', 'www.jav.guru'],
+    'spankbang': ['spankbang.com', 'www.spankbang.com', 'm.spankbang.com'],
 }
 
 _cf_lock = threading.Lock()
