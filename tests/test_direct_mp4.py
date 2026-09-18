@@ -14,7 +14,11 @@ def _stub(name, factory=None):
 _stub('cloudscraper')
 _stub('m3u8')
 
-from uav_downloader.sites.base import M3U8Crawler, parse_time_seconds
+from uav_downloader.sites.base import (
+    M3U8Crawler,
+    parse_time_seconds,
+    validate_cut_against_duration,
+)
 from uav_downloader.sites.direct_mp4 import (
     _cut_progress_total,
     _emit_cut_progress,
@@ -22,6 +26,11 @@ from uav_downloader.sites.direct_mp4 import (
     content_range,
     estimate_cut_total_bytes,
 )
+
+
+def test_validate_cut_against_duration_rejects_end_beyond_video():
+    with pytest.raises(ValueError, match='End time exceeds video length'):
+        validate_cut_against_duration(0, 4000, 137)
 
 
 def test_parse_time_seconds_accepts_seconds_and_clock():

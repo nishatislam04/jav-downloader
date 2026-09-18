@@ -364,7 +364,7 @@ def test_direct_download_uses_parallel_ranges_and_assembles_file(monkeypatch, tm
     assert (tmp_path / 'parallel.mp4').read_bytes() == payload
     assert not (tmp_path / 'parallel.mp4.part').exists()
 
-    range_calls = [value for value in calls if value != 'bytes=0-0']
+    range_calls = [value for value in calls if value and value != 'bytes=0-0']
     assert len(range_calls) == 2
 
 

@@ -63,6 +63,10 @@ def _has_time_cut(site):
             getattr(site, '_cut_end_sec', None) is not None)
 
 
+def _stop_requested(site):
+    return bool(site._cancel_job or getattr(site, '_pause_job', False))
+
+
 def _probe_headers(referer, extra_headers=None):
     headers = {'Referer': referer}
     if extra_headers:
@@ -88,11 +92,15 @@ def probe_source_length(url, referer, extra_headers=None, session=None):
             )
             info = content_range(getattr(probe, 'headers', {}).get('content-range'))
             if info:
-                return info[2]
-            if getattr(probe, 'status_code', 0) == 200:
-                size = int(probe.headers.get('content-length') or 0)
-                if size > 0:
-                    return size
+                total = info[2]
+            elif getattr(probe, 'status_code', 0) == 200:
+                try:
+                    total = int(probe.headers.get('content-length') or 0)
+                except (TypeError, ValueError):
+                    total = 0
+            else:
+                total = 0
+            return total if total > 0 else 0
         except Exception:
             pass
         finally:
@@ -102,6 +110,20 @@ def probe_source_length(url, referer, extra_headers=None, session=None):
                 except Exception:
                     pass
     return 0
+
+
+def _sync_part_with_source(site, part, referer):
+    """Drop stale .part files that no longer match the current direct URL."""
+    if not os.path.exists(part):
+        return
+    part_size = os.path.getsize(part)
+    if part_size <= 0:
+        return
+    extra = getattr(site, '_extra_headers', None) or {}
+    probed = probe_source_length(
+        site._direct_url, referer, extra_headers=extra)
+    if probed > 0 and part_size >= probed:
+        _safe_remove(part)
 
 
 def _clip_duration_sec(site, start_sec, end_sec, clip_duration):
@@ -229,6 +251,7 @@ def run_direct_download(site):
     if site._cancel_job:
         return False
     site._cancel_job = False
+    site._pause_job = False
     site._create_dest_folder()
     if site.is_target_video_exist():
         print('檔案已存在!!', flush=True)
@@ -243,13 +266,15 @@ def run_direct_download(site):
         _safe_remove(part)
         return _download_ffmpeg_cut(site, part, out, ref, label)
 
+    _sync_part_with_source(site, part, ref)
+
     start = time.time()
     try:
         try:
             ranged = _download_parallel_ranges(site, part, ref, start)
         except Exception:
-            if site._cancel_job:
-                raise
+            if _stop_requested(site):
+                return False
             print(
                 f'\n[{label}] Parallel ranges failed; '
                 'retrying with one resumable connection.',
@@ -260,9 +285,11 @@ def run_direct_download(site):
         else:
             done, total = ranged
     except Exception:
+        if _stop_requested(site):
+            return False
         raise
 
-    if site._cancel_job:
+    if _stop_requested(site):
         return False
     if total > 0 and done < int(total * 0.98):
         raise Exception('下載不完整（連線中斷？請重試，會從 .part 續傳）')
@@ -332,7 +359,7 @@ def _download_ffmpeg_cut(site, part, out, referer, label):
         _emit_cut_progress(site, 0, 0.0, 0.0, clip_len, estimated_total)
     try:
         while True:
-            if site._cancel_job:
+            if _stop_requested(site):
                 proc.kill()
                 proc.wait(timeout=5)
                 _safe_remove(safe_part)
@@ -382,12 +409,13 @@ def urlsplit_safe(url):
 
 
 def _download_parallel_ranges(site, part, referer, start_time):
+    extra = getattr(site, '_extra_headers', None) or {}
     session = _get_session()
     probe = None
     try:
         probe = session.get(
             site._direct_url,
-            headers={'Referer': referer, 'Range': 'bytes=0-0'},
+            headers={**_probe_headers(referer, extra), 'Range': 'bytes=0-0'},
             timeout=60,
             stream=True,
             allow_redirects=True,
@@ -405,10 +433,10 @@ def _download_parallel_ranges(site, part, referer, start_time):
                 probe.close()
             except Exception:
                 pass
-
     existing = os.path.getsize(part) if os.path.exists(part) else 0
     if existing > 0 and existing != total:
-        return None
+        _safe_remove(part)
+        existing = 0
     if existing == 0:
         with open(part, 'wb') as target:
             target.truncate(total)
@@ -438,7 +466,7 @@ def _download_parallel_ranges(site, part, referer, start_time):
         expected = range_end - range_start + 1
         written = 0
         retries = 0
-        while written < expected and not site._cancel_job and not stop_event.is_set():
+        while written < expected and not _stop_requested(site) and not stop_event.is_set():
             cursor = range_start + written
             response = None
             try:
@@ -460,7 +488,7 @@ def _download_parallel_ranges(site, part, referer, start_time):
                 with open(part, 'r+b', buffering=0) as target:
                     target.seek(cursor)
                     for chunk in response.iter_content(chunk_size=262144):
-                        if site._cancel_job or stop_event.is_set():
+                        if _stop_requested(site) or stop_event.is_set():
                             break
                         if not chunk:
                             continue
@@ -479,13 +507,13 @@ def _download_parallel_ranges(site, part, referer, start_time):
                             if site._progress_callback:
                                 site._progress_callback(current_done, total, speed)
 
-                if site._cancel_job or stop_event.is_set():
+                if _stop_requested(site) or stop_event.is_set():
                     break
                 if written < expected:
                     detail = '未收到資料' if received == 0 else '連線提前結束'
                     raise Exception(f'直接下載分段{detail}')
             except Exception:
-                if site._cancel_job or stop_event.is_set():
+                if _stop_requested(site) or stop_event.is_set():
                     break
                 retries += 1
                 if retries > _DIRECT_RANGE_RETRIES:
@@ -498,7 +526,7 @@ def _download_parallel_ranges(site, part, referer, start_time):
                     except Exception:
                         pass
 
-        if not site._cancel_job and not stop_event.is_set() and written != expected:
+        if not _stop_requested(site) and not stop_event.is_set() and written != expected:
             raise Exception('直接下載分段不完整（連線中斷？請重試）')
         return written
 
@@ -517,7 +545,7 @@ def _download_parallel_ranges(site, part, referer, start_time):
         executor.shutdown(wait=True)
         site._t2_executor = None
 
-    if site._cancel_job:
+    if _stop_requested(site):
         return done, total
     if done != total:
         raise Exception('直接下載不完整（連線中斷？請重試）')
@@ -525,12 +553,13 @@ def _download_parallel_ranges(site, part, referer, start_time):
 
 
 def _download_serial(site, part, referer, start_time):
+    extra = getattr(site, '_extra_headers', None) or {}
     done = os.path.getsize(part) if os.path.exists(part) else 0
     total = 0
     retries = 0
     session = _get_session()
-    while not site._cancel_job:
-        request_headers = {'Referer': referer}
+    while not _stop_requested(site):
+        request_headers = _probe_headers(referer, extra)
         if done:
             request_headers['Range'] = f'bytes={done}-'
         resp = None
@@ -546,6 +575,11 @@ def _download_serial(site, part, referer, start_time):
             status = getattr(resp, 'status_code', 0)
             response_range = content_range(
                 getattr(resp, 'headers', {}).get('content-range'))
+            if done and status == 416:
+                _safe_remove(part)
+                done = 0
+                retries += 1
+                continue
             if done:
                 if status != 206 or not response_range or response_range[0] != done:
                     raise Exception(f'直接續傳失敗 (HTTP {status})')
@@ -563,7 +597,7 @@ def _download_serial(site, part, referer, start_time):
             received = 0
             with open(part, 'ab' if done else 'wb') as target:
                 for chunk in resp.iter_content(chunk_size=262144):
-                    if site._cancel_job:
+                    if _stop_requested(site):
                         break
                     if not chunk:
                         continue
@@ -576,7 +610,7 @@ def _download_serial(site, part, referer, start_time):
                     if site._progress_callback and total > 0:
                         site._progress_callback(done, total, speed)
 
-            if site._cancel_job:
+            if _stop_requested(site):
                 break
             if total > 0 and done >= total:
                 return done, total
@@ -584,7 +618,7 @@ def _download_serial(site, part, referer, start_time):
                 return done, done
             raise Exception('直接下載連線提前結束')
         except Exception:
-            if site._cancel_job:
+            if _stop_requested(site):
                 break
             retries += 1
             if retries > _DIRECT_RANGE_RETRIES:
