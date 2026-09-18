@@ -40,6 +40,7 @@ Issues = "https://github.com/Alos21750/UAV-Downloader/issues"
 uav = "uav_downloader.cli.main:main"
 uav-downloader = "uav_downloader.cli.main:main"
 uav-downloader-cli = "uav_downloader.cli.headless:main"
+uav-web = "uav_downloader.web.server:main"
 
 [tool.setuptools]
 package-dir = { "" = "src" }

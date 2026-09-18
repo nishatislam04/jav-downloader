@@ -1,0 +1,57 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>UAV Downloader</title>
+  <link rel="stylesheet" href="/static/app.css">
+</head>
+<body>
+  <main class="shell">
+    <header>
+      <h1>UAV Downloader</h1>
+      <p class="subtitle">Paste a supported video URL, resolve metadata, then download.</p>
+    </header>
+
+    <section class="card">
+      <label for="url">Video URL</label>
+      <input id="url" type="url" placeholder="https://jav.guru/123456/example-title/" autocomplete="off" spellcheck="false">
+
+      <div class="actions">
+        <button id="resolve-btn" type="button">Resolve</button>
+        <button id="download-btn" type="button" disabled>Download</button>
+      </div>
+
+      <p id="status" class="status" aria-live="polite"></p>
+    </section>
+
+    <section id="meta" class="card meta hidden">
+      <div class="meta-row">
+        <img id="thumb" alt="" class="thumb hidden">
+        <div>
+          <p class="label">Site</p>
+          <p id="site-name">—</p>
+          <p class="label">Title</p>
+          <p id="title">—</p>
+          <p class="label">Save folder</p>
+          <p id="dest" class="mono">—</p>
+        </div>
+      </div>
+    </section>
+
+    <section id="progress-card" class="card hidden">
+      <p class="label">Progress</p>
+      <div class="bar-track" aria-hidden="true">
+        <div id="bar" class="bar-fill"></div>
+      </div>
+      <p id="progress-text" class="mono">Waiting…</p>
+    </section>
+
+    <section class="card foot">
+      <p class="label">Output directory</p>
+      <p id="download-dir" class="mono">Loading…</p>
+    </section>
+  </main>
+  <script src="/static/app.js"></script>
+</body>
+</html>

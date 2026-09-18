@@ -54,6 +54,60 @@ Installed console entry points:
 |---|---|
 | `uav-downloader-cli` | Headless batch downloader (primary) |
 | `uav-downloader` / `uav` | Same entry point as `uav-downloader-cli` |
+| `uav-web` | Browser UI — paste a link, resolve metadata, download with progress |
+
+## Web UI
+
+Paste a supported URL in the browser, resolve metadata, then start the download. Progress updates live in the page. Files are written to your default **Downloads** folder (or `DOWNLOAD_DIR` if set).
+
+### Desktop / local
+
+```bash
+make install
+make web
+```
+
+Open [http://127.0.0.1:8765/](http://127.0.0.1:8765/).
+
+Equivalent without Make:
+
+```bash
+python -m venv .venv
+source .venv/bin/activate
+pip install -r requirements.txt
+pip install -e .
+uav-web
+```
+
+### Android (Termux)
+
+One-time setup in Termux:
+
+```bash
+pkg update && pkg install -y python git make
+termux-setup-storage    # tap Allow — enables ~/storage/downloads
+git clone https://github.com/Alos21750/UAV-Downloader.git
+cd UAV-Downloader
+make install
+```
+
+Start the web UI:
+
+```bash
+make web-termux
+# or
+bash scripts/termux-start.sh
+```
+
+On the same phone, open **http://127.0.0.1:8765/** in Chrome/Firefox. Paste a jav.guru (or other supported) link → **Resolve** → **Download**. Finished MP4 files appear in **Downloads** (`~/storage/downloads`).
+
+Optional env vars:
+
+| Variable | Purpose |
+|---|---|
+| `UAV_WEB_HOST` | Bind address (`127.0.0.1` desktop, `0.0.0.0` Termux/LAN) |
+| `UAV_WEB_PORT` | HTTP port (default `8765`) |
+| `DOWNLOAD_DIR` | Override output folder |
 
 ## URL input
 
