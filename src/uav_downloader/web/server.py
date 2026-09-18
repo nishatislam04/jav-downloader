@@ -79,8 +79,8 @@ class WebHandler(BaseHTTPRequestHandler):
             self._serve_static('index.html')
             return
 
-        if path.startswith('/static/'):
-            rel = path[len('/static/'):]
+        rel = path.lstrip('/')
+        if rel and not rel.startswith('api/'):
             self._serve_static(rel)
             return
 
@@ -125,8 +125,11 @@ class WebHandler(BaseHTTPRequestHandler):
         _json_response(self, HTTPStatus.NOT_FOUND, {'ok': False, 'error': 'Not found'})
 
     def _serve_static(self, rel_path: str) -> None:
-        safe = Path(rel_path).name if '/' not in rel_path else rel_path
-        file_path = (STATIC_DIR / safe).resolve()
+        rel = Path(rel_path)
+        if rel.is_absolute() or '..' in rel.parts:
+            _json_response(self, HTTPStatus.FORBIDDEN, {'ok': False, 'error': 'Forbidden'})
+            return
+        file_path = (STATIC_DIR / rel).resolve()
         if not str(file_path).startswith(str(STATIC_DIR.resolve())):
             _json_response(self, HTTPStatus.FORBIDDEN, {'ok': False, 'error': 'Forbidden'})
             return

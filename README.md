@@ -64,10 +64,20 @@ Paste a supported URL in the browser, resolve metadata, then start the download.
 
 ```bash
 make install
-make web
+make web          # builds Solid UI, then serves on :8765
 ```
 
 Open [http://127.0.0.1:8765/](http://127.0.0.1:8765/).
+
+**Frontend development** (Vite + SolidJS in `web/frontend/`):
+
+```bash
+make install-web
+make web-api       # terminal 1 — Python API on :8765
+make web-dev       # terminal 2 — Vite HMR on :5173, proxies /api
+```
+
+Rebuild only the UI: `make web-build` (output → `src/uav_downloader/web/static/`).
 
 Equivalent without Make:
 
@@ -76,6 +86,7 @@ python -m venv .venv
 source .venv/bin/activate
 pip install -r requirements.txt
 pip install -e .
+cd web/frontend && npm install && npm run build && cd ../..
 uav-web
 ```
 

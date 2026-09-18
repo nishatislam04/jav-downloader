@@ -24,5 +24,6 @@ CLAUDE.md
 # local tooling / runtime junk
 .claude/
 .wrangler/
+web/frontend/node_modules/
 *.log
 crash_log.txt

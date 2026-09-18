@@ -10,7 +10,9 @@
   --ok: #3ddc97;
 }
 
-* { box-sizing: border-box; }
+* {
+  box-sizing: border-box;
+}
 
 body {
   margin: 0;
@@ -51,11 +53,11 @@ label {
   font-size: 0.9rem;
 }
 
-input[type="url"] {
+input[type='url'] {
   width: 100%;
   padding: 12px 14px;
   border-radius: 10px;
-  border: 1px solid var(--border);
+  border:  1px solid var(--border);
   background: #0c0e13;
   color: var(--text);
   font-size: 1rem;
@@ -77,14 +79,14 @@ button {
   color: #fff;
 }
 
+button.download-btn {
+  background: var(--accent-2);
+  color: #111;
+}
+
 button:disabled {
   opacity: 0.45;
   cursor: not-allowed;
-}
-
-#download-btn {
-  background: var(--accent-2);
-  color: #111;
 }
 
 .status {
@@ -93,10 +95,13 @@ button:disabled {
   color: var(--muted);
 }
 
-.status.error { color: #ff8a8a; }
-.status.ok { color: var(--ok); }
+.status.error {
+  color: #ff8a8a;
+}
 
-.hidden { display: none !important; }
+.status.ok {
+  color: var(--ok);
+}
 
 .label {
   margin: 0 0 4px;
@@ -138,7 +143,7 @@ button:disabled {
   transition: width 0.25s ease;
 }
 
-#progress-text {
+.progress-text {
   margin: 10px 0 0;
 }
 
