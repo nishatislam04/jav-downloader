@@ -53,15 +53,57 @@ label {
   font-size: 0.9rem;
 }
 
+.url-label {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.spinner {
+  width: 16px;
+  height: 16px;
+  border: 2px solid var(--border);
+  border-top-color: var(--accent-2);
+  border-radius: 50%;
+  animation: spin 0.8s linear infinite;
+}
+
+@keyframes spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
 input[type='url'],
 input[type='text'] {
   width: 100%;
   padding: 12px 14px;
   border-radius: 10px;
-  border:  1px solid var(--border);
+  border: 1px solid var(--border);
   background: #0c0e13;
   color: var(--text);
   font-size: 1rem;
+}
+
+input.input-error {
+  border-color: #ff8a8a;
+}
+
+.url-input-row {
+  display: flex;
+  gap: 10px;
+  align-items: stretch;
+}
+
+.url-input-row input {
+  flex: 1;
+  min-width: 0;
+}
+
+.time-error {
+  margin: 6px 0 0;
+  color: #ff8a8a;
+  font-size: 0.78rem;
 }
 
 .cut-row {
@@ -181,16 +223,43 @@ button:disabled {
   gap: 10px;
 }
 
-button.cancel-btn {
-  background: transparent;
-  color: var(--muted);
-  border: 1px solid var(--border);
-  padding: 6px 12px;
+.progress-actions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
 }
 
-button.cancel-btn:hover:not(:disabled) {
-  color: #ff8a8a;
+button.icon-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 36px;
+  height: 36px;
+  padding: 0;
+  background: #0c0e13;
+  color: var(--text);
+  border: 1px solid var(--border);
+}
+
+button.icon-btn:hover:not(:disabled) {
+  border-color: var(--accent-2);
+  color: var(--accent-2);
+}
+
+button.icon-btn-danger:hover:not(:disabled) {
   border-color: #ff8a8a;
+  color: #ff8a8a;
+}
+
+.time-field {
+  display: flex;
+  flex-direction: column;
+}
+
+.time-hint {
+  margin: 6px 0 0;
+  color: var(--muted);
+  font-size: 0.78rem;
 }
 
 .progress-text {

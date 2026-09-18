@@ -1,15 +1,25 @@
-import { createSignal, onCleanup, onMount, Show } from 'solid-js';
+import { createEffect, createMemo, createSignal, onCleanup, onMount, Show } from 'solid-js';
 import {
   cancelJob,
   fetchHealth,
   fetchJob,
+  pauseJob,
   resolveUrl,
+  resumeJob,
   startDownload,
   type Job,
   type ResolveResult,
 } from './api';
+import IconButton, { PasteIcon } from './components/IconButton';
 import MetaCard from './components/MetaCard';
 import ProgressCard from './components/ProgressCard';
+import TimeField, { durationHint } from './components/TimeField';
+import {
+  formatDurationSec,
+  looksLikeSupportedUrl,
+  normalizeTimeInput,
+  validateCutRange,
+} from './lib/time';
 
 export default function App() {
   const [url, setUrl] = createSignal('');
@@ -21,12 +31,16 @@ export default function App() {
   const [resolved, setResolved] = createSignal<ResolveResult | null>(null);
   const [job, setJob] = createSignal<Job | null>(null);
   const [busy, setBusy] = createSignal(false);
-  const [cancelling, setCancelling] = createSignal(false);
+  const [resolving, setResolving] = createSignal(false);
+  const [actionBusy, setActionBusy] = createSignal(false);
 
   let pollTimer: ReturnType<typeof setInterval> | undefined;
+  let resolveTimer: ReturnType<typeof setTimeout> | undefined;
+  let resolveRequest = 0;
 
   onCleanup(() => {
     if (pollTimer) clearInterval(pollTimer);
+    if (resolveTimer) clearTimeout(resolveTimer);
   });
 
   onMount(async () => {
@@ -38,6 +52,86 @@ export default function App() {
     setStatus(text);
     setStatusKind(kind);
   }
+
+  const durationSec = () => resolved()?.duration_sec ?? null;
+
+  const cutValidation = createMemo(() =>
+    validateCutRange(durationSec(), cutStart(), cutEnd()),
+  );
+
+  function cutPayload() {
+    const payload: { cut_start?: string; cut_end?: string } = {};
+    const start = cutStart().trim();
+    const end = cutEnd().trim();
+    if (start) payload.cut_start = start;
+    if (end) payload.cut_end = end;
+    return payload;
+  }
+
+  async function runResolve(trigger: 'url' | 'cut' = 'url') {
+    const value = url().trim();
+    if (!looksLikeSupportedUrl(value)) {
+      setResolved(null);
+      if (!value) setStatusMessage('');
+      return;
+    }
+
+    if (cutValidation()) {
+      setResolved(null);
+      setStatusMessage(cutValidation()!, 'error');
+      return;
+    }
+
+    const requestId = ++resolveRequest;
+    setResolving(true);
+    if (trigger === 'url') {
+      setStatusMessage('Resolving metadata…');
+    }
+    const data = await resolveUrl(value, cutPayload());
+    if (requestId !== resolveRequest) return;
+    setResolving(false);
+
+    if (!data.ok) {
+      setResolved(null);
+      setStatusMessage(data.error || 'Resolve failed', 'error');
+      return;
+    }
+
+    setResolved(data);
+    if (cutValidation()) {
+      setStatusMessage(cutValidation()!, 'error');
+      return;
+    }
+    setStatusMessage(
+      data.exists
+        ? 'File already exists in the download folder.'
+        : 'Ready to download.',
+      'ok',
+    );
+  }
+
+  function scheduleResolve(trigger: 'url' | 'cut' = 'url') {
+    if (resolveTimer) clearTimeout(resolveTimer);
+    resolveTimer = setTimeout(() => {
+      void runResolve(trigger);
+    }, trigger === 'url' ? 650 : 450);
+  }
+
+  createEffect(() => {
+    const value = url();
+    if (!value.trim()) {
+      setResolved(null);
+      return;
+    }
+    scheduleResolve('url');
+  });
+
+  createEffect(() => {
+    cutStart();
+    cutEnd();
+    if (!looksLikeSupportedUrl(url())) return;
+    scheduleResolve('cut');
+  });
 
   async function pollJob(jobId: string) {
     if (pollTimer) clearInterval(pollTimer);
@@ -54,6 +148,10 @@ export default function App() {
         setStatusMessage(data.job.error || 'Download failed', 'error');
         setBusy(false);
         if (pollTimer) clearInterval(pollTimer);
+      } else if (data.job.status === 'paused') {
+        setBusy(false);
+        setStatusMessage('Download paused.', '');
+        if (pollTimer) clearInterval(pollTimer);
       }
     };
 
@@ -61,46 +159,48 @@ export default function App() {
     pollTimer = setInterval(tick, 800);
   }
 
-  function cutPayload() {
-    const payload: { cut_start?: string; cut_end?: string } = {};
-    const start = cutStart().trim();
-    const end = cutEnd().trim();
-    if (start) payload.cut_start = start;
-    if (end) payload.cut_end = end;
-    return payload;
+  async function handlePasteUrl() {
+    try {
+      const text = await navigator.clipboard.readText();
+      if (text?.trim()) {
+        setUrl(text.trim());
+      }
+    } catch {
+      setStatusMessage('Could not read clipboard.', 'error');
+    }
   }
 
-  async function handleResolve() {
-    const value = url().trim();
-    if (!value) {
-      setStatusMessage('Enter a URL first.', 'error');
+  async function handlePause(jobId: string) {
+    setActionBusy(true);
+    const data = await pauseJob(jobId);
+    setActionBusy(false);
+    if (!data.ok || !data.job) {
+      setStatusMessage(data.error || 'Could not pause download', 'error');
       return;
     }
-
-    setBusy(true);
-    setStatusMessage('Resolving metadata…');
-    const data = await resolveUrl(value, cutPayload());
+    setJob(data.job);
     setBusy(false);
+    setStatusMessage('Download paused.', '');
+  }
 
-    if (!data.ok) {
-      setResolved(null);
-      setStatusMessage(data.error || 'Resolve failed', 'error');
+  async function handleResume(jobId: string) {
+    setActionBusy(true);
+    const data = await resumeJob(jobId);
+    setActionBusy(false);
+    if (!data.ok || !data.job) {
+      setStatusMessage(data.error || 'Could not resume download', 'error');
       return;
     }
-
-    setResolved(data);
-    setStatusMessage(
-      data.exists
-        ? 'File already exists in the download folder.'
-        : 'Metadata ready. Click Download.',
-      'ok',
-    );
+    setJob(data.job);
+    setBusy(true);
+    setStatusMessage('Resuming download…');
+    await pollJob(jobId);
   }
 
   async function handleCancel(jobId: string) {
-    setCancelling(true);
+    setActionBusy(true);
     const data = await cancelJob(jobId);
-    setCancelling(false);
+    setActionBusy(false);
     if (!data.ok || !data.job) {
       setStatusMessage(data.error || 'Could not cancel download', 'error');
       return;
@@ -110,11 +210,19 @@ export default function App() {
     setStatusMessage('Download cancelled.', 'error');
   }
 
-  async function handleDownload() {
+  async function startDownloadJob() {
     const meta = resolved();
     const value = meta?.url || url().trim();
     if (!value) {
-      setStatusMessage('Resolve a URL first.', 'error');
+      setStatusMessage('Paste a supported URL first.', 'error');
+      return;
+    }
+    if (cutValidation()) {
+      setStatusMessage(cutValidation()!, 'error');
+      return;
+    }
+    if (!meta?.ok) {
+      setStatusMessage('Waiting for metadata…', 'error');
       return;
     }
 
@@ -131,6 +239,42 @@ export default function App() {
     await pollJob(data.job.id);
   }
 
+  async function handleDownload() {
+    await startDownloadJob();
+  }
+
+  async function handleRetry() {
+    await startDownloadJob();
+  }
+
+  function normalizeStart(value: string) {
+    setCutStart(normalizeTimeInput(value));
+  }
+
+  function normalizeEnd(value: string) {
+    setCutEnd(normalizeTimeInput(value));
+  }
+
+  const endPlaceholder = () => {
+    const duration = durationSec();
+    return duration && duration > 0 ? formatDurationSec(duration) : '2:00';
+  };
+
+  const startFieldError = createMemo(() => {
+    const err = cutValidation();
+    if (!err) return '';
+    if (err.startsWith('Start') || err === 'Invalid start time') return err;
+    if (err === 'End must be after start') return err;
+    return '';
+  });
+
+  const endFieldError = createMemo(() => {
+    const err = cutValidation();
+    if (!err) return '';
+    if (err.startsWith('End') || err === 'Invalid end time') return err;
+    return '';
+  });
+
   return (
     <main class="shell">
       <header>
@@ -141,57 +285,64 @@ export default function App() {
       </header>
 
       <section class="card">
-        <label for="url">Video URL</label>
-        <input
-          id="url"
-          type="url"
-          placeholder="https://jav.guru/123456/example-title/"
-          autocomplete="off"
-          spellcheck={false}
-          value={url()}
-          onInput={(event) => setUrl(event.currentTarget.value)}
-        />
+        <label for="url" class="url-label">
+          <span>Video URL</span>
+          <Show when={resolving()}>
+            <span class="spinner" aria-label="Resolving" title="Resolving" />
+          </Show>
+        </label>
+        <div class="url-input-row">
+          <input
+            id="url"
+            type="url"
+            placeholder="https://jav.guru/123456/example-title/"
+            autocomplete="off"
+            spellcheck={false}
+            value={url()}
+            onInput={(event) => setUrl(event.currentTarget.value)}
+          />
+          <IconButton label="Paste URL" title="Paste" onClick={handlePasteUrl}>
+            <PasteIcon />
+          </IconButton>
+        </div>
 
         <div class="cut-row">
-          <div>
-            <label for="cut-start">Start (optional)</label>
-            <input
-              id="cut-start"
-              type="text"
-              placeholder="0:00 or 90"
-              autocomplete="off"
-              spellcheck={false}
-              value={cutStart()}
-              onInput={(event) => setCutStart(event.currentTarget.value)}
-            />
-          </div>
-          <div>
-            <label for="cut-end">End (optional)</label>
-            <input
-              id="cut-end"
-              type="text"
-              placeholder="5:00"
-              autocomplete="off"
-              spellcheck={false}
-              value={cutEnd()}
-              onInput={(event) => setCutEnd(event.currentTarget.value)}
-            />
-          </div>
+          <TimeField
+            id="cut-start"
+            label="Start at"
+            value={cutStart()}
+            placeholder="0:00"
+            hint={durationHint(durationSec())}
+            error={startFieldError()}
+            onChange={setCutStart}
+            onBlurNormalize={normalizeStart}
+          />
+          <TimeField
+            id="cut-end"
+            label="End at"
+            value={cutEnd()}
+            placeholder={endPlaceholder()}
+            hint={
+              durationSec()
+                ? `Max ${formatDurationSec(durationSec())} · leave empty for full`
+                : 'Leave empty for full video'
+            }
+            error={endFieldError()}
+            onChange={setCutEnd}
+            onBlurNormalize={normalizeEnd}
+          />
         </div>
         <p class="hint">
-          Leave both empty for the full video. Partial cuts use ffmpeg for MP4
-          sources and segment filtering for HLS. Interrupted full downloads
-          resume from the existing <code>.part</code> file.
+          Timestamps must be within the video length once metadata loads. Use{' '}
+          <code>mm:ss</code> or seconds (e.g. <code>90</code> → <code>1:30</code>
+          ).
         </p>
 
         <div class="actions">
-          <button type="button" disabled={busy()} onClick={handleResolve}>
-            Resolve
-          </button>
           <button
             type="button"
             class="download-btn"
-            disabled={busy() || !resolved()?.ok}
+            disabled={busy() || resolving() || !resolved()?.ok || !!cutValidation()}
             onClick={handleDownload}
           >
             Download
@@ -211,8 +362,11 @@ export default function App() {
         {(current) => (
           <ProgressCard
             job={current()}
+            onPause={handlePause}
+            onResume={handleResume}
             onCancel={handleCancel}
-            cancelling={cancelling()}
+            onRetry={handleRetry}
+            actionBusy={actionBusy()}
           />
         )}
       </Show>
