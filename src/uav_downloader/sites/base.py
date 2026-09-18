@@ -405,6 +405,34 @@ def parse_time_seconds(value):
     return seconds
 
 
+def format_duration_label(seconds):
+    seconds = max(0, int(float(seconds)))
+    hours, remainder = divmod(seconds, 3600)
+    minutes, secs = divmod(remainder, 60)
+    if hours:
+        return f'{hours}:{minutes:02d}:{secs:02d}'
+    return f'{minutes}:{secs:02d}'
+
+
+def validate_cut_against_duration(cut_start_sec, cut_end_sec, duration_sec):
+    """Raise ValueError when cut bounds exceed the known video duration."""
+    try:
+        duration = float(duration_sec)
+    except (TypeError, ValueError):
+        return
+    if duration <= 0:
+        return
+    start = float(cut_start_sec or 0)
+    end = cut_end_sec
+    label = format_duration_label(duration)
+    if start >= duration:
+        raise ValueError(f'Start time exceeds video length ({label})')
+    if end is not None and float(end) > duration:
+        raise ValueError(f'End time exceeds video length ({label})')
+    if end is not None and float(end) <= start:
+        raise ValueError('End time must be after start time')
+
+
 def select_variant(playlists, pref):
     items = [(playlist, *_variant_height_bw(playlist)) for playlist in (playlists or [])]
     if not items:
@@ -544,7 +572,8 @@ class M3U8Crawler:
         self._t_executor = None
         self._t_future = None
         self._t2_executor = None
-        self._cancel_job = None
+        self._cancel_job = False
+        self._pause_job = False
         self._ffmpeg_proc = None
         self._extra_headers = {}   # subclass may set (e.g. Referer)
         self._dirName = None
@@ -589,6 +618,11 @@ class M3U8Crawler:
             self._temp_folder = os.path.join(self._dest_folder, self._dirName)
 
             self.get_url_infos()
+            validate_cut_against_duration(
+                self._cut_start_sec,
+                self._cut_end_sec,
+                getattr(self, '_duration_sec', None),
+            )
             self.add_source_video_metadata({'url': self._url})
             if self.is_url_vaildate():
                 if self._targetName:
@@ -847,7 +881,7 @@ class M3U8Crawler:
         try:
             with open(src, 'rb') as fi, open(dst, 'wb') as fo:
                 while True:
-                    if self._cancel_job:
+                    if self._stop_requested():
                         break
                     buf = fi.read(4 * 1024 * 1024)
                     if not buf:
@@ -885,11 +919,11 @@ class M3U8Crawler:
             remaining = n
             with open(merged, 'wb') as out:
                 for idx, ts_url in enumerate(self._tsList):
-                    if self._cancel_job:
+                    if self._stop_requested():
                         return 0
                     seg = self._seg_savename(idx)
                     if not os.path.exists(seg):
-                        if not self._cancel_job:
+                        if not self._stop_requested():
                             print(f"\n片段 {idx} 遺失, 合成失敗!!!", flush=True)
                         return 0
                     with open(seg, 'rb') as f:
@@ -897,18 +931,18 @@ class M3U8Crawler:
                     remaining -= 1
                     print(f'\r合成影片中, 剩餘 {remaining} 個片段', end="")
             print()
-            if self._cancel_job:
+            if self._stop_requested():
                 return 0
 
             ok = self._remux_to_mp4(merged, out_mp4, workdir)
-            if self._cancel_job:
+            if self._stop_requested():
                 return 0
             if ok:
                 moved = self._cancellable_move(out_mp4, part)
             else:
                 print('[合成] ffmpeg 無法使用或重新封裝失敗，改用原始合併（檔案可播放，但部分播放器/NAS 拖曳進度可能異常）', flush=True)
                 moved = self._cancellable_move(merged, part)
-            if self._cancel_job or not moved:
+            if self._stop_requested() or not moved:
                 if os.path.exists(part):
                     try: os.remove(part)
                     except OSError: pass
@@ -954,14 +988,14 @@ class M3U8Crawler:
                         try:
                             proc.wait(timeout=0.3); break
                         except subprocess.TimeoutExpired:
-                            if self._cancel_job:
+                            if self._stop_requested():
                                 proc.kill(); proc.wait(); return False
                 finally:
                     self._ffmpeg_proc = None
         except Exception as e:
             print(f'[合成] ffmpeg 執行錯誤: {e}', flush=True)
             return False
-        if self._cancel_job:
+        if self._stop_requested():
             return False
         if proc.returncode == 0 and os.path.exists(out_mp4) and os.path.getsize(out_mp4) > 0:
             return True
@@ -1037,7 +1071,7 @@ class M3U8Crawler:
             self, '_segment_retry_max_delay',
             getattr(self, 'segment_retry_max_delay', 6.0))))
         for round_num in range(1, max_rounds + 1):
-            if not self._pending_set or self._cancel_job:
+            if not self._pending_set or self._stop_requested():
                 break
             tasks = list(self._pending_set)
             with concurrent.futures.ThreadPoolExecutor(max_workers=self._max_workers) as executor:
@@ -1049,7 +1083,7 @@ class M3U8Crawler:
                 break
             if round_num < max_rounds:
                 print(f'\n重試第 {round_num} 次，剩餘 {still_pending} 片段...', flush=True)
-                if not self._cancel_job:
+                if not self._stop_requested():
                     delay = min(
                         retry_base_delay * round_num,
                         retry_max_delay)
@@ -1058,7 +1092,7 @@ class M3U8Crawler:
 
         self._t2_executor = None
         spent = time.time() - self._speed_start
-        if not self._cancel_job:
+        if not self._stop_requested():
             final_pending = len(self._pending_set)
             if final_pending == 0:
                 print(f'\n爬取完成！花費 {spent/60:.1f} 分鐘', flush=True)
@@ -1087,6 +1121,29 @@ class M3U8Crawler:
                 return None
         return self._get_image_savename()
 
+    def _stop_requested(self):
+        return bool(self._cancel_job or getattr(self, '_pause_job', False))
+
+    def _stop_workers(self):
+        if self._t2_executor:
+            try:
+                self._t2_executor.shutdown(wait=False, cancel_futures=True)
+            except TypeError:
+                self._t2_executor.shutdown(wait=False)
+            self._t2_executor = None
+        if self._t_executor:
+            try:
+                self._t_executor.shutdown(wait=False, cancel_futures=True)
+            except TypeError:
+                self._t_executor.shutdown(wait=False)
+            self._t_executor = None
+        proc = getattr(self, '_ffmpeg_proc', None)
+        if proc is not None:
+            try:
+                proc.kill()
+            except Exception:
+                pass
+
     def cleanup_temp(self):
         try:
             temp = getattr(self, '_temp_folder', None)
@@ -1101,42 +1158,46 @@ class M3U8Crawler:
         if self._cancel_job:
             return False
         self._cancel_job = False
+        self._pause_job = False
         self._create_dest_folder()
         self.download_image()
         if not self.is_target_video_exist():
             self._create_temp_folder()
             self._create_m3u8()
-            if not self._cancel_job:
+            if not self._stop_requested():
                 self._prepareCrawl()
-            if not self._cancel_job and not self._pending_set:
+            if not self._stop_requested() and not self._pending_set:
                 merged = self._mergeMp4Chunks()
-                if not merged and not self._cancel_job:
+                if not merged and not self._stop_requested():
                     raise Exception("merge/publish failed")
-            elif not self._cancel_job:
+            elif not self._stop_requested():
+                if self._pause_job:
+                    return False
                 pending = len(self._pending_set)
                 raise DownloadIncompleteError(pending)
         else:
             print("檔案已存在!!", flush=True)
 
-        return not self._cancel_job
+        return not self._stop_requested()
+
+    def pause_download(self):
+        print("\n暫停下載....", flush=True)
+        self._pause_job = True
+        self._stop_workers()
+        print("\n下載已暫停", flush=True)
 
     def cancel_download(self, cleanup=True):
         print("\n取消下載....", flush=True)
         self._cancel_job = True
-        if self._t2_executor:
-            try: self._t2_executor.shutdown(wait=False, cancel_futures=True)
-            except TypeError: self._t2_executor.shutdown(wait=False)
-            self._t2_executor = None
-        if self._t_executor:
-            try: self._t_executor.shutdown(wait=False, cancel_futures=True)
-            except TypeError: self._t_executor.shutdown(wait=False)
-            self._t_executor = None
-        proc = getattr(self, '_ffmpeg_proc', None)
-        if proc is not None:
-            try: proc.kill()
-            except Exception: pass
+        self._stop_workers()
         if cleanup:
             self.cleanup_temp()
+            try:
+                part = self._get_video_savename() + '.part'
+                if os.path.isfile(part):
+                    os.remove(part)
+            except Exception:
+                pass
         print("\n下載已取消", flush=True)
 
     def begin_concurrent_download(self):

@@ -112,27 +112,39 @@ class WebHandler(BaseHTTPRequestHandler):
             _json_response(self, status, result)
             return
 
-        if path.startswith('/api/jobs/') and path.endswith('/cancel'):
-            job_id = path[len('/api/jobs/'):-len('/cancel')]
-            if not job_id:
-                _json_response(self, HTTPStatus.BAD_REQUEST, {
-                    'ok': False,
-                    'error': 'Job id is required',
+        if path.startswith('/api/jobs/'):
+            job_id = path[len('/api/jobs/'):]
+            action = None
+            for suffix in ('/cancel', '/pause', '/resume'):
+                if job_id.endswith(suffix):
+                    job_id = job_id[:-len(suffix)]
+                    action = suffix[1:]
+                    break
+            if action:
+                if not job_id:
+                    _json_response(self, HTTPStatus.BAD_REQUEST, {
+                        'ok': False,
+                        'error': 'Job id is required',
+                    })
+                    return
+                if action == 'cancel':
+                    ok = service.cancel_download(MANAGER, job_id)
+                elif action == 'pause':
+                    ok = service.pause_download(MANAGER, job_id)
+                else:
+                    ok = service.resume_download(MANAGER, job_id)
+                if not ok:
+                    _json_response(self, HTTPStatus.NOT_FOUND, {
+                        'ok': False,
+                        'error': f'Job not found or cannot {action}',
+                    })
+                    return
+                job = MANAGER.get(job_id)
+                _json_response(self, HTTPStatus.OK, {
+                    'ok': True,
+                    'job': job.to_dict() if job else None,
                 })
                 return
-            cancelled = service.cancel_download(MANAGER, job_id)
-            if not cancelled:
-                _json_response(self, HTTPStatus.NOT_FOUND, {
-                    'ok': False,
-                    'error': 'Job not found or not active',
-                })
-                return
-            job = MANAGER.get(job_id)
-            _json_response(self, HTTPStatus.OK, {
-                'ok': True,
-                'job': job.to_dict() if job else None,
-            })
-            return
 
         if path == '/api/download':
             url = (payload.get('url') or '').strip()

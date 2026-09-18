@@ -12,6 +12,7 @@ import uuid
 class JobStatus(str, Enum):
     PENDING = 'pending'
     DOWNLOADING = 'downloading'
+    PAUSED = 'paused'
     COMPLETED = 'completed'
     FAILED = 'failed'
 
