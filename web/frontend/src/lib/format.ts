@@ -27,10 +27,12 @@ export function formatProgress(job: {
   if (job.progress_unit === 'bytes') {
     const downloaded = job.downloaded ?? 0;
     const total = job.total ?? 0;
-    if (total > 0) {
-      parts.push(`${formatBytes(downloaded)} / ${formatBytes(total)}`);
-    } else if (downloaded > 0) {
-      parts.push(`${formatBytes(downloaded)} downloaded`);
+    if (downloaded > 0 || total > 0) {
+      parts.push(
+        total > 0
+          ? `${formatBytes(downloaded)} / ${formatBytes(total)}`
+          : `${formatBytes(downloaded)} / ?`,
+      );
     }
   } else if (job.progress_unit === 'segments' && (job.total ?? 0) > 0) {
     parts.push(`${job.downloaded ?? 0} / ${job.total ?? 0} segments`);

@@ -20,11 +20,16 @@ function progressText(job: Job): string {
 
 export default function ProgressCard(props: Props) {
   const pct = () => props.job.progress_pct || 0;
+  const barWidth = () => {
+    const value = pct();
+    if (value <= 0) return 0;
+    return Math.max(value, 1.5);
+  };
   const isActive = () =>
     props.job.status === 'pending' || props.job.status === 'downloading';
 
   return (
-    <section class="card">
+    <section class="card progress-card">
       <div class="progress-head">
         <p class="label">Progress</p>
         <Show when={isActive() && props.onCancel}>
@@ -38,10 +43,12 @@ export default function ProgressCard(props: Props) {
           </button>
         </Show>
       </div>
-      <div class="bar-track" aria-hidden="true">
-        <div class="bar-fill" style={{ width: `${pct()}%` }} />
+      <div class="progress-body">
+        <div class="bar-track" aria-hidden="true">
+          <div class="bar-fill" style={{ width: `${barWidth()}%` }} />
+        </div>
+        <p class="mono progress-text">{progressText(props.job)}</p>
       </div>
-      <p class="mono progress-text">{progressText(props.job)}</p>
     </section>
   );
 }

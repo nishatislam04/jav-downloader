@@ -168,10 +168,17 @@ button:disabled {
   align-items: center;
   justify-content: space-between;
   gap: 12px;
+  margin-bottom: 12px;
 }
 
 .progress-head .label {
   margin: 0;
+}
+
+.progress-body {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
 }
 
 button.cancel-btn {
@@ -187,7 +194,7 @@ button.cancel-btn:hover:not(:disabled) {
 }
 
 .progress-text {
-  margin: 10px 0 0;
+  margin: 0;
 }
 
 .foot {
