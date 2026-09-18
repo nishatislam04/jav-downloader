@@ -34,8 +34,11 @@ _stub_runtime_dependency('m3u8', _m3u8_stub)
 from uav_downloader.sites import spankbang as spankbang_mod
 from uav_downloader.sites.spankbang import (
     SiteSpankBang,
+    _duration_from_page,
     _extract_stream_key,
     _extract_title,
+    _normalize_duration_sec,
+    _polish_title,
     _sources_from_api,
     _sources_from_inline,
 )
@@ -111,6 +114,15 @@ def test_sources_from_api_skips_m3u8_and_empty_lists():
     assert duration_sec == 1234
     assert labels == ['240p', '720p', '1080p']
     assert sources[-1]['height'] == 1080
+
+
+def test_normalize_duration_prefers_plausible_page_value():
+    assert _normalize_duration_sec(300000, 137) == 137.0
+    assert _duration_from_page('<div data-duration="137"></div>') == 137.0
+
+
+def test_polish_title_strips_pornhub_suffix():
+    assert _polish_title('Example : Pornhub & T Porn') == 'Example'
 
 
 def test_extract_title_prefers_og_and_strips_suffix():

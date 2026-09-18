@@ -41,7 +41,27 @@ _REMOVED_RE = re.compile(
 _TITLE_SUFFIX_RES = (
     re.compile(r'\s*[-|]\s*SpankBang\s*$', re.I),
     re.compile(r'\s*[:：]\s*Porn\s*$', re.I),
+    re.compile(r'\s*[:：]\s*Pornhub\b.*$', re.I),
+    re.compile(r'\s*&\s*T\s*Porn\s*$', re.I),
 )
+_DURATION_PAGE_RES = (
+    re.compile(r'data-duration=["\'](\d+)["\']', re.I),
+    re.compile(r'property=["\']video:duration["\']\s+content=["\'](\d+)["\']', re.I),
+    re.compile(r'"video_duration"\s*:\s*"?(\d+)"?', re.I),
+    re.compile(r'"duration"\s*:\s*"?(\d+)"?', re.I),
+)
+_VIEWS_PAGE_RES = (
+    re.compile(r'data-views=["\'](\d+)["\']', re.I),
+    re.compile(r'"views"\s*:\s*"?(\d+)"?', re.I),
+    re.compile(r'"view_count"\s*:\s*"?(\d+)"?', re.I),
+)
+_UPLOADER_PAGE_RES = (
+    re.compile(
+        r'data-testid=["\']video-uploader["\'][^>]*>([^<]+)<', re.I),
+    re.compile(r'class=["\'][^"\']*\b(?:uploader|author)\b[^"\']*["\'][^>]*>'
+               r'\s*(?:<[^>]+>\s*)*([^<]{2,80})<', re.I),
+)
+_MAX_DURATION_SEC = 24 * 3600
 
 
 def _make_scraper():
@@ -103,6 +123,69 @@ def _sources_from_inline(html_text):
     return sources
 
 
+def _first_int_match(patterns, text):
+    for pattern in patterns:
+        match = pattern.search(str(text or ''))
+        if not match:
+            continue
+        try:
+            return int(match.group(1))
+        except (TypeError, ValueError, IndexError):
+            continue
+    return None
+
+
+def _normalize_duration_sec(*candidates):
+    values = []
+    for candidate in candidates:
+        if candidate in (None, ''):
+            continue
+        try:
+            value = float(candidate)
+        except (TypeError, ValueError):
+            continue
+        if 1 <= value <= _MAX_DURATION_SEC:
+            values.append(value)
+    if not values:
+        return None
+    return min(values)
+
+
+def _duration_from_page(html_text):
+    value = _first_int_match(_DURATION_PAGE_RES, html_text)
+    if value is None:
+        return None
+    return _normalize_duration_sec(value)
+
+
+def _views_from_page(html_text):
+    return _first_int_match(_VIEWS_PAGE_RES, html_text)
+
+
+def _uploader_from_page(soup, html_text):
+    node = soup.find(attrs={'data-testid': 'video-uploader'})
+    if node:
+        text = node.get_text(' ', strip=True)
+        if text:
+            return text
+    match = _UPLOADER_PAGE_RES[1].search(str(html_text or ''))
+    if match:
+        return html.unescape(match.group(1)).strip()
+    return None
+
+
+def _format_views(count):
+    try:
+        count = int(count)
+    except (TypeError, ValueError):
+        return None
+    if count >= 1_000_000:
+        return f'{count / 1_000_000:.1f}M views'
+    if count >= 1_000:
+        return f'{count / 1_000:.1f}K views'
+    return f'{count} views'
+
+
 def _sources_from_api(scraper, stream_key, page_url):
     response = scraper.post(
         _STREAM_API,
@@ -124,13 +207,7 @@ def _sources_from_api(scraper, stream_key, page_url):
     if not isinstance(payload, dict):
         raise Exception('SpankBang stream API 回傳格式異常')
 
-    length = payload.get('length')
-    duration_sec = None
-    if length not in (None, ''):
-        try:
-            duration_sec = float(length)
-        except (TypeError, ValueError):
-            duration_sec = None
+    duration_sec = _normalize_duration_sec(payload.get('length'))
 
     sources = []
     seen = set()
@@ -260,8 +337,10 @@ class SiteSpankBang(M3U8Crawler):
                         scraper, stream_key, self._url)
                 except Exception:
                     duration_sec = None
-            if duration_sec is not None:
-                self._duration_sec = duration_sec
+            page_duration = _duration_from_page(html_text)
+            merged_duration = _normalize_duration_sec(duration_sec, page_duration)
+            if merged_duration is not None:
+                self._duration_sec = merged_duration
 
             selected = _select_source(sources, get_resolution_pref())
             if not selected:
@@ -276,6 +355,11 @@ class SiteSpankBang(M3U8Crawler):
             self._direct_url = selected['url']
             self._direct_referer = _ROOT
             self._extra_headers = {'Referer': _ROOT}
+            self._quality_label = selected.get('label') or ''
+            views = _views_from_page(html_text)
+            self._views_count = views
+            self._views_label = _format_views(views) if views else None
+            self._uploader = _uploader_from_page(soup, html_text)
             if not self.silence:
                 label = selected.get('label') or 'mp4'
                 print(
