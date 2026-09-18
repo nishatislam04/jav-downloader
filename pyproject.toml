@@ -32,9 +32,9 @@ classifiers = [
 ]
 
 [project.urls]
-Homepage = "https://github.com/Alos21750/UAV-Downloader"
-Releases = "https://github.com/Alos21750/UAV-Downloader/releases"
-Issues = "https://github.com/Alos21750/UAV-Downloader/issues"
+Homepage = "https://github.com/nishatislam04/jav-downloader"
+Releases = "https://github.com/nishatislam04/jav-downloader/releases"
+Issues = "https://github.com/nishatislam04/jav-downloader/issues"
 
 [project.scripts]
 uav = "uav_downloader.cli.main:main"

@@ -6,9 +6,9 @@
 </p>
 
 <p align="center">
-  <a href="https://github.com/Alos21750/UAV-Downloader/releases/latest"><img alt="Latest release" src="https://img.shields.io/github/v/release/Alos21750/UAV-Downloader?style=flat-square&label=release&color=ff5263" /></a>
-  <a href="https://github.com/Alos21750/UAV-Downloader"><img alt="GitHub stars" src="https://img.shields.io/github/stars/Alos21750/UAV-Downloader?style=flat-square&logo=github&color=f5b942" /></a>
-  <a href="./LICENSE"><img alt="Apache 2.0 license" src="https://img.shields.io/github/license/Alos21750/UAV-Downloader?style=flat-square" /></a>
+  <a href="https://github.com/nishatislam04/jav-downloader/releases/latest"><img alt="Latest release" src="https://img.shields.io/github/v/release/nishatislam04/jav-downloader?style=flat-square&label=release&color=ff5263" /></a>
+  <a href="https://github.com/nishatislam04/jav-downloader"><img alt="GitHub stars" src="https://img.shields.io/github/stars/nishatislam04/jav-downloader?style=flat-square&logo=github&color=f5b942" /></a>
+  <a href="./LICENSE"><img alt="Apache 2.0 license" src="https://img.shields.io/github/license/nishatislam04/jav-downloader?style=flat-square" /></a>
 </p>
 
 ## Supported sites
@@ -32,8 +32,8 @@ Additional legacy URL adapters remain registered for compatibility. Sites and CD
 Requires **Python 3.10+**.
 
 ```bash
-git clone https://github.com/Alos21750/UAV-Downloader.git
-cd UAV-Downloader
+git clone https://github.com/nishatislam04/jav-downloader.git
+cd jav-downloader
 python -m venv .venv
 source .venv/bin/activate   # Windows: .venv\Scripts\activate
 python -m pip install -r requirements.txt
@@ -60,16 +60,20 @@ Installed console entry points:
 
 Paste a supported URL in the browser, resolve metadata, then start the download. Progress updates live in the page. Files are written to your default **Downloads** folder (or `DOWNLOAD_DIR` if set).
 
-### Desktop / local
+Built with **Vite + SolidJS** (`web/frontend/`). Production assets are committed under `src/uav_downloader/web/static/`, so **Termux does not need Node.js** — `make web` skips the build when `npm` is missing and serves the bundled UI.
+
+### Run (desktop or Termux — same command)
 
 ```bash
 make install
-make web          # builds Solid UI, then serves on :8765
+make web
 ```
 
-Open [http://127.0.0.1:8765/](http://127.0.0.1:8765/).
+Open **http://127.0.0.1:8765/** in your browser.
 
-**Frontend development** (Vite + SolidJS in `web/frontend/`):
+On Termux, `make web` auto-detects Android (`TERMUX_VERSION`), binds `0.0.0.0`, and defaults downloads to `~/storage/downloads`. Run `termux-setup-storage` once so that folder exists.
+
+**Frontend development** (laptop only):
 
 ```bash
 make install-web
@@ -77,47 +81,25 @@ make web-api       # terminal 1 — Python API on :8765
 make web-dev       # terminal 2 — Vite HMR on :5173, proxies /api
 ```
 
-Rebuild only the UI: `make web-build` (output → `src/uav_downloader/web/static/`).
+Force a UI rebuild: `make web-build`.
 
-Equivalent without Make:
-
-```bash
-python -m venv .venv
-source .venv/bin/activate
-pip install -r requirements.txt
-pip install -e .
-cd web/frontend && npm install && npm run build && cd ../..
-uav-web
-```
-
-### Android (Termux)
-
-One-time setup in Termux:
+### Android (Termux) setup
 
 ```bash
 pkg update && pkg install -y python git make
 termux-setup-storage    # tap Allow — enables ~/storage/downloads
-git clone https://github.com/Alos21750/UAV-Downloader.git
-cd UAV-Downloader
+git clone https://github.com/nishatislam04/jav-downloader.git
+cd jav-downloader
 make install
+make web              # same as desktop
 ```
-
-Start the web UI:
-
-```bash
-make web-termux
-# or
-bash scripts/termux-start.sh
-```
-
-On the same phone, open **http://127.0.0.1:8765/** in Chrome/Firefox. Paste a jav.guru (or other supported) link → **Resolve** → **Download**. Finished MP4 files appear in **Downloads** (`~/storage/downloads`).
 
 Optional env vars:
 
 | Variable | Purpose |
 |---|---|
-| `UAV_WEB_HOST` | Bind address (`127.0.0.1` desktop, `0.0.0.0` Termux/LAN) |
-| `UAV_WEB_PORT` | HTTP port (default `8765`) |
+| `WEB_HOST` / `UAV_WEB_HOST` | Bind address (Make sets `0.0.0.0` on Termux) |
+| `WEB_PORT` / `UAV_WEB_PORT` | HTTP port (default `8765`) |
 | `DOWNLOAD_DIR` | Override output folder |
 
 ## URL input
@@ -158,7 +140,7 @@ if site and site.is_url_vaildate():
 
 ## Troubleshooting
 
-When opening a [GitHub Issue](https://github.com/Alos21750/UAV-Downloader/issues/new), include:
+When opening a [GitHub Issue](https://github.com/nishatislam04/jav-downloader/issues/new), include:
 
 - Version, Python version, and operating system
 - Site and reproducible URL, plus expected and actual behavior
@@ -169,6 +151,6 @@ When opening a [GitHub Issue](https://github.com/Alos21750/UAV-Downloader/issues
 
 Code is licensed under the [Apache License 2.0](./LICENSE). Use this tool only for lawful personal or research purposes. Follow local law, site terms, and content rights, and download only material you are authorized to access.
 
-See [Releases](https://github.com/Alos21750/UAV-Downloader/releases) for version notes.
+See [Releases](https://github.com/nishatislam04/jav-downloader/releases) for version notes.
 
 <p align="center">Built and maintained by <a href="https://github.com/Alos21750">ALOS</a>.</p>

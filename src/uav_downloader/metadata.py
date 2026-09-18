@@ -6,8 +6,9 @@ from __future__ import annotations
 PRODUCT_NAME = "UAV Downloader"
 VERSION = "3.1.4"
 COMPANY_NAME = "ALOS (Alos21750)"
-GITHUB_REPOSITORY = "Alos21750/UAV-Downloader"
+GITHUB_REPOSITORY = "nishatislam04/jav-downloader"
 LEGACY_GITHUB_REPOSITORIES = (
+    "Alos21750/UAV-Downloader",
     "Alos21750/ALOS-Unified-AV-Downloader",
     "Alos21750/JableTV-MissAV-Downloader-GUI-2026",
 )

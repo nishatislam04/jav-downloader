@@ -9,8 +9,8 @@ sites and CDNs can change independently of the application.
 Use Python 3.10 or newer; release builds use Python 3.12.10.
 
 ```bash
-git clone https://github.com/Alos21750/UAV-Downloader.git
-cd UAV-Downloader
+git clone https://github.com/nishatislam04/jav-downloader.git
+cd jav-downloader
 python -m venv .venv
 .venv\Scripts\python -m pip install -r requirements.txt
 .venv\Scripts\python -m pip install -e .
