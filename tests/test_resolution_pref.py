@@ -233,11 +233,11 @@ def test_max_workers_per_video_round_trip_clamps_and_preserves_preferences(
     assert config.set_max_workers_per_video('3') == 3
     assert config.get_max_workers_per_video() == 3
     assert config.set_max_workers_per_video(0) == 1
-    assert config.set_max_workers_per_video(999) == 16
+    assert config.set_max_workers_per_video(999) == 32
 
     stored = json.loads(path.read_text(encoding='utf-8'))
     assert stored['theme'] == 'dark'
-    assert stored['max_workers_per_video'] == 16
+    assert stored['max_workers_per_video'] == 32
 
     path.write_text(
         json.dumps({'max_workers_per_video': 'not-a-number'}),

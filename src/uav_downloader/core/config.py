@@ -37,7 +37,7 @@ MAX_DOWNLOAD_CONCURRENCY = 32
 DEFAULT_MAX_WORKERS_PER_VIDEO = (
     min(os.cpu_count() * 2, 16) if os.cpu_count() else 8)
 MIN_WORKERS_PER_VIDEO = 1
-MAX_WORKERS_PER_VIDEO = 16
+MAX_WORKERS_PER_VIDEO = 32
 VALID_PROXY_SCHEMES = {
     'http', 'https', 'socks4', 'socks4a', 'socks5', 'socks5h',
 }
@@ -283,7 +283,7 @@ def set_download_concurrency(value):
 
 
 def normalize_max_workers_per_video(value):
-    """Return a safe per-video segment worker count (1–16)."""
+    """Return a safe per-video segment worker count (1–32)."""
     try:
         parsed = int(str(value).strip())
     except (TypeError, ValueError):

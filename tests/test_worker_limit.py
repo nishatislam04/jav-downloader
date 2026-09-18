@@ -33,7 +33,7 @@ def test_crawler_accepts_a_clamped_per_video_worker_limit(tmp_path):
         max_workers=999)
 
     assert low._max_workers == 1
-    assert high._max_workers == config.MAX_WORKERS_PER_VIDEO == 16
+    assert high._max_workers == config.MAX_WORKERS_PER_VIDEO == 32
 
 
 def test_crawler_uses_persisted_worker_limit_when_not_explicit(

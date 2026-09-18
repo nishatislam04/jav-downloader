@@ -985,7 +985,7 @@ class M3U8Crawler:
             return True
 
         try:
-            response = _http_get(url, self._m3u8_headers(), timeout=25)
+            response = _http_get(url, self._m3u8_headers(), timeout=60)
             if response.status_code != 200:
                 return False
             content_ts = response.content
