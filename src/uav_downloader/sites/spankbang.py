@@ -246,15 +246,22 @@ class SiteSpankBang(M3U8Crawler):
                 raise Exception('此 SpankBang 影片已被移除或不可用')
 
             soup = BeautifulSoup(html_text, 'html.parser')
+            stream_key = _extract_stream_key(html_text)
             sources = _sources_from_inline(html_text)
+            duration_sec = None
             if not sources:
-                stream_key = _extract_stream_key(html_text)
                 if not stream_key:
                     raise Exception('找不到 SpankBang stream key（版面改版？）')
                 sources, duration_sec = _sources_from_api(
                     scraper, stream_key, self._url)
-                if duration_sec is not None:
-                    self._duration_sec = duration_sec
+            elif stream_key:
+                try:
+                    _, duration_sec = _sources_from_api(
+                        scraper, stream_key, self._url)
+                except Exception:
+                    duration_sec = None
+            if duration_sec is not None:
+                self._duration_sec = duration_sec
 
             selected = _select_source(sources, get_resolution_pref())
             if not selected:
