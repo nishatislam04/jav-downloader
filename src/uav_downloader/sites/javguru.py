@@ -4,7 +4,11 @@
 import base64
 import html
 import json
+import os
+import random
 import re
+import string
+import time
 from urllib.parse import parse_qs, urlsplit
 
 try:
@@ -21,6 +25,8 @@ from uav_downloader.sites.base import (
     MirrorsBlockedError,
     fetch_with_mirrors,
     request_headers,
+    speed_limiter,
+    _get_session,
     _is_cf_interstitial,
 )
 from uav_downloader.sites.supjav import _strip_fake_header
@@ -28,22 +34,35 @@ from uav_downloader.sites.supjav import _strip_fake_header
 _BLOCKED_MSG = (
     "jav.guru 被 Cloudflare 阻擋（可能是你的網路/IP 信譽問題，請改用 VPN 或不同網路）")
 
-# Prefer hosts that usually resolve to StreamHG / javclan HLS before turbovidhls.
 _SERVER_PRIORITY = ('SB', 'TV', 'VO', 'LU', 'DD', 'JK', 'EA')
 _SKIP_SERVERS = frozenset({'AV'})
 
 _JAVCLAN_HOSTS = frozenset({'javclan.com', 'www.javclan.com'})
 _TURBOVID_HOSTS = frozenset({'turbovidhls.com', 'www.turbovidhls.com'})
+_LULU_HOSTS = frozenset({
+    'maxstream.org', 'www.maxstream.org',
+    'streamhihi.com', 'www.streamhihi.com',
+    'lulustream.com', 'www.lulustream.com',
+    'luluvdo.com', 'www.luluvdo.com',
+    'luluvdoo.com', 'www.luluvdoo.com',
+})
+_DOOD_HOST_MARKERS = ('playmogo.com', 'doodstream.com', 'dood.', 'dooood.')
+
+_TITLE_SUFFIX_RE = re.compile(
+    r'\s*[⋆✦•·|]\s*Jav\s*Guru\s*[⋆✦•·|]?\s*'
+    r'(?:Japanese\s+porn\s+Tube)?\s*$',
+    re.I,
+)
+_SITE_TITLE_SUFFIX_RE = re.compile(
+    r'\s*[|⋆✦•·-]\s*(?:Jav\s*Guru|Japanese\s+porn\s+Tube)\s*$',
+    re.I,
+)
 
 
 def _make_scraper():
     if _use_cffi:
         return cffi_requests.Session(impersonate='chrome')
     return cloudscraper.create_scraper(browser=request_headers, delay=10)
-
-
-def _get_scraper():
-    return _make_scraper()
 
 
 def _server_label(raw_text):
@@ -55,7 +74,6 @@ def _server_label(raw_text):
 
 
 def _parse_localize_servers(html_text):
-    """Return ordered {label: token} parsed from wp-btn-iframe anchors."""
     soup = BeautifulSoup(html_text, 'html.parser')
     found = {}
     order = []
@@ -90,8 +108,8 @@ def _load_localize_config(html_text, token):
         return None
 
 
-def _gateway_url_from_config(config):
-    raw = str((config or {}).get('iframe_url') or '').strip()
+def _gateway_url_from_config(config_obj):
+    raw = str((config_obj or {}).get('iframe_url') or '').strip()
     if not raw:
         return None
     try:
@@ -123,6 +141,31 @@ def _embed_origin(embed_url):
     if parts.scheme and parts.netloc:
         return f'{parts.scheme}://{parts.netloc}'
     return None
+
+
+def _embed_file_code(embed_url):
+    path = urlsplit(str(embed_url or '')).path.rstrip('/')
+    if not path:
+        return None
+    code = path.rsplit('/', 1)[-1]
+    return code or None
+
+
+def _polish_title(raw_title):
+    title = html.unescape(str(raw_title or '')).strip()
+    if not title:
+        return title
+    title = _TITLE_SUFFIX_RE.sub('', title).strip()
+    title = _SITE_TITLE_SUFFIX_RE.sub('', title).strip()
+    return title
+
+
+def _format_resolve_errors(errors):
+    lines = ['已嘗試的 STREAM 來源：']
+    for label, reason in errors:
+        lines.append(f'  • STREAM {label}: {reason}')
+    lines.append('所有來源均無法取得播放清單或直連 URL。')
+    return '\n'.join(lines)
 
 
 def _unpack_jw_packer(script_text):
@@ -177,15 +220,32 @@ def _extract_m3u8_from_text(text):
     match = re.search(r'https://[^\s"\'\\]+\.m3u8[^\s"\'\\]*', text or '')
     if match:
         return match.group(0).replace('\\/', '/')
+    match = re.search(r'https://[^\s"\'\\]+master\.txt[^\s"\'\\]*', text or '')
+    if match:
+        return match.group(0).replace('\\/', '/')
+    return None
+
+
+def _playlist_from_html(html_text):
+    playlist = _extract_m3u8_from_text(html_text)
+    if playlist:
+        return playlist
+    for script in re.findall(r'<script[^>]*>(.*?)</script>', html_text or '', re.S):
+        if 'eval(function(p,a,c,k,e,d){while(c--)' not in script:
+            continue
+        unpacked = _unpack_jw_packer(script)
+        playlist = _pick_streamhg_playlist(unpacked) or _extract_m3u8_from_text(unpacked or '')
+        if playlist:
+            return playlist
     return None
 
 
 def _extract_title(soup, html_text):
     og = re.search(r'og:title"\s+content="([^"]+)"', html_text or '')
     if og:
-        return html.unescape(og.group(1))
+        return _polish_title(og.group(1))
     if soup.title:
-        return html.unescape(soup.title.get_text(strip=True))
+        return _polish_title(soup.title.get_text(strip=True))
     return ''
 
 
@@ -194,94 +254,291 @@ def _extract_thumbnail(html_text):
     return og.group(1) if og else None
 
 
-def _resolve_javclan(scraper, embed_url):
-    origin = _embed_origin(embed_url) or 'https://javclan.com/'
-    resp = scraper.get(
-        embed_url,
-        headers={'Referer': origin + '/'},
-        timeout=30,
-        allow_redirects=True,
-        **config.proxy_request_kwargs(),
-    )
-    if _is_cf_interstitial(resp):
-        raise MirrorsBlockedError(_BLOCKED_MSG)
-    final_url = str(getattr(resp, 'url', embed_url) or embed_url)
-    origin = _embed_origin(final_url) or origin
-    playlist = None
-    for script in re.findall(r'<script[^>]*>(.*?)</script>', resp.text, re.S):
-        if 'eval(function(p,a,c,k,e,d){while(c--)' not in script:
+def _headers_for_origin(origin):
+    origin = str(origin or '').rstrip('/') + '/'
+    root = origin.rstrip('/')
+    return {'Referer': origin, 'Origin': root}
+
+
+def _voe_rot13(value):
+    out = []
+    for char in value:
+        if 'A' <= char <= 'Z':
+            out.append(chr((ord(char) - 65 + 13) % 26 + 65))
+        elif 'a' <= char <= 'z':
+            out.append(chr((ord(char) - 97 + 13) % 26 + 97))
+        else:
+            out.append(char)
+    return ''.join(out)
+
+
+def _voe_replace_patterns(value):
+    for pattern in ("@$", "^^", "~@", "%?", "*~", "!!", "#&"):
+        value = value.replace(pattern, '_')
+    return value
+
+
+def _voe_decrypt_payload(encoded_string):
+    payload = _voe_rot13(encoded_string)
+    payload = _voe_replace_patterns(payload)
+    payload = payload.replace('_', '')
+    payload = base64.b64decode(payload + '=' * (-len(payload) % 4))
+    payload = ''.join(chr(ord(char) - 3) for char in payload.decode('latin1'))
+    payload = payload[::-1]
+    return json.loads(base64.b64decode(payload + '=' * (-len(payload) % 4)))
+
+
+def _normalize_voe_playlist(source, scraper, headers):
+    source = str(source or '').replace('\\/', '/').strip()
+    if not source:
+        return None
+    if source.endswith('.m3u8') or source.endswith('.txt'):
+        return source
+    candidates = [
+        source.rstrip('/') + '/master.m3u8',
+        source.rstrip('/') + '/master.txt',
+        source.rstrip('/') + '.m3u8',
+    ]
+    for candidate in candidates:
+        try:
+            resp = scraper.get(
+                candidate,
+                headers=headers,
+                timeout=20,
+                **config.proxy_request_kwargs(),
+            )
+        except Exception:
             continue
-        unpacked = _unpack_jw_packer(script)
-        playlist = _pick_streamhg_playlist(unpacked)
-        if playlist:
-            break
-    if not playlist:
-        playlist = _extract_m3u8_from_text(resp.text)
-    if not playlist:
-        return None
-    headers_out = {'Referer': origin + '/', 'Origin': origin}
-    return playlist, headers_out
+        if getattr(resp, 'status_code', 0) == 200 and '#EXTM3U' in (resp.text or ''):
+            return candidate
+    return candidates[0]
 
 
-def _resolve_turbovidhls(scraper, embed_url):
-    origin = _embed_origin(embed_url) or 'https://turbovidhls.com/'
-    resp = scraper.get(
-        embed_url,
-        headers={'Referer': origin + '/'},
-        timeout=30,
-        allow_redirects=True,
-        **config.proxy_request_kwargs(),
-    )
-    if _is_cf_interstitial(resp):
-        raise MirrorsBlockedError(_BLOCKED_MSG)
-    playlist = _extract_m3u8_from_text(resp.text)
-    if not playlist:
-        return None
-    origin = _embed_origin(str(getattr(resp, 'url', embed_url) or embed_url)) or origin
-    headers_out = {'Referer': origin + '/', 'Origin': origin}
-    return playlist, headers_out
-
-
-def _resolve_generic_embed(scraper, embed_url):
+def _resolve_voe(scraper, embed_url):
     origin = _embed_origin(embed_url)
     if not origin:
         return None
+    headers = _headers_for_origin(origin)
     resp = scraper.get(
         embed_url,
-        headers={'Referer': origin + '/'},
+        headers=headers,
+        timeout=30,
+        allow_redirects=True,
+        **config.proxy_request_kwargs(),
+    )
+    if _is_cf_interstitial(resp):
+        raise MirrorsBlockedError(_BLOCKED_MSG)
+    text = resp.text
+    final_origin = _embed_origin(str(getattr(resp, 'url', embed_url) or embed_url)) or origin
+    headers = _headers_for_origin(final_origin)
+    redirect = re.search(r"window\.location\.href\s*=\s*'([^']+)';", text)
+    if redirect:
+        resp = scraper.get(
+            redirect.group(1),
+            headers=headers,
+            timeout=30,
+            allow_redirects=True,
+            **config.proxy_request_kwargs(),
+        )
+        if _is_cf_interstitial(resp):
+            raise MirrorsBlockedError(_BLOCKED_MSG)
+        text = resp.text
+        final_origin = _embed_origin(str(getattr(resp, 'url', embed_url) or embed_url)) or final_origin
+        headers = _headers_for_origin(final_origin)
+    scripts = re.findall(
+        r'<script[^>]+type=[\'"]application/json[\'"][^>]*>(.*?)</script>',
+        text,
+        re.S,
+    )
+    if not scripts:
+        return None
+    encoded = scripts[0].strip().split('["', 1)[-1].rsplit('"]', 1)[0]
+    try:
+        payload = _voe_decrypt_payload(encoded)
+    except Exception:
+        return None
+    source = payload.get('source') or payload.get('direct_access_url')
+    playlist = _normalize_voe_playlist(source, scraper, headers)
+    if not playlist:
+        return None
+    return 'hls', playlist, headers
+
+
+def _is_dood_host(host):
+    host = str(host or '').lower()
+    return any(marker in host for marker in _DOOD_HOST_MARKERS)
+
+
+def _looks_like_hls_url(url):
+    lowered = str(url or '').lower()
+    return any(marker in lowered for marker in ('.m3u8', '.txt', '/master.', '/index-'))
+
+
+def _resolve_doodstream(scraper, embed_url):
+    origin = _embed_origin(embed_url)
+    if not origin:
+        return None
+    code = _embed_file_code(embed_url)
+    if not code:
+        return None
+    page_url = embed_url
+    if '/d/' in urlsplit(embed_url).path:
+        page_url = re.sub(r'/d/', '/e/', embed_url, count=1)
+    resp = scraper.get(
+        page_url,
+        headers=_headers_for_origin(origin),
         timeout=30,
         allow_redirects=True,
         **config.proxy_request_kwargs(),
     )
     if _is_cf_interstitial(resp):
         return None
-    playlist = _extract_m3u8_from_text(resp.text)
+    text = resp.text
+    if 'no_video' in text or 'not found' in text.lower():
+        return None
+    host = _embed_origin(str(getattr(resp, 'url', page_url) or page_url))
+    md5_match = re.search(r'/pass_md5/[^\'"\s<>]+', text)
+    if not md5_match:
+        return None
+    md5_url = host + md5_match.group(0)
+    prefix_resp = scraper.get(
+        md5_url,
+        headers={'Referer': str(getattr(resp, 'url', page_url) or page_url)},
+        timeout=30,
+        **config.proxy_request_kwargs(),
+    )
+    if getattr(prefix_resp, 'status_code', 0) != 200:
+        return None
+    prefix = (prefix_resp.text or '').strip()
+    if not prefix.startswith('http'):
+        return None
+    token = md5_url.rsplit('/', 1)[-1]
+    suffix = ''.join(random.choices(string.ascii_letters + string.digits, k=10))
+    direct_url = f'{prefix}{suffix}?token={token}'
+    return 'mp4', direct_url, _headers_for_origin(host)
+
+
+def _resolve_lulu_embed(scraper, embed_url, page_referer):
+    origin = _embed_origin(embed_url)
+    code = _embed_file_code(embed_url)
+    if not origin or not code:
+        return None
+    resp = scraper.post(
+        f'{origin}/dl',
+        data={
+            'op': 'embed',
+            'file_code': code,
+            'auto': '1',
+            'referer': page_referer or f'{origin}/',
+        },
+        headers={
+            'Referer': embed_url,
+            'Origin': origin,
+        },
+        timeout=30,
+        allow_redirects=True,
+        **config.proxy_request_kwargs(),
+    )
+    if _is_cf_interstitial(resp):
+        return None
+    text = resp.text or ''
+    lowered = text.lower()
+    if any(marker in lowered for marker in (
+            'no longer available', 'expired', 'embed disabled', 'not found')):
+        return None
+    playlist = _playlist_from_html(text)
     if not playlist:
-        for script in re.findall(r'<script[^>]*>(.*?)</script>', resp.text, re.S):
-            if 'eval(function(p,a,c,k,e,d){while(c--)' not in script:
-                continue
-            unpacked = _unpack_jw_packer(script)
-            playlist = _pick_streamhg_playlist(unpacked) or _extract_m3u8_from_text(unpacked or '')
-            if playlist:
-                break
+        return None
+    return 'hls', playlist, _headers_for_origin(origin)
+
+
+def _resolve_javclan(scraper, embed_url):
+    origin = _embed_origin(embed_url) or 'https://javclan.com'
+    resp = scraper.get(
+        embed_url,
+        headers=_headers_for_origin(origin),
+        timeout=30,
+        allow_redirects=True,
+        **config.proxy_request_kwargs(),
+    )
+    if _is_cf_interstitial(resp):
+        raise MirrorsBlockedError(_BLOCKED_MSG)
+    final_origin = _embed_origin(str(getattr(resp, 'url', embed_url) or embed_url)) or origin
+    playlist = _playlist_from_html(resp.text)
+    if not playlist:
+        return None
+    return 'hls', playlist, _headers_for_origin(final_origin)
+
+
+def _resolve_turbovidhls(scraper, embed_url):
+    origin = _embed_origin(embed_url) or 'https://turbovidhls.com'
+    resp = scraper.get(
+        embed_url,
+        headers=_headers_for_origin(origin),
+        timeout=30,
+        allow_redirects=True,
+        **config.proxy_request_kwargs(),
+    )
+    if _is_cf_interstitial(resp):
+        raise MirrorsBlockedError(_BLOCKED_MSG)
+    playlist = _extract_m3u8_from_text(resp.text)
     if not playlist:
         return None
     final_origin = _embed_origin(str(getattr(resp, 'url', embed_url) or embed_url)) or origin
-    return playlist, {'Referer': final_origin + '/', 'Origin': final_origin}
+    return 'hls', playlist, _headers_for_origin(final_origin)
 
 
-def _resolve_embed_stream(scraper, embed_url):
+def _wrap_hls_resolver(resolver):
+    def wrapped(scraper, embed_url):
+        result = resolver(scraper, embed_url)
+        if not result:
+            return None
+        if isinstance(result, tuple) and len(result) == 3:
+            return result
+        playlist, headers = result
+        return 'hls', playlist, headers
+    return wrapped
+
+
+def _resolve_embed_stream(scraper, embed_url, page_referer):
     host = (urlsplit(embed_url).hostname or '').lower()
+    attempts = []
+
     if host in _JAVCLAN_HOSTS:
-        return _resolve_javclan(scraper, embed_url)
+        attempts.append(_wrap_hls_resolver(_resolve_javclan))
     if host in _TURBOVID_HOSTS:
-        return _resolve_turbovidhls(scraper, embed_url)
-    return _resolve_generic_embed(scraper, embed_url)
+        attempts.append(_wrap_hls_resolver(_resolve_turbovidhls))
+    attempts.append(_wrap_hls_resolver(_resolve_voe))
+    if host in _LULU_HOSTS:
+        attempts.append(lambda s, url: _resolve_lulu_embed(s, url, page_referer))
+    if _is_dood_host(host):
+        attempts.append(_resolve_doodstream)
+    attempts.append(lambda s, url: _resolve_lulu_embed(s, url, page_referer))
+    attempts.append(_wrap_hls_resolver(_resolve_javclan))
+    attempts.append(_wrap_hls_resolver(_resolve_turbovidhls))
+
+    seen = set()
+    for resolver in attempts:
+        key = getattr(resolver, '__name__', repr(resolver))
+        if key in seen:
+            continue
+        seen.add(key)
+        try:
+            result = resolver(scraper, embed_url)
+        except MirrorsBlockedError:
+            raise
+        except Exception:
+            continue
+        if result:
+            return result
+    return None
 
 
 class SiteJavGuru(M3U8Crawler):
     website_pattern = r'https://(?:www\.)?jav\.guru/\d+/.+/?$'
     website_dirname_pattern = r'https://(?:www\.)?jav\.guru/(\d+)/.+/?$'
+    direct_site_name = 'JavGuru'
+    direct_default_referer = 'https://jav.guru/'
 
     def _transform_segment(self, data):
         if data[:1] == b'\x47':
@@ -294,7 +551,6 @@ class SiteJavGuru(M3U8Crawler):
             self._resolve_from_page(scraper)
 
     def _resolve_from_page(self, scraper):
-
         def _validate(resp):
             return 'data-localize' in resp.text and 'wp-btn-iframe' in resp.text
 
@@ -311,16 +567,18 @@ class SiteJavGuru(M3U8Crawler):
         if not servers:
             raise Exception("此影片沒有可用的 STREAM 來源（版面改版？）")
 
+        self._direct_url = None
+        self._direct_referer = None
         errors = []
         for label, token in servers.items():
             cfg = _load_localize_config(html_text, token)
             gateway = _gateway_url_from_config(cfg)
             if not gateway:
-                errors.append(f'{label}: missing gateway')
+                errors.append((label, 'missing gateway config'))
                 continue
             stream_redirect = _stream_redirect_url(gateway)
             if not stream_redirect:
-                errors.append(f'{label}: missing stream token')
+                errors.append((label, 'missing searcho token'))
                 continue
             try:
                 embed_resp = scraper.get(
@@ -331,38 +589,124 @@ class SiteJavGuru(M3U8Crawler):
                     **config.proxy_request_kwargs(),
                 )
             except Exception as exc:
-                errors.append(f'{label}: redirect failed ({exc})')
+                errors.append((label, f'redirect failed ({exc})'))
                 continue
             if _is_cf_interstitial(embed_resp):
-                errors.append(f'{label}: blocked by Cloudflare')
+                errors.append((label, 'blocked by Cloudflare'))
                 continue
             embed_url = str(getattr(embed_resp, 'url', '') or '')
             if not embed_url.startswith('http'):
-                errors.append(f'{label}: invalid embed redirect')
+                errors.append((label, 'invalid embed redirect'))
                 continue
+            embed_host = urlsplit(embed_url).netloc
             try:
-                resolved = _resolve_embed_stream(scraper, embed_url)
+                resolved = _resolve_embed_stream(scraper, embed_url, self._url)
             except MirrorsBlockedError:
                 raise
             except Exception as exc:
-                errors.append(f'{label}: {exc}')
+                errors.append((label, f'{embed_host}: {exc}'))
                 continue
             if not resolved:
-                errors.append(f'{label}: no playlist on {urlsplit(embed_url).netloc}')
+                errors.append((label, f'{embed_host}: no playlist or direct URL'))
                 continue
-            playlist, extra = resolved
-            self._m3u8url = playlist
-            self._extra_headers = extra
+
+            kind, stream_url, extra = resolved
+            if kind == 'mp4' or (kind == 'hls' and not _looks_like_hls_url(stream_url)):
+                self._direct_url = stream_url
+                self._direct_referer = extra.get('Referer') or self.direct_default_referer
+                self._m3u8url = None
+                mode = 'MP4'
+            elif kind == 'hls' and stream_url.startswith('http'):
+                self._m3u8url = stream_url
+                self._extra_headers = extra
+                self._direct_url = None
+                mode = 'HLS'
+            else:
+                errors.append((label, f'{embed_host}: unrecognized stream URL'))
+                continue
+
             self._targetName = _extract_title(soup, html_text)
             self._imageUrl = _extract_thumbnail(html_text)
             if not self.silence:
-                print(f'[JavGuru] 使用 STREAM {label} ({urlsplit(embed_url).netloc})', flush=True)
+                print(
+                    f'[JavGuru] 使用 STREAM {label} ({embed_host}, {mode})',
+                    flush=True)
             return
 
-        detail = '; '.join(errors[:4])
-        if len(errors) > 4:
-            detail += f'; +{len(errors) - 4} more'
-        raise Exception(
-            "此影片目前無可用下載來源"
-            f"（已嘗試 {len(servers)} 個 STREAM 選項）"
-            + (f": {detail}" if detail else ''))
+        raise Exception(_format_resolve_errors(errors))
+
+    def is_url_vaildate(self):
+        return bool(self._m3u8url or getattr(self, '_direct_url', None))
+
+    def start_download(self):
+        if self._m3u8url:
+            return super().start_download()
+        if getattr(self, '_direct_url', None):
+            return self._download_direct_mp4()
+        return super().start_download()
+
+    def _download_direct_mp4(self):
+        if self._cancel_job:
+            return False
+        self._cancel_job = False
+        self._create_dest_folder()
+        if self.is_target_video_exist():
+            print("檔案已存在!!", flush=True)
+            return True
+
+        out = self._get_video_savename()
+        part = out + '.part'
+        if os.path.exists(part):
+            try:
+                os.remove(part)
+            except OSError:
+                pass
+
+        referer = self._direct_referer or self.direct_default_referer
+        headers = {'Referer': referer}
+        start = time.time()
+        downloaded = 0
+        try:
+            resp = _get_session().get(
+                self._direct_url,
+                headers=headers,
+                timeout=60,
+                stream=True,
+                allow_redirects=True,
+                **config.proxy_request_kwargs(),
+            )
+            if getattr(resp, 'status_code', 0) != 200:
+                raise Exception(f"直接下載失敗 (HTTP {resp.status_code})")
+            total = int(resp.headers.get('content-length') or 0)
+            with open(part, 'wb') as handle:
+                for chunk in resp.iter_content(chunk_size=262144):
+                    if self._cancel_job:
+                        break
+                    if not chunk:
+                        continue
+                    speed_limiter.acquire(len(chunk))
+                    handle.write(chunk)
+                    downloaded += len(chunk)
+                    elapsed = time.time() - start
+                    speed = downloaded / elapsed if elapsed > 0 else 0
+                    if total > 0 and self._progress_callback:
+                        self._progress_callback(downloaded, total, speed)
+        except Exception:
+            if os.path.exists(part):
+                try:
+                    os.remove(part)
+                except OSError:
+                    pass
+            raise
+
+        if self._cancel_job:
+            if os.path.exists(part):
+                try:
+                    os.remove(part)
+                except OSError:
+                    pass
+            return False
+
+        os.replace(part, out)
+        print(f"\n下載完成: {os.path.basename(out)}", flush=True)
+        return True
