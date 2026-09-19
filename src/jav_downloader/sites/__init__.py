@@ -62,7 +62,8 @@ def create_site(
         resolution_pref=None, hls_tier=None,
         encode=None, encode_codec=None, encode_crf=None,
         encode_max_height=None, encode_output_mode=None,
-        encode_preset=None, encode_threads=None):
+        encode_preset=None, encode_threads=None,
+        audio_mute=False, audio_bitrate=None, audio_volume=None):
     site = validate_url(url)
     if site is None:
         return None
@@ -74,6 +75,9 @@ def create_site(
         'cuts': cuts,
         'audio_fade': audio_fade,
         'audio_loudnorm': audio_loudnorm,
+        'audio_mute': audio_mute,
+        'audio_bitrate': audio_bitrate,
+        'audio_volume': audio_volume,
         'stream_preference': stream_preference,
         'resolution_pref': resolution_pref,
         'hls_tier': hls_tier,
@@ -97,12 +101,14 @@ def CreateSite(  # noqa: N802
         resolution_pref=None, hls_tier=None,
         encode=None, encode_codec=None, encode_crf=None,
         encode_max_height=None, encode_output_mode=None,
-        encode_preset=None, encode_threads=None):
+        encode_preset=None, encode_threads=None,
+        audio_mute=False, audio_bitrate=None, audio_volume=None):
     return create_site(
         url, savepath, silence, max_workers, cut_start, cut_end, cuts,
         audio_fade, audio_loudnorm, stream_preference, resolution_pref, hls_tier,
         encode, encode_codec, encode_crf, encode_max_height,
-        encode_output_mode, encode_preset, encode_threads)
+        encode_output_mode, encode_preset, encode_threads,
+        audio_mute, audio_bitrate, audio_volume)
 
 
 def create_site_url_list(url, silence=False):

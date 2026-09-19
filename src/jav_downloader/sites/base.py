@@ -578,15 +578,22 @@ class M3U8Crawler:
             resolution_pref=None, hls_tier=None,
             encode=None, encode_codec=None, encode_crf=None,
             encode_max_height=None, encode_output_mode=None,
-            encode_preset=None, encode_threads=None):
+            encode_preset=None, encode_threads=None,
+            audio_mute=False, audio_bitrate=None, audio_volume=None):
         self.silence = silence
         from jav_downloader.sites.multi_cut import build_cut_ranges
         from jav_downloader.sites.output_meta import apply_download_options
-        from jav_downloader.sites.media_post import apply_encode_options
+        from jav_downloader.sites.media_post import apply_audio_options, apply_encode_options
         self._cut_ranges = build_cut_ranges(cuts, cut_start, cut_end)
         _apply_legacy_cut_fields(self, self._cut_ranges)
-        self._audio_fade = bool(audio_fade)
-        self._audio_loudnorm = bool(audio_loudnorm)
+        apply_audio_options(
+            self,
+            audio_fade=audio_fade,
+            audio_loudnorm=audio_loudnorm,
+            audio_mute=audio_mute,
+            audio_bitrate=audio_bitrate,
+            audio_volume=audio_volume,
+        )
         apply_encode_options(
             self,
             encode=encode,

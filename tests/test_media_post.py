@@ -58,9 +58,46 @@ def test_needs_media_post():
     site._encode_enabled = False
     site._audio_fade = False
     site._audio_loudnorm = False
+    site._audio_mute = False
+    site._audio_bitrate = 128
+    site._audio_volume = 1.0
     assert media_post.needs_media_post(site) is False
     site._encode_enabled = True
     assert media_post.needs_media_post(site) is True
+    site._encode_enabled = False
+    site._audio_mute = True
+    assert media_post.needs_media_post(site) is True
+
+
+def test_build_af_filter_volume_before_fade():
+    site = DummySite()
+    site._audio_mute = False
+    site._audio_volume = 2.0
+    site._audio_fade = True
+    site._audio_loudnorm = False
+    af = media_post.build_af_filter(site, 10.0)
+    assert af.startswith('volume=2')
+    assert 'afade' in af
+
+
+def test_normalize_audio_bitrate():
+    assert media_post.normalize_audio_bitrate(96) == 96
+    assert media_post.normalize_audio_bitrate(999) == 128
+
+
+def test_apply_audio_options():
+    site = DummySite()
+    media_post.apply_audio_options(
+        site,
+        audio_fade=True,
+        audio_loudnorm=False,
+        audio_mute=True,
+        audio_bitrate=192,
+        audio_volume=2.5,
+    )
+    assert site._audio_mute is True
+    assert site._audio_bitrate == 192
+    assert site._audio_volume == 2.5
 
 
 def test_resolved_encode_threads_auto(monkeypatch):

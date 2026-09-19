@@ -197,6 +197,21 @@ export function CloseIcon() {
 	);
 }
 
+export function TrashIcon() {
+	return (
+		<svg viewBox="0 0 24 24" width="14" height="14" aria-hidden="true">
+			<path
+				d="M4 7h16M10 4h4m-7 3 1 13h8l1-13M10 11v6m4-6v6"
+				fill="none"
+				stroke="currentColor"
+				stroke-width="1.75"
+				stroke-linecap="round"
+				stroke-linejoin="round"
+			/>
+		</svg>
+	);
+}
+
 export function CopyIcon() {
 	return (
 		<svg viewBox="0 0 24 24" width="14" height="14" aria-hidden="true">
@@ -342,6 +357,28 @@ export function EncodeIcon() {
 			<path
 				d="M4 8v8h2.5l3.5-5 3.5 5H16V8h-2.5L10 13 6.5 8H4zm10 0v8h6v-2h-4v-1.5h3.5V11H16V9.5h3.5V8H14z"
 				fill="currentColor"
+			/>
+		</svg>
+	);
+}
+
+export function InfoIcon() {
+	return (
+		<svg viewBox="0 0 24 24" width="14" height="14" aria-hidden="true">
+			<circle
+				cx="12"
+				cy="12"
+				r="9"
+				fill="none"
+				stroke="currentColor"
+				stroke-width="1.75"
+			/>
+			<path
+				d="M12 11v5M12 8h.01"
+				fill="none"
+				stroke="currentColor"
+				stroke-width="1.75"
+				stroke-linecap="round"
 			/>
 		</svg>
 	);

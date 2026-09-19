@@ -32,12 +32,17 @@ import ProgressCard from "./components/ProgressCard";
 import ProgressRing from "./components/ProgressRing";
 import { appendHistory } from "./lib/history";
 import {
+	DEFAULT_AUDIO_SETTINGS,
 	DEFAULT_ENCODE_SETTINGS,
+	type AudioSettings,
 	type EncodeSettings,
+	loadAudioSettings,
 	loadEncodeSettings,
+	loadRememberAudio,
 	loadRememberEncode,
 	loadRememberSavePath,
 	loadSavedPath,
+	persistAudioSettings,
 	persistEncodeSettings,
 	persistSavePath,
 } from "./lib/persist";
@@ -70,8 +75,10 @@ export default function App() {
 		loadRememberSavePath(),
 	);
 	const [customTitle, setCustomTitle] = createSignal("");
-	const [audioFade, setAudioFade] = createSignal(false);
-	const [audioLoudnorm, setAudioLoudnorm] = createSignal(false);
+	const [audioSettings, setAudioSettings] = createSignal<AudioSettings>(
+		loadRememberAudio() ? loadAudioSettings() : { ...DEFAULT_AUDIO_SETTINGS },
+	);
+	const [rememberAudio, setRememberAudio] = createSignal(loadRememberAudio());
 	const [encodeSettings, setEncodeSettings] = createSignal<EncodeSettings>(
 		loadRememberEncode() ? loadEncodeSettings() : { ...DEFAULT_ENCODE_SETTINGS },
 	);
@@ -132,8 +139,9 @@ export default function App() {
 		setActiveTool(null);
 		setCustomTitle("");
 		setCuts([newCutRange()]);
-		setAudioFade(false);
-		setAudioLoudnorm(false);
+		if (!rememberAudio()) {
+			setAudioSettings({ ...DEFAULT_AUDIO_SETTINGS });
+		}
 		if (!rememberEncode()) {
 			setEncodeSettings({ ...DEFAULT_ENCODE_SETTINGS });
 		}
@@ -149,8 +157,9 @@ export default function App() {
 
 	function clearTransientState() {
 		setCuts([newCutRange()]);
-		setAudioFade(false);
-		setAudioLoudnorm(false);
+		if (!rememberAudio()) {
+			setAudioSettings({ ...DEFAULT_AUDIO_SETTINGS });
+		}
 		if (!rememberEncode()) {
 			setEncodeSettings({ ...DEFAULT_ENCODE_SETTINGS });
 		}
@@ -191,6 +200,9 @@ export default function App() {
 			output_title?: string;
 			audio_fade?: boolean;
 			audio_loudnorm?: boolean;
+			audio_mute?: boolean;
+			audio_bitrate?: number;
+			audio_volume?: number;
 			stream_preference?: string;
 			resolution_pref?: string;
 			hls_tier?: string;
@@ -214,8 +226,12 @@ export default function App() {
 		const title = customTitle().trim();
 		if (title) payload.output_title = title;
 
-		if (audioFade()) payload.audio_fade = true;
-		if (audioLoudnorm()) payload.audio_loudnorm = true;
+		const audio = audioSettings();
+		if (audio.fade) payload.audio_fade = true;
+		if (audio.loudnorm) payload.audio_loudnorm = true;
+		if (audio.mute) payload.audio_mute = true;
+		if (audio.bitrate !== 128) payload.audio_bitrate = audio.bitrate;
+		if (audio.volume > 1) payload.audio_volume = audio.volume;
 		const stream = streamPreference().trim();
 		if (stream) payload.stream_preference = stream;
 		const tier = hlsTier().trim();
@@ -290,8 +306,9 @@ export default function App() {
 			setActiveTool(null);
 			setCustomTitle("");
 			setCuts([newCutRange()]);
-			setAudioFade(false);
-			setAudioLoudnorm(false);
+			if (!rememberAudio()) {
+				setAudioSettings({ ...DEFAULT_AUDIO_SETTINGS });
+			}
 			if (!rememberEncode()) {
 				setEncodeSettings({ ...DEFAULT_ENCODE_SETTINGS });
 			}
@@ -377,12 +394,20 @@ export default function App() {
 		});
 	}
 
-	function handleAudioFadeChange(value: boolean) {
-		setAudioFade(value);
+	function handleAudioSettingsChange(value: AudioSettings) {
+		setAudioSettings(value);
+		if (rememberAudio()) {
+			persistAudioSettings(value, true);
+		}
 	}
 
-	function handleAudioLoudnormChange(value: boolean) {
-		setAudioLoudnorm(value);
+	function handleRememberAudioChange(checked: boolean) {
+		setRememberAudio(checked);
+		if (checked) {
+			persistAudioSettings(audioSettings(), true);
+		} else {
+			persistAudioSettings(audioSettings(), false);
+		}
 	}
 
 	function handleEncodeSettingsChange(value: EncodeSettings) {
@@ -615,7 +640,13 @@ export default function App() {
 		const badges: Partial<Record<ToolId, number>> = {};
 		const activeCuts = cuts().filter(hasActiveCut).length;
 		if (activeCuts) badges.cut = activeCuts;
-		const audioCount = (audioFade() ? 1 : 0) + (audioLoudnorm() ? 1 : 0);
+		const audio = audioSettings();
+		const audioCount =
+			(audio.fade ? 1 : 0) +
+			(audio.loudnorm ? 1 : 0) +
+			(audio.mute ? 1 : 0) +
+			(audio.bitrate !== 128 ? 1 : 0) +
+			(audio.volume > 1 ? 1 : 0);
 		if (audioCount) badges.audio = audioCount;
 		if (customTitle().trim()) badges.rename = 1;
 		if (savePathCustom()) badges.save = 1;
@@ -724,8 +755,8 @@ export default function App() {
 							savePath={savePath()}
 							rememberSavePath={rememberSavePath()}
 							activeTool={activeTool()}
-							audioFade={audioFade()}
-							audioLoudnorm={audioLoudnorm()}
+							audioSettings={audioSettings()}
+							rememberAudio={rememberAudio()}
 							encodeSettings={encodeSettings()}
 							rememberEncode={rememberEncode()}
 							streamMirrors={meta().stream_mirrors ?? []}
@@ -735,8 +766,8 @@ export default function App() {
 							onCutChange={handleCutChange}
 							onAddCut={handleAddCut}
 							onRemoveCut={handleRemoveCut}
-							onAudioFadeChange={handleAudioFadeChange}
-							onAudioLoudnormChange={handleAudioLoudnormChange}
+							onAudioSettingsChange={handleAudioSettingsChange}
+							onRememberAudioChange={handleRememberAudioChange}
 							onEncodeSettingsChange={handleEncodeSettingsChange}
 							onRememberEncodeChange={handleRememberEncodeChange}
 							onStreamPreferenceChange={handleStreamPreferenceChange}

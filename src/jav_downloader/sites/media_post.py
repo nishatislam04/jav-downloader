@@ -22,6 +22,8 @@ _VALID_PRESETS = frozenset({
 })
 _VALID_OUTPUT_MODES = frozenset({'replace', 'keep_both', 'suffix'})
 _VALID_MAX_HEIGHTS = frozenset({0, 480, 720, 1080})
+_VALID_AUDIO_BITRATES = frozenset({96, 128, 192})
+_DEFAULT_AUDIO_BITRATE = 128
 
 
 def _safe_remove(path):
@@ -80,6 +82,38 @@ def normalize_encode_threads(value) -> int:
     return min(threads, cpu) if threads > 0 else 0
 
 
+def normalize_audio_bitrate(value) -> int:
+    try:
+        kbps = int(value or _DEFAULT_AUDIO_BITRATE)
+    except (TypeError, ValueError):
+        kbps = _DEFAULT_AUDIO_BITRATE
+    return kbps if kbps in _VALID_AUDIO_BITRATES else _DEFAULT_AUDIO_BITRATE
+
+
+def normalize_audio_volume(value) -> float:
+    try:
+        volume = float(value if value is not None else 1.0)
+    except (TypeError, ValueError):
+        volume = 1.0
+    return max(1.0, min(3.0, round(volume, 1)))
+
+
+def apply_audio_options(
+        site,
+        audio_fade=None,
+        audio_loudnorm=None,
+        audio_mute=None,
+        audio_bitrate=None,
+        audio_volume=None) -> None:
+    if audio_fade is not None:
+        site._audio_fade = bool(audio_fade)
+    if audio_loudnorm is not None:
+        site._audio_loudnorm = bool(audio_loudnorm)
+    site._audio_mute = bool(audio_mute)
+    site._audio_bitrate = normalize_audio_bitrate(audio_bitrate)
+    site._audio_volume = normalize_audio_volume(audio_volume)
+
+
 def apply_encode_options(
         site,
         encode=None,
@@ -111,8 +145,32 @@ def site_wants_loudnorm(site) -> bool:
     return bool(getattr(site, '_audio_loudnorm', False))
 
 
+def site_wants_mute(site) -> bool:
+    return bool(getattr(site, '_audio_mute', False))
+
+
+def site_wants_volume_boost(site) -> bool:
+    if site_wants_mute(site):
+        return False
+    return normalize_audio_volume(getattr(site, '_audio_volume', 1.0)) > 1.0
+
+
+def resolved_audio_bitrate(site) -> int:
+    return normalize_audio_bitrate(getattr(site, '_audio_bitrate', None))
+
+
+def _audio_bitrate_only_rewrite(site) -> bool:
+    return resolved_audio_bitrate(site) != _DEFAULT_AUDIO_BITRATE
+
+
 def needs_audio_processing(site) -> bool:
-    return site_wants_fade(site) or site_wants_loudnorm(site)
+    if site_wants_mute(site):
+        return True
+    if site_wants_fade(site) or site_wants_loudnorm(site):
+        return True
+    if site_wants_volume_boost(site):
+        return True
+    return _audio_bitrate_only_rewrite(site)
 
 
 def needs_media_post(site) -> bool:
@@ -144,7 +202,12 @@ def resolved_encode_threads(site) -> int:
 
 
 def build_af_filter(site, duration_sec: float | None) -> str | None:
+    if site_wants_mute(site):
+        return None
     parts = []
+    volume = normalize_audio_volume(getattr(site, '_audio_volume', 1.0))
+    if volume > 1.0:
+        parts.append(f'volume={volume:g}')
     duration = float(duration_sec or 0)
     if site_wants_fade(site) and duration > 0:
         fade = min(FADE_SEC, duration / 2)
@@ -156,12 +219,29 @@ def build_af_filter(site, duration_sec: float | None) -> str | None:
     return ','.join(parts) if parts else None
 
 
-def append_ffmpeg_output_args(cmd, site, duration_sec: float | None = None) -> None:
+def _append_audio_mapping(cmd, site, duration_sec: float | None, *, video_copy: bool) -> None:
+    if site_wants_mute(site):
+        if video_copy:
+            cmd.extend(['-c:v', 'copy', '-an'])
+        else:
+            cmd.append('-an')
+        return
     af = build_af_filter(site, duration_sec)
+    rewrite = bool(af) or _audio_bitrate_only_rewrite(site)
+    if not rewrite:
+        if video_copy:
+            cmd.extend(['-c', 'copy'])
+        return
+    bitrate = resolved_audio_bitrate(site)
+    if video_copy:
+        cmd.extend(['-c:v', 'copy'])
+    cmd.extend(['-c:a', 'aac', '-b:a', f'{bitrate}k'])
     if af:
-        cmd.extend(['-c:v', 'copy', '-c:a', 'aac', '-b:a', '192k', '-af', af])
-    else:
-        cmd.extend(['-c', 'copy'])
+        cmd.extend(['-af', af])
+
+
+def append_ffmpeg_output_args(cmd, site, duration_sec: float | None = None) -> None:
+    _append_audio_mapping(cmd, site, duration_sec, video_copy=True)
     cmd.extend(['-movflags', '+faststart'])
 
 
@@ -221,7 +301,6 @@ def _build_encode_cmd(ffmpeg, site, src_path, dst_path, duration_sec):
     codec = normalize_encode_codec(getattr(site, '_encode_codec', None))
     crf = normalize_encode_crf(getattr(site, '_encode_crf', None))
     max_height = normalize_encode_max_height(getattr(site, '_encode_max_height', None))
-    af = build_af_filter(site, duration_sec)
 
     cmd = [
         ffmpeg, '-y', '-hide_banner', '-loglevel', 'error',
@@ -235,10 +314,7 @@ def _build_encode_cmd(ffmpeg, site, src_path, dst_path, duration_sec):
         cmd.extend(['-c:v', 'libx265', '-crf', str(crf), '-preset', preset])
     else:
         cmd.extend(['-c:v', 'libx264', '-crf', str(crf), '-preset', preset])
-    if af:
-        cmd.extend(['-c:a', 'aac', '-b:a', '128k', '-af', af])
-    else:
-        cmd.extend(['-c:a', 'aac', '-b:a', '128k'])
+    _append_audio_mapping(cmd, site, duration_sec, video_copy=False)
     cmd.extend(['-movflags', '+faststart', dst_path])
     return cmd
 
@@ -350,7 +426,7 @@ def post_process_media(site, src_path: str, duration_sec: float | None = None) -
 
 
 def post_process_audio(site, src_path: str, duration_sec: float | None = None) -> None:
-    """Rewrite src_path in place when fade/loudnorm is enabled (video copy)."""
+    """Rewrite src_path in place for audio strip/process (video copy)."""
     if not needs_audio_processing(site):
         return
     if not src_path or not os.path.isfile(src_path):
@@ -360,19 +436,15 @@ def post_process_audio(site, src_path: str, duration_sec: float | None = None) -
     if not ffmpeg:
         raise Exception('Audio processing requires ffmpeg')
 
-    af = build_af_filter(site, duration_sec)
-    if not af:
-        return
-
     dest_dir = os.path.dirname(src_path) or os.getcwd()
     fd, temp_path = tempfile.mkstemp(suffix='.mp4', prefix='jav-audio-', dir=dest_dir)
     os.close(fd)
     cmd = [
         ffmpeg, '-y', '-hide_banner', '-loglevel', 'error',
         '-i', src_path,
-        '-c:v', 'copy', '-c:a', 'aac', '-b:a', '192k', '-af', af,
-        '-movflags', '+faststart', temp_path,
     ]
+    _append_audio_mapping(cmd, site, duration_sec, video_copy=True)
+    cmd.extend(['-movflags', '+faststart', temp_path])
     proc = subprocess.run(
         cmd,
         stdin=subprocess.DEVNULL,

@@ -2,6 +2,8 @@ const REMEMBER_SAVE_PATH_KEY = 'jav-downloader-remember-save-path';
 const SAVE_PATH_KEY = 'jav-downloader-save-path';
 const REMEMBER_ENCODE_KEY = 'jav-downloader-remember-encode';
 const ENCODE_SETTINGS_KEY = 'jav-downloader-encode-settings';
+const REMEMBER_AUDIO_KEY = 'jav-downloader-remember-audio';
+const AUDIO_SETTINGS_KEY = 'jav-downloader-audio-settings';
 
 export type EncodeCodec = 'h264' | 'hevc';
 export type EncodeMaxHeight = 0 | 480 | 720 | 1080;
@@ -24,6 +26,24 @@ export type EncodeSettings = {
   outputMode: EncodeOutputMode;
   preset: EncodePreset;
   threads: number;
+};
+
+export type AudioBitrate = 96 | 128 | 192;
+
+export type AudioSettings = {
+  fade: boolean;
+  loudnorm: boolean;
+  mute: boolean;
+  bitrate: AudioBitrate;
+  volume: number;
+};
+
+export const DEFAULT_AUDIO_SETTINGS: AudioSettings = {
+  fade: false,
+  loudnorm: false,
+  mute: false,
+  bitrate: 128,
+  volume: 1,
 };
 
 export const DEFAULT_ENCODE_SETTINGS: EncodeSettings = {
@@ -110,6 +130,57 @@ export function persistSavePath(path: string, remember: boolean): void {
 
 export function clearSavedPath(): void {
   persistSavePath('', false);
+}
+
+function normalizeAudioSettings(raw: Partial<AudioSettings> | null): AudioSettings {
+  if (!raw) return { ...DEFAULT_AUDIO_SETTINGS };
+  const bitrates: AudioBitrate[] = [96, 128, 192];
+  const bitrate = bitrates.includes(raw.bitrate as AudioBitrate)
+    ? (raw.bitrate as AudioBitrate)
+    : 128;
+  let volume = Number(raw.volume ?? 1);
+  if (!Number.isFinite(volume)) volume = 1;
+  volume = Math.max(1, Math.min(3, Math.round(volume * 10) / 10));
+  return {
+    fade: Boolean(raw.fade),
+    loudnorm: Boolean(raw.loudnorm),
+    mute: Boolean(raw.mute),
+    bitrate,
+    volume,
+  };
+}
+
+export function loadRememberAudio(): boolean {
+  try {
+    return localStorage.getItem(REMEMBER_AUDIO_KEY) === '1';
+  } catch {
+    return false;
+  }
+}
+
+export function loadAudioSettings(): AudioSettings {
+  try {
+    const raw = localStorage.getItem(AUDIO_SETTINGS_KEY);
+    if (!raw) return { ...DEFAULT_AUDIO_SETTINGS };
+    return normalizeAudioSettings(JSON.parse(raw) as Partial<AudioSettings>);
+  } catch {
+    return { ...DEFAULT_AUDIO_SETTINGS };
+  }
+}
+
+export function persistAudioSettings(settings: AudioSettings, remember: boolean): void {
+  try {
+    const normalized = normalizeAudioSettings(settings);
+    if (remember) {
+      localStorage.setItem(REMEMBER_AUDIO_KEY, '1');
+      localStorage.setItem(AUDIO_SETTINGS_KEY, JSON.stringify(normalized));
+      return;
+    }
+    localStorage.removeItem(REMEMBER_AUDIO_KEY);
+    localStorage.removeItem(AUDIO_SETTINGS_KEY);
+  } catch {
+    // ignore quota / private mode
+  }
 }
 
 export function loadRememberEncode(): boolean {

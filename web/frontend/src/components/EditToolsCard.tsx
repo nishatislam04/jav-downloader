@@ -9,6 +9,8 @@ import {
 import type { ResolveResult } from "../api";
 import { validateFolder } from "../api";
 import type {
+	AudioBitrate,
+	AudioSettings,
 	EncodeCodec,
 	EncodeMaxHeight,
 	EncodeOutputMode,
@@ -33,6 +35,7 @@ import {
 	RenameIcon,
 	StreamIcon,
 } from "./IconButton";
+import FieldHint from "./FieldHint";
 import TimeField from "./TimeField";
 
 export type ToolId =
@@ -78,8 +81,8 @@ type Props = {
 	savePath: string;
 	rememberSavePath: boolean;
 	activeTool: ToolId | null;
-	audioFade: boolean;
-	audioLoudnorm: boolean;
+	audioSettings: AudioSettings;
+	rememberAudio: boolean;
 	encodeSettings: EncodeSettings;
 	rememberEncode: boolean;
 	streamMirrors: string[];
@@ -89,8 +92,8 @@ type Props = {
 	onCutChange: (id: string, field: "start" | "end", value: string) => void;
 	onAddCut: () => void;
 	onRemoveCut: (id: string) => void;
-	onAudioFadeChange: (value: boolean) => void;
-	onAudioLoudnormChange: (value: boolean) => void;
+	onAudioSettingsChange: (value: AudioSettings) => void;
+	onRememberAudioChange: (value: boolean) => void;
 	onEncodeSettingsChange: (value: EncodeSettings) => void;
 	onRememberEncodeChange: (value: boolean) => void;
 	onStreamPreferenceChange: (label: string) => void;
@@ -122,6 +125,15 @@ function rowDurationLabel(
 ): string {
 	const sec = cutClipDurationSec(durationSec, cut.start, cut.end);
 	return sec === null ? "" : formatDurationHuman(sec);
+}
+
+function estimateAudioSizeMb(
+	durationSec: number | null | undefined,
+	bitrateKbps: number,
+): string {
+	if (!durationSec || durationSec <= 0) return "";
+	const mb = (durationSec * bitrateKbps * 1000) / 8 / (1024 * 1024);
+	return `~${mb.toFixed(0)} MB stereo`;
 }
 
 function rowFieldErrors(cut: CutRange, durationSec: number | null | undefined) {
@@ -340,9 +352,109 @@ export default function EditToolsCard(props: Props) {
 										<label class="toggle-row">
 											<input
 												type="checkbox"
-												checked={props.audioFade}
+												checked={props.audioSettings.mute}
 												onChange={(event) =>
-													props.onAudioFadeChange(event.currentTarget.checked)
+													props.onAudioSettingsChange({
+														...props.audioSettings,
+														mute: event.currentTarget.checked,
+													})
+												}
+											/>
+											<span>Remove audio track (no audio in output)</span>
+										</label>
+										<div class="audio-grid">
+											<label class="encode-field">
+												<div class="encode-field-head">
+													<span>Bitrate</span>
+													<FieldHint label="Audio bitrate">
+														<p>
+															AAC bitrate when audio is re-encoded (fade,
+															loudnorm, volume boost, encode, or non-default
+															bitrate).
+														</p>
+														<ul class="field-hint-list">
+															<li>
+																<strong>96k</strong> — Smallest audio; fine for
+																speech.
+															</li>
+															<li>
+																<strong>128k</strong> — Default balance for
+																most clips.
+															</li>
+															<li>
+																<strong>192k</strong> — Higher fidelity when
+																music matters.
+															</li>
+														</ul>
+													</FieldHint>
+												</div>
+												<select
+													value={String(props.audioSettings.bitrate)}
+													disabled={props.audioSettings.mute}
+													onChange={(event) =>
+														props.onAudioSettingsChange({
+															...props.audioSettings,
+															bitrate: Number(
+																event.currentTarget.value,
+															) as AudioBitrate,
+														})
+													}
+												>
+													<option value="96">96k</option>
+													<option value="128">128k</option>
+													<option value="192">192k</option>
+												</select>
+												<Show
+													when={estimateAudioSizeMb(
+														props.durationSec,
+														props.audioSettings.bitrate,
+													)}
+												>
+													{(size) => (
+														<span class="audio-size-hint">{size()}</span>
+													)}
+												</Show>
+											</label>
+											<label class="encode-field">
+												<div class="encode-field-head">
+													<span>
+														Volume boost {props.audioSettings.volume.toFixed(1)}×
+													</span>
+													<FieldHint label="Volume boost">
+														<p>
+															Multiplies quiet source audio before other
+															filters. Loudnorm afterward still targets
+															standard loudness — use boost only when the
+															source is too quiet.
+														</p>
+													</FieldHint>
+												</div>
+												<input
+													type="range"
+													min={1}
+													max={3}
+													step={0.1}
+													disabled={props.audioSettings.mute}
+													value={props.audioSettings.volume}
+													onInput={(event) =>
+														props.onAudioSettingsChange({
+															...props.audioSettings,
+															volume: Number(event.currentTarget.value),
+														})
+													}
+												/>
+											</label>
+										</div>
+										<label class="toggle-row">
+											<input
+												type="checkbox"
+												checked={props.audioSettings.fade}
+												disabled={props.audioSettings.mute}
+												onChange={(event) =>
+													props.onAudioSettingsChange({
+														...props.audioSettings,
+														fade: event.currentTarget.checked,
+													})
 												}
 											/>
 											<span>Fade in / out (0.5s at start and end)</span>
@@ -350,14 +462,28 @@ export default function EditToolsCard(props: Props) {
 										<label class="toggle-row">
 											<input
 												type="checkbox"
-												checked={props.audioLoudnorm}
+												checked={props.audioSettings.loudnorm}
+												disabled={props.audioSettings.mute}
 												onChange={(event) =>
-													props.onAudioLoudnormChange(
+													props.onAudioSettingsChange({
+														...props.audioSettings,
+														loudnorm: event.currentTarget.checked,
+													})
+												}
+											/>
+											<span>Normalize loudness</span>
+										</label>
+										<label class="remember-path">
+											<input
+												type="checkbox"
+												checked={props.rememberAudio}
+												onChange={(event) =>
+													props.onRememberAudioChange(
 														event.currentTarget.checked,
 													)
 												}
 											/>
-											<span>Normalize loudness</span>
+											<span>Remember choice</span>
 										</label>
 									</Show>
 
@@ -377,7 +503,29 @@ export default function EditToolsCard(props: Props) {
 										</label>
 										<div class="encode-grid">
 											<label class="encode-field">
-												<span>Codec</span>
+												<div class="encode-field-head">
+													<span>Codec</span>
+													<FieldHint label="Codec">
+														<p>
+															Pick based on where you will play the file and
+															how much space you want to save.
+														</p>
+														<ul class="field-hint-list">
+															<li>
+																<strong>H.264</strong> — Plays on almost
+																everything (phones, TVs, browsers). Best when
+																you share files or need maximum compatibility.
+															</li>
+															<li>
+																<strong>H.265 / HEVC</strong> — Roughly 30–50%
+																smaller at the same visual quality. Slower to
+																encode and some older devices cannot play it.
+																Use when storage matters and your players
+																support it.
+															</li>
+														</ul>
+													</FieldHint>
+												</div>
 												<select
 													value={props.encodeSettings.codec}
 													disabled={!props.encodeSettings.enabled}
@@ -393,7 +541,32 @@ export default function EditToolsCard(props: Props) {
 												</select>
 											</label>
 											<label class="encode-field">
-												<span>CRF {props.encodeSettings.crf}</span>
+												<div class="encode-field-head">
+													<span>CRF {props.encodeSettings.crf}</span>
+													<FieldHint label="CRF (quality)">
+														<p>
+															Constant Rate Factor controls quality vs file
+															size. Lower number = higher quality and larger
+															file.
+														</p>
+														<ul class="field-hint-list">
+															<li>
+																<strong>18–20</strong> — Very high quality,
+																large files. Use for archival or when you
+																notice banding at 23.
+															</li>
+															<li>
+																<strong>23</strong> — Default sweet spot. Good
+																balance for most clips.
+															</li>
+															<li>
+																<strong>26–28</strong> — Smaller files with
+																visible compression. Use when size matters
+																more than perfection.
+															</li>
+														</ul>
+													</FieldHint>
+												</div>
 												<input
 													type="range"
 													min={18}
@@ -429,8 +602,45 @@ export default function EditToolsCard(props: Props) {
 													<option value="1080">1080p</option>
 												</select>
 											</label>
-											<label class="encode-field">
-												<span>Preset</span>
+											<label class="encode-field encode-field-wide">
+												<div class="encode-field-head">
+													<span>Preset</span>
+													<FieldHint label="Encoding preset">
+														<p>
+															Controls encoder speed vs compression
+															efficiency. Does not change quality target (CRF
+															does that) — it changes how hard ffmpeg works
+															to hit that quality.
+														</p>
+														<ul class="field-hint-list">
+															<li>
+																<strong>Auto</strong> — Veryfast on Termux /
+																Android, medium on desktop.
+															</li>
+															<li>
+																<strong>Ultrafast</strong> — Fastest encode,
+																largest output. Good for quick tests.
+															</li>
+															<li>
+																<strong>Superfast / Veryfast</strong> — Fast
+																encodes when you are in a hurry.
+															</li>
+															<li>
+																<strong>Faster / Fast</strong> — Reasonable
+																speed with better compression than the
+																fastest presets.
+															</li>
+															<li>
+																<strong>Medium</strong> — Balanced default on
+																desktop; good everyday choice.
+															</li>
+															<li>
+																<strong>Slow</strong> — Best compression for a
+																given CRF, but much longer encode time.
+															</li>
+														</ul>
+													</FieldHint>
+												</div>
 												<select
 													value={props.encodeSettings.preset}
 													disabled={!props.encodeSettings.enabled}
@@ -492,8 +702,7 @@ export default function EditToolsCard(props: Props) {
 											</label>
 										</div>
 										<p class="hint encode-hint">
-											Software x264/x265 only. Auto preset uses veryfast on
-											Termux and medium elsewhere.
+											Software x264/x265 only — no hardware encode.
 										</p>
 										<label class="remember-path">
 											<input

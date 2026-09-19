@@ -1156,6 +1156,112 @@ button.save-apply-btn:not(:disabled):hover {
   gap: 6px;
   font-size: 0.85rem;
   color: var(--text);
+  position: relative;
+}
+
+.encode-field-wide {
+  grid-column: 1 / -1;
+}
+
+.encode-field-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  min-height: 24px;
+}
+
+.field-hint {
+  position: relative;
+  flex-shrink: 0;
+}
+
+.field-hint-trigger {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 24px;
+  height: 24px;
+  padding: 0;
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.04);
+  color: var(--muted);
+  cursor: help;
+  transition:
+    color 0.15s ease,
+    border-color 0.15s ease,
+    background 0.15s ease;
+}
+
+.field-hint-trigger:hover,
+.field-hint-open .field-hint-trigger,
+.field-hint-trigger[aria-expanded='true'] {
+  color: var(--accent-2);
+  border-color: rgba(120, 180, 255, 0.45);
+  background: rgba(120, 180, 255, 0.08);
+}
+
+.field-hint-backdrop {
+  display: none;
+}
+
+.field-hint-popover {
+  position: absolute;
+  z-index: 30;
+  top: calc(100% + 10px);
+  right: 0;
+  width: min(22rem, calc(100vw - 2.5rem));
+  padding: 16px 18px;
+  border-radius: 14px;
+  border: 1px solid rgba(120, 180, 255, 0.22);
+  background: linear-gradient(180deg, #171b24 0%, #12151c 100%);
+  box-shadow:
+    0 16px 40px rgba(0, 0, 0, 0.45),
+    0 0 0 1px rgba(255, 255, 255, 0.03) inset;
+}
+
+.field-hint-title {
+  margin: 0 0 10px;
+  font-size: 0.92rem;
+  font-weight: 600;
+  color: var(--text);
+}
+
+.field-hint-body {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  font-size: 0.84rem;
+  line-height: 1.55;
+  color: #c8ceda;
+}
+
+.field-hint-body p {
+  margin: 0;
+}
+
+.field-hint-list {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.field-hint-list li {
+  padding: 10px 12px;
+  border-radius: 10px;
+  background: rgba(255, 255, 255, 0.03);
+  border: 1px solid rgba(255, 255, 255, 0.05);
+}
+
+.field-hint-list strong {
+  display: block;
+  margin-bottom: 4px;
+  color: var(--accent-2);
+  font-weight: 600;
 }
 
 .encode-field select,
@@ -1170,6 +1276,18 @@ button.save-apply-btn:not(:disabled):hover {
 
 .encode-hint {
   margin-top: 0;
+}
+
+.audio-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+  gap: 12px;
+  margin: 4px 0 12px;
+}
+
+.audio-size-hint {
+  font-size: 0.78rem;
+  color: var(--muted);
 }
 
 .stream-active {
@@ -1344,6 +1462,34 @@ button.save-apply-btn:not(:disabled):hover {
 
   .edit-tools-heading {
     margin: 0 0 10px;
+  }
+
+  .field-hint-backdrop {
+    display: block;
+    position: fixed;
+    inset: 0;
+    z-index: 40;
+    background: rgba(0, 0, 0, 0.55);
+    backdrop-filter: blur(2px);
+  }
+
+  .field-hint-popover {
+    position: fixed;
+    z-index: 50;
+    left: 12px;
+    right: 12px;
+    bottom: 12px;
+    top: auto;
+    width: auto;
+    max-width: none;
+    max-height: min(70vh, 520px);
+    overflow-y: auto;
+    padding: 18px 16px 20px;
+    border-radius: 16px 16px 14px 14px;
+  }
+
+  .field-hint-list li {
+    padding: 12px 14px;
   }
 
   /* Save panel: drop the nested field border/padding, shrink path text */

@@ -67,6 +67,42 @@ def _optional_int(value):
         return None
 
 
+def _optional_float(value):
+    if value is None or value == '':
+        return None
+    try:
+        return float(value)
+    except (TypeError, ValueError):
+        return None
+
+
+def _audio_options(
+        audio_fade=False,
+        audio_loudnorm=False,
+        audio_mute=False,
+        audio_bitrate=None,
+        audio_volume=None) -> dict:
+    return {
+        'audio_fade': bool(audio_fade),
+        'audio_loudnorm': bool(audio_loudnorm),
+        'audio_mute': bool(audio_mute),
+        'audio_bitrate': _optional_int(audio_bitrate),
+        'audio_volume': _optional_float(audio_volume),
+    }
+
+
+def _audio_options_from_mapping(payload: dict | None) -> dict:
+    if not payload:
+        return _audio_options()
+    return _audio_options(
+        audio_fade=_optional_bool(payload.get('audio_fade')),
+        audio_loudnorm=_optional_bool(payload.get('audio_loudnorm')),
+        audio_mute=_optional_bool(payload.get('audio_mute')),
+        audio_bitrate=payload.get('audio_bitrate'),
+        audio_volume=payload.get('audio_volume'),
+    )
+
+
 def _encode_options(
         encode=False,
         encode_codec=None,
@@ -136,6 +172,9 @@ def resolve_url(
         output_title: str | None = None,
         audio_fade: bool = False,
         audio_loudnorm: bool = False,
+        audio_mute: bool = False,
+        audio_bitrate: int | None = None,
+        audio_volume: float | None = None,
         stream_preference: str | None = None,
         resolution_pref: str | None = None,
         hls_tier: str | None = None,
@@ -168,6 +207,13 @@ def resolve_url(
             stream_preference=_optional_text(stream_preference),
             resolution_pref=_optional_text(resolution_pref),
             hls_tier=_optional_text(hls_tier),
+            **_audio_options(
+                audio_fade=audio_fade,
+                audio_loudnorm=audio_loudnorm,
+                audio_mute=audio_mute,
+                audio_bitrate=audio_bitrate,
+                audio_volume=audio_volume,
+            ),
             **_encode_options(**encode_kwargs),
         )
     except Exception as exc:
@@ -215,6 +261,9 @@ def _run_download(
         cuts: list | None = None,
         audio_fade: bool = False,
         audio_loudnorm: bool = False,
+        audio_mute: bool = False,
+        audio_bitrate: int | None = None,
+        audio_volume: float | None = None,
         stream_preference: str | None = None,
         resolution_pref: str | None = None,
         hls_tier: str | None = None,
@@ -234,6 +283,13 @@ def _run_download(
             stream_preference=stream_preference,
             resolution_pref=resolution_pref,
             hls_tier=hls_tier,
+            **_audio_options(
+                audio_fade=audio_fade,
+                audio_loudnorm=audio_loudnorm,
+                audio_mute=audio_mute,
+                audio_bitrate=audio_bitrate,
+                audio_volume=audio_volume,
+            ),
             **_encode_options(**encode_kwargs),
         )
         if site is None or not site.is_url_vaildate():
@@ -360,6 +416,9 @@ def start_download(
         output_title: str | None = None,
         audio_fade: bool = False,
         audio_loudnorm: bool = False,
+        audio_mute: bool = False,
+        audio_bitrate: int | None = None,
+        audio_volume: float | None = None,
         stream_preference: str | None = None,
         resolution_pref: str | None = None,
         hls_tier: str | None = None,
@@ -382,8 +441,13 @@ def start_download(
         'cut_end': cut_end,
         'cuts': cuts,
         'output_title': output_title,
-        'audio_fade': audio_fade,
-        'audio_loudnorm': audio_loudnorm,
+        **_audio_options(
+            audio_fade=audio_fade,
+            audio_loudnorm=audio_loudnorm,
+            audio_mute=audio_mute,
+            audio_bitrate=audio_bitrate,
+            audio_volume=audio_volume,
+        ),
         'stream_preference': stream_preference,
         'resolution_pref': resolution_pref,
         'hls_tier': hls_tier,
@@ -397,7 +461,16 @@ def start_download(
             audio_fade, audio_loudnorm, stream_preference,
             resolution_pref, hls_tier,
         ),
-        kwargs=_encode_options(**encode_kwargs),
+        kwargs={
+            **_audio_options(
+                audio_fade=audio_fade,
+                audio_loudnorm=audio_loudnorm,
+                audio_mute=audio_mute,
+                audio_bitrate=audio_bitrate,
+                audio_volume=audio_volume,
+            ),
+            **_encode_options(**encode_kwargs),
+        },
         name=f'jav-web-{job.id}',
         daemon=True,
     )
@@ -441,7 +514,10 @@ def resume_download(manager: JobManager, job_id: str) -> bool:
             params.get('resolution_pref'),
             params.get('hls_tier'),
         ),
-        kwargs=_encode_options_from_mapping(params),
+        kwargs={
+            **_audio_options_from_mapping(params),
+            **_encode_options_from_mapping(params),
+        },
         name=f'jav-web-{job_id}-resume',
         daemon=True,
     )

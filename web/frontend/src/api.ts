@@ -77,6 +77,9 @@ export type DownloadOptions = {
   output_title?: string;
   audio_fade?: boolean;
   audio_loudnorm?: boolean;
+  audio_mute?: boolean;
+  audio_bitrate?: number;
+  audio_volume?: number;
   stream_preference?: string;
   resolution_pref?: string;
   hls_tier?: string;
