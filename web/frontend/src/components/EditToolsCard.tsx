@@ -8,6 +8,13 @@ import {
 } from "solid-js";
 import type { ResolveResult } from "../api";
 import { validateFolder } from "../api";
+import type {
+	EncodeCodec,
+	EncodeMaxHeight,
+	EncodeOutputMode,
+	EncodePreset,
+	EncodeSettings,
+} from "../lib/persist";
 import {
 	cutClipDurationSec,
 	formatDurationHuman,
@@ -17,7 +24,10 @@ import {
 } from "../lib/time";
 import {
 	AudioIcon,
+	ChevronDownIcon,
+	ChevronUpIcon,
 	CutIcon,
+	EncodeIcon,
 	FolderIcon,
 	QualityIcon,
 	RenameIcon,
@@ -25,7 +35,14 @@ import {
 } from "./IconButton";
 import TimeField from "./TimeField";
 
-export type ToolId = "cut" | "audio" | "stream" | "quality" | "rename" | "save";
+export type ToolId =
+	| "cut"
+	| "audio"
+	| "encode"
+	| "stream"
+	| "quality"
+	| "rename"
+	| "save";
 
 export type CutRange = {
 	id: string;
@@ -63,6 +80,8 @@ type Props = {
 	activeTool: ToolId | null;
 	audioFade: boolean;
 	audioLoudnorm: boolean;
+	encodeSettings: EncodeSettings;
+	rememberEncode: boolean;
 	streamMirrors: string[];
 	activeStream: string;
 	hlsTiers: NonNullable<ResolveResult["hls_tiers"]>;
@@ -72,6 +91,8 @@ type Props = {
 	onRemoveCut: (id: string) => void;
 	onAudioFadeChange: (value: boolean) => void;
 	onAudioLoudnormChange: (value: boolean) => void;
+	onEncodeSettingsChange: (value: EncodeSettings) => void;
+	onRememberEncodeChange: (value: boolean) => void;
 	onStreamPreferenceChange: (label: string) => void;
 	onTryNextStream: () => void;
 	onHlsTierChange: (tierId: string) => void;
@@ -90,6 +111,7 @@ const BASE_TOOLS: Array<{
 }> = [
 	{ id: "cut", label: "Cut", Icon: CutIcon },
 	{ id: "audio", label: "Audio", Icon: AudioIcon },
+	{ id: "encode", label: "Encode", Icon: EncodeIcon },
 	{ id: "rename", label: "Rename title", Icon: RenameIcon },
 	{ id: "save", label: "Save location", Icon: FolderIcon },
 ];
@@ -113,6 +135,7 @@ function rowFieldErrors(cut: CutRange, durationSec: number | null | undefined) {
 export default function EditToolsCard(props: Props) {
 	const [pathError, setPathError] = createSignal("");
 	const [draftPath, setDraftPath] = createSignal(props.savePath);
+	const [collapsed, setCollapsed] = createSignal(false);
 
 	createEffect(() => {
 		setDraftPath(props.savePath);
@@ -144,11 +167,11 @@ export default function EditToolsCard(props: Props) {
 
 	const visibleTools = createMemo(() => {
 		const items = [...BASE_TOOLS];
-		let insertAt = 2;
+		let insertAt = 3;
 		if (props.hlsTiers.length > 0) {
 			items.splice(insertAt, 0, {
 				id: "quality",
-				label: "Quality",
+				label: "Source",
 				Icon: QualityIcon,
 			});
 			insertAt += 1;
@@ -174,273 +197,444 @@ export default function EditToolsCard(props: Props) {
 
 	return (
 		<section class="card edit-tools">
-			<p class="edit-tools-heading">Video tools</p>
-			<div class="edit-tools-layout">
-				<nav class="edit-tools-sidebar" aria-label="Video tools">
-					{visibleTools().map((tool) => (
-						<button
-							type="button"
-							class={`tool-sidebar-btn ${props.activeTool === tool.id ? "active" : ""}`}
-							aria-pressed={props.activeTool === tool.id}
-							aria-label={
-								(props.toolBadges?.[tool.id] ?? 0) > 0
-									? `${tool.label} (${props.toolBadges?.[tool.id]})`
-									: tool.label
+			<div class="edit-tools-head">
+				<p class="edit-tools-heading">Video tools</p>
+				<button
+					type="button"
+					class="edit-tools-collapse-btn"
+					aria-expanded={!collapsed()}
+					aria-label={
+						collapsed() ? "Expand video tools" : "Collapse video tools"
+					}
+					title={collapsed() ? "Expand" : "Collapse"}
+					onClick={() => setCollapsed((value) => !value)}
+				>
+					<Show when={collapsed()} fallback={<ChevronUpIcon />}>
+						<ChevronDownIcon />
+					</Show>
+				</button>
+			</div>
+			<Show when={!collapsed()}>
+				<div class="edit-tools-layout">
+					<nav class="edit-tools-sidebar" aria-label="Video tools">
+						{visibleTools().map((tool) => (
+							<button
+								type="button"
+								class={`tool-sidebar-btn ${props.activeTool === tool.id ? "active" : ""}`}
+								aria-pressed={props.activeTool === tool.id}
+								aria-label={
+									(props.toolBadges?.[tool.id] ?? 0) > 0
+										? `${tool.label} (${props.toolBadges?.[tool.id]})`
+										: tool.label
+								}
+								title={tool.label}
+								onClick={() => props.onSelectTool(tool.id)}
+							>
+								<tool.Icon />
+								<span>{tool.label}</span>
+								<Show when={(props.toolBadges?.[tool.id] ?? 0) > 0}>
+									<span class="tool-badge" aria-hidden="true">
+										{props.toolBadges?.[tool.id]}
+									</span>
+								</Show>
+							</button>
+						))}
+					</nav>
+
+					<div class="edit-tools-panel">
+						<Show
+							when={props.activeTool}
+							fallback={
+								<div class="tool-panel-empty">
+									<p class="tool-panel-title">Select a tool</p>
+									<p class="hint">
+										Pick a tool from the left sidebar to edit download options.
+									</p>
+								</div>
 							}
-							title={tool.label}
-							onClick={() => props.onSelectTool(tool.id)}
 						>
-							<tool.Icon />
-							<span>{tool.label}</span>
-							<Show when={(props.toolBadges?.[tool.id] ?? 0) > 0}>
-								<span class="tool-badge" aria-hidden="true">
-									{props.toolBadges?.[tool.id]}
-								</span>
-							</Show>
-						</button>
-					))}
-				</nav>
+							{(toolId) => (
+								<>
+									<p class="tool-panel-title">{activeMeta()?.label}</p>
 
-				<div class="edit-tools-panel">
-					<Show
-						when={props.activeTool}
-						fallback={
-							<div class="tool-panel-empty">
-								<p class="tool-panel-title">Select a tool</p>
-								<p class="hint">
-									Pick a tool from the left sidebar to edit download options.
-								</p>
-							</div>
-						}
-					>
-						{(toolId) => (
-							<>
-								<p class="tool-panel-title">{activeMeta()?.label}</p>
+									<Show when={toolId() === "cut"}>
+										<div class="cut-list">
+											<Index each={props.cuts}>
+												{(cut, index) => {
+													const errors = () =>
+														rowFieldErrors(cut(), props.durationSec);
+													const durationLabel = () =>
+														rowDurationLabel(props.durationSec, cut());
 
-								<Show when={toolId() === "cut"}>
-									<div class="cut-list">
-										<Index each={props.cuts}>
-											{(cut, index) => {
-												const errors = () =>
-													rowFieldErrors(cut(), props.durationSec);
-												const durationLabel = () =>
-													rowDurationLabel(props.durationSec, cut());
-
-												return (
-													<div class="cut-range-row">
-														<div class="cut-range-head">
-															<p class="cut-range-label">Cut {index + 1}</p>
-															<Show when={durationLabel()}>
-																<span class="cut-duration">
-																	{durationLabel()}
-																</span>
+													return (
+														<div class="cut-range-row">
+															<div class="cut-range-head">
+																<p class="cut-range-label">Cut {index + 1}</p>
+																<Show when={durationLabel()}>
+																	<span class="cut-duration">
+																		{durationLabel()}
+																	</span>
+																</Show>
+															</div>
+															<div class="cut-range-fields">
+																<TimeField
+																	id={`cut-${cut().id}-start`}
+																	label="Start"
+																	value={cut().start}
+																	error={errors().start}
+																	onChange={(value) =>
+																		props.onCutChange(cut().id, "start", value)
+																	}
+																/>
+																<TimeField
+																	id={`cut-${cut().id}-end`}
+																	label="End"
+																	value={cut().end}
+																	error={errors().end}
+																	onChange={(value) =>
+																		props.onCutChange(cut().id, "end", value)
+																	}
+																/>
+															</div>
+															<Show
+																when={multiCut()}
+																fallback={
+																	<div
+																		class="cut-remove-slot"
+																		aria-hidden="true"
+																	/>
+																}
+															>
+																<button
+																	type="button"
+																	class="cut-remove-btn"
+																	aria-label={`Remove cut ${index + 1}`}
+																	onClick={() => props.onRemoveCut(cut().id)}
+																>
+																	×
+																</button>
 															</Show>
 														</div>
-														<div class="cut-range-fields">
-															<TimeField
-																id={`cut-${cut().id}-start`}
-																label="Start"
-																value={cut().start}
-																error={errors().start}
-																onChange={(value) =>
-																	props.onCutChange(cut().id, "start", value)
-																}
-															/>
-															<TimeField
-																id={`cut-${cut().id}-end`}
-																label="End"
-																value={cut().end}
-																error={errors().end}
-																onChange={(value) =>
-																	props.onCutChange(cut().id, "end", value)
-																}
-															/>
-														</div>
-														<Show
-															when={multiCut()}
-															fallback={
-																<div
-																	class="cut-remove-slot"
-																	aria-hidden="true"
-																/>
-															}
-														>
-															<button
-																type="button"
-																class="cut-remove-btn"
-																aria-label={`Remove cut ${index + 1}`}
-																onClick={() => props.onRemoveCut(cut().id)}
-															>
-																×
-															</button>
-														</Show>
-													</div>
-												);
-											}}
-										</Index>
-									</div>
-									<div class="cut-actions">
+													);
+												}}
+											</Index>
+										</div>
+										<div class="cut-actions">
+											<button
+												type="button"
+												class="cut-add-btn"
+												aria-label="Add another cut"
+												onClick={() => props.onAddCut()}
+											>
+												+
+											</button>
+											<Show when={totalDurationLabel() && multiCut()}>
+												<span class="cut-total-duration">
+													Total {totalDurationLabel()}
+												</span>
+											</Show>
+										</div>
+									</Show>
+
+									<Show when={toolId() === "audio"}>
+										<label class="toggle-row">
+											<input
+												type="checkbox"
+												checked={props.audioFade}
+												onChange={(event) =>
+													props.onAudioFadeChange(event.currentTarget.checked)
+												}
+											/>
+											<span>Fade in / out (0.5s at start and end)</span>
+										</label>
+										<label class="toggle-row">
+											<input
+												type="checkbox"
+												checked={props.audioLoudnorm}
+												onChange={(event) =>
+													props.onAudioLoudnormChange(
+														event.currentTarget.checked,
+													)
+												}
+											/>
+											<span>Normalize loudness</span>
+										</label>
+									</Show>
+
+									<Show when={toolId() === "encode"}>
+										<label class="toggle-row">
+											<input
+												type="checkbox"
+												checked={props.encodeSettings.enabled}
+												onChange={(event) =>
+													props.onEncodeSettingsChange({
+														...props.encodeSettings,
+														enabled: event.currentTarget.checked,
+													})
+												}
+											/>
+											<span>Re-encode after download (ffmpeg)</span>
+										</label>
+										<div class="encode-grid">
+											<label class="encode-field">
+												<span>Codec</span>
+												<select
+													value={props.encodeSettings.codec}
+													disabled={!props.encodeSettings.enabled}
+													onChange={(event) =>
+														props.onEncodeSettingsChange({
+															...props.encodeSettings,
+															codec: event.currentTarget.value as EncodeCodec,
+														})
+													}
+												>
+													<option value="h264">H.264</option>
+													<option value="hevc">H.265 / HEVC</option>
+												</select>
+											</label>
+											<label class="encode-field">
+												<span>CRF {props.encodeSettings.crf}</span>
+												<input
+													type="range"
+													min={18}
+													max={28}
+													step={1}
+													disabled={!props.encodeSettings.enabled}
+													value={props.encodeSettings.crf}
+													onInput={(event) =>
+														props.onEncodeSettingsChange({
+															...props.encodeSettings,
+															crf: Number(event.currentTarget.value),
+														})
+													}
+												/>
+											</label>
+											<label class="encode-field">
+												<span>Max height</span>
+												<select
+													value={String(props.encodeSettings.maxHeight)}
+													disabled={!props.encodeSettings.enabled}
+													onChange={(event) =>
+														props.onEncodeSettingsChange({
+															...props.encodeSettings,
+															maxHeight: Number(
+																event.currentTarget.value,
+															) as EncodeMaxHeight,
+														})
+													}
+												>
+													<option value="0">Original</option>
+													<option value="480">480p</option>
+													<option value="720">720p</option>
+													<option value="1080">1080p</option>
+												</select>
+											</label>
+											<label class="encode-field">
+												<span>Preset</span>
+												<select
+													value={props.encodeSettings.preset}
+													disabled={!props.encodeSettings.enabled}
+													onChange={(event) =>
+														props.onEncodeSettingsChange({
+															...props.encodeSettings,
+															preset: event.currentTarget.value as EncodePreset,
+														})
+													}
+												>
+													<option value="auto">Auto</option>
+													<option value="ultrafast">Ultrafast</option>
+													<option value="superfast">Superfast</option>
+													<option value="veryfast">Veryfast</option>
+													<option value="faster">Faster</option>
+													<option value="fast">Fast</option>
+													<option value="medium">Medium</option>
+													<option value="slow">Slow</option>
+												</select>
+											</label>
+											<label class="encode-field">
+												<span>Output</span>
+												<select
+													value={props.encodeSettings.outputMode}
+													disabled={!props.encodeSettings.enabled}
+													onChange={(event) =>
+														props.onEncodeSettingsChange({
+															...props.encodeSettings,
+															outputMode: event.currentTarget
+																.value as EncodeOutputMode,
+														})
+													}
+												>
+													<option value="replace">Replace original</option>
+													<option value="keep_both">Keep both</option>
+													<option value="suffix">Tagged file only</option>
+												</select>
+											</label>
+											<label class="encode-field">
+												<span>Threads (0 = all cores)</span>
+												<input
+													type="number"
+													min={0}
+													max={128}
+													step={1}
+													class="mono"
+													disabled={!props.encodeSettings.enabled}
+													value={props.encodeSettings.threads}
+													onInput={(event) =>
+														props.onEncodeSettingsChange({
+															...props.encodeSettings,
+															threads: Math.max(
+																0,
+																Number(event.currentTarget.value) || 0,
+															),
+														})
+													}
+												/>
+											</label>
+										</div>
+										<p class="hint encode-hint">
+											Software x264/x265 only. Auto preset uses veryfast on
+											Termux and medium elsewhere.
+										</p>
+										<label class="remember-path">
+											<input
+												type="checkbox"
+												checked={props.rememberEncode}
+												onChange={(event) =>
+													props.onRememberEncodeChange(
+														event.currentTarget.checked,
+													)
+												}
+											/>
+											<span>Remember encode settings</span>
+										</label>
+									</Show>
+
+									<Show when={toolId() === "quality"}>
+										<p class="stream-active">
+											Active tier:{" "}
+											<strong>
+												{props.hlsTiers.find(
+													(tier) => tier.id === props.activeHlsTier,
+												)?.label || "—"}
+											</strong>
+										</p>
+										<div class="stream-mirror-list">
+											<For each={props.hlsTiers}>
+												{(tier) => (
+													<button
+														type="button"
+														class={`stream-mirror-btn ${
+															tier.id === props.activeHlsTier ? "active" : ""
+														}`}
+														onClick={() => props.onHlsTierChange(tier.id)}
+													>
+														{tier.label}
+													</button>
+												)}
+											</For>
+										</div>
+									</Show>
+
+									<Show when={toolId() === "stream"}>
+										<p class="stream-active">
+											Active mirror:{" "}
+											<strong>{props.activeStream || "—"}</strong>
+										</p>
+										<div class="stream-mirror-list">
+											<For each={props.streamMirrors}>
+												{(label) => (
+													<button
+														type="button"
+														class={`stream-mirror-btn ${
+															label === props.activeStream ? "active" : ""
+														}`}
+														onClick={() =>
+															props.onStreamPreferenceChange(label)
+														}
+													>
+														STREAM {label}
+													</button>
+												)}
+											</For>
+										</div>
 										<button
 											type="button"
-											class="cut-add-btn"
-											aria-label="Add another cut"
-											onClick={() => props.onAddCut()}
+											class="tool-btn subtle stream-next-btn"
+											onClick={() => props.onTryNextStream()}
 										>
-											+
+											Try next mirror
 										</button>
-										<Show when={totalDurationLabel() && multiCut()}>
-											<span class="cut-total-duration">
-												Total {totalDurationLabel()}
-											</span>
-										</Show>
-									</div>
-								</Show>
+									</Show>
 
-								<Show when={toolId() === "audio"}>
-									<label class="toggle-row">
-										<input
-											type="checkbox"
-											checked={props.audioFade}
-											onChange={(event) =>
-												props.onAudioFadeChange(event.currentTarget.checked)
-											}
-										/>
-										<span>Fade in / out (0.5s at start and end)</span>
-									</label>
-									<label class="toggle-row">
-										<input
-											type="checkbox"
-											checked={props.audioLoudnorm}
-											onChange={(event) =>
-												props.onAudioLoudnormChange(event.currentTarget.checked)
-											}
-										/>
-										<span>Normalize loudness</span>
-									</label>
-								</Show>
-
-								<Show when={toolId() === "quality"}>
-									<p class="stream-active">
-										Active tier:{" "}
-										<strong>
-											{props.hlsTiers.find(
-												(tier) => tier.id === props.activeHlsTier,
-											)?.label || "—"}
-										</strong>
-									</p>
-									<div class="stream-mirror-list">
-										<For each={props.hlsTiers}>
-											{(tier) => (
-												<button
-													type="button"
-													class={`stream-mirror-btn ${
-														tier.id === props.activeHlsTier ? "active" : ""
-													}`}
-													onClick={() => props.onHlsTierChange(tier.id)}
-												>
-													{tier.label}
-												</button>
-											)}
-										</For>
-									</div>
-								</Show>
-
-								<Show when={toolId() === "stream"}>
-									<p class="stream-active">
-										Active mirror: <strong>{props.activeStream || "—"}</strong>
-									</p>
-									<div class="stream-mirror-list">
-										<For each={props.streamMirrors}>
-											{(label) => (
-												<button
-													type="button"
-													class={`stream-mirror-btn ${
-														label === props.activeStream ? "active" : ""
-													}`}
-													onClick={() => props.onStreamPreferenceChange(label)}
-												>
-													STREAM {label}
-												</button>
-											)}
-										</For>
-									</div>
-									<button
-										type="button"
-										class="tool-btn subtle stream-next-btn"
-										onClick={() => props.onTryNextStream()}
-									>
-										Try next mirror
-									</button>
-								</Show>
-
-								<Show when={toolId() === "rename"}>
-									<textarea
-										id="output-title"
-										class="title-textarea mono"
-										rows={8}
-										autocomplete="off"
-										spellcheck={false}
-										placeholder={props.meta.title || "Video title"}
-										value={props.customTitle}
-										onInput={(event) =>
-											props.onCustomTitleChange(event.currentTarget.value)
-										}
-									/>
-								</Show>
-
-								<Show when={toolId() === "save"}>
-									<div class="save-path-field">
-										<input
-											id="save-path"
-											type="text"
-											class="mono save-path-input"
+									<Show when={toolId() === "rename"}>
+										<textarea
+											id="output-title"
+											class="title-textarea mono"
+											rows={8}
 											autocomplete="off"
 											spellcheck={false}
-											placeholder="/home/you/Documents/jav"
-											value={draftPath()}
-											onInput={(event) => {
-												setDraftPath(event.currentTarget.value);
-												setPathError("");
-											}}
-											onKeyDown={(event) => {
-												if (event.key === "Enter") {
-													event.preventDefault();
-													void applyPath();
-												}
-											}}
-										/>
-									</div>
-									<label class="remember-path">
-										<input
-											type="checkbox"
-											checked={props.rememberSavePath}
-											onChange={(event) =>
-												props.onRememberSavePathChange(
-													event.currentTarget.checked,
-												)
+											placeholder={props.meta.title || "Video title"}
+											value={props.customTitle}
+											onInput={(event) =>
+												props.onCustomTitleChange(event.currentTarget.value)
 											}
 										/>
-										<span>Remember choice</span>
-									</label>
-									<div class="save-path-actions">
-										<button
-											type="button"
-											class="tool-btn subtle save-apply-btn"
-											disabled={!pathDirty() || !draftPath().trim()}
-											onClick={() => void applyPath()}
-										>
-											Apply
-										</button>
-									</div>
-									<Show when={pathError()}>
-										<p class="time-error">{pathError()}</p>
 									</Show>
-								</Show>
-							</>
-						)}
-					</Show>
+
+									<Show when={toolId() === "save"}>
+										<div class="save-path-field">
+											<input
+												id="save-path"
+												type="text"
+												class="mono save-path-input"
+												autocomplete="off"
+												spellcheck={false}
+												placeholder="/home/you/Documents/jav"
+												value={draftPath()}
+												onInput={(event) => {
+													setDraftPath(event.currentTarget.value);
+													setPathError("");
+												}}
+												onKeyDown={(event) => {
+													if (event.key === "Enter") {
+														event.preventDefault();
+														void applyPath();
+													}
+												}}
+											/>
+										</div>
+										<label class="remember-path">
+											<input
+												type="checkbox"
+												checked={props.rememberSavePath}
+												onChange={(event) =>
+													props.onRememberSavePathChange(
+														event.currentTarget.checked,
+													)
+												}
+											/>
+											<span>Remember choice</span>
+										</label>
+										<div class="save-path-actions">
+											<button
+												type="button"
+												class="tool-btn subtle save-apply-btn"
+												disabled={!pathDirty() || !draftPath().trim()}
+												onClick={() => void applyPath()}
+											>
+												Apply
+											</button>
+										</div>
+										<Show when={pathError()}>
+											<p class="time-error">{pathError()}</p>
+										</Show>
+									</Show>
+								</>
+							)}
+						</Show>
+					</div>
 				</div>
-			</div>
+			</Show>
 		</section>
 	);
 }

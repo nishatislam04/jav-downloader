@@ -237,6 +237,36 @@ export function ExpandIcon() {
 	);
 }
 
+export function ChevronUpIcon() {
+	return (
+		<svg viewBox="0 0 24 24" width="16" height="16" aria-hidden="true">
+			<path
+				d="m6 15 6-6 6 6"
+				fill="none"
+				stroke="currentColor"
+				stroke-width="1.75"
+				stroke-linecap="round"
+				stroke-linejoin="round"
+			/>
+		</svg>
+	);
+}
+
+export function ChevronDownIcon() {
+	return (
+		<svg viewBox="0 0 24 24" width="16" height="16" aria-hidden="true">
+			<path
+				d="m6 9 6 6 6-6"
+				fill="none"
+				stroke="currentColor"
+				stroke-width="1.75"
+				stroke-linecap="round"
+				stroke-linejoin="round"
+			/>
+		</svg>
+	);
+}
+
 export function CollapseIcon() {
 	return (
 		<svg viewBox="0 0 24 24" width="14" height="14" aria-hidden="true">
@@ -300,6 +330,17 @@ export function QualityIcon() {
 		<svg viewBox="0 0 24 24" width="18" height="18" aria-hidden="true">
 			<path
 				d="M4 4h16v16H4V4zm2 2v12h12V6H6zm2 2h8v2H8V8zm0 4h8v2H8v-2zm0 4h5v2H8v-2z"
+				fill="currentColor"
+			/>
+		</svg>
+	);
+}
+
+export function EncodeIcon() {
+	return (
+		<svg viewBox="0 0 24 24" width="18" height="18" aria-hidden="true">
+			<path
+				d="M4 8v8h2.5l3.5-5 3.5 5H16V8h-2.5L10 13 6.5 8H4zm10 0v8h6v-2h-4v-1.5h3.5V11H16V9.5h3.5V8H14z"
 				fill="currentColor"
 			/>
 		</svg>

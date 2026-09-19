@@ -674,6 +674,35 @@ button.icon-btn-danger:hover:not(:disabled) {
   font-weight: 600;
 }
 
+.edit-tools-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+.edit-tools-head .edit-tools-heading {
+  margin: 0;
+}
+
+button.edit-tools-collapse-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 30px;
+  height: 30px;
+  padding: 0;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: #0c0e13;
+  color: var(--muted);
+}
+
+button.edit-tools-collapse-btn:hover {
+  border-color: var(--accent-2);
+  color: var(--accent-2);
+}
+
 .edit-tools-layout {
   display: grid;
   grid-template-columns: minmax(140px, 180px) minmax(0, 1fr);
@@ -1114,6 +1143,35 @@ button.save-apply-btn:not(:disabled):hover {
   accent-color: var(--accent-2);
 }
 
+.encode-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+  gap: 12px;
+  margin: 8px 0 12px;
+}
+
+.encode-field {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  font-size: 0.85rem;
+  color: var(--text);
+}
+
+.encode-field select,
+.encode-field input[type='number'] {
+  width: 100%;
+}
+
+.encode-field input[type='range'] {
+  width: 100%;
+  accent-color: var(--accent-2);
+}
+
+.encode-hint {
+  margin-top: 0;
+}
+
 .stream-active {
   margin: 0 0 12px;
   font-size: 0.9rem;
@@ -1280,6 +1338,26 @@ button.save-apply-btn:not(:disabled):hover {
 
   .edit-tools-heading {
     margin: 0 0 10px;
+  }
+
+  /* Save panel: drop the nested field border/padding, shrink path text */
+  .save-path-field {
+    margin-top: 2px;
+    padding: 0;
+    border: none;
+    background: transparent;
+  }
+
+  .save-path-input {
+    font-size: 0.78rem;
+  }
+
+  .remember-path {
+    margin-top: 8px;
+  }
+
+  .save-path-actions {
+    margin-top: 6px;
   }
 
   .tool-panel-title {

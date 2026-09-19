@@ -32,8 +32,13 @@ import ProgressCard from "./components/ProgressCard";
 import ProgressRing from "./components/ProgressRing";
 import { appendHistory } from "./lib/history";
 import {
+	DEFAULT_ENCODE_SETTINGS,
+	type EncodeSettings,
+	loadEncodeSettings,
+	loadRememberEncode,
 	loadRememberSavePath,
 	loadSavedPath,
+	persistEncodeSettings,
 	persistSavePath,
 } from "./lib/persist";
 import {
@@ -67,6 +72,10 @@ export default function App() {
 	const [customTitle, setCustomTitle] = createSignal("");
 	const [audioFade, setAudioFade] = createSignal(false);
 	const [audioLoudnorm, setAudioLoudnorm] = createSignal(false);
+	const [encodeSettings, setEncodeSettings] = createSignal<EncodeSettings>(
+		loadRememberEncode() ? loadEncodeSettings() : { ...DEFAULT_ENCODE_SETTINGS },
+	);
+	const [rememberEncode, setRememberEncode] = createSignal(loadRememberEncode());
 	const [streamPreference, setStreamPreference] = createSignal("");
 	const [hlsTier, setHlsTier] = createSignal("");
 	const [activeTool, setActiveTool] = createSignal<ToolId | null>(null);
@@ -125,6 +134,9 @@ export default function App() {
 		setCuts([newCutRange()]);
 		setAudioFade(false);
 		setAudioLoudnorm(false);
+		if (!rememberEncode()) {
+			setEncodeSettings({ ...DEFAULT_ENCODE_SETTINGS });
+		}
 		setStreamPreference("");
 		setHlsTier("");
 		if (!rememberSavePath()) {
@@ -139,6 +151,9 @@ export default function App() {
 		setCuts([newCutRange()]);
 		setAudioFade(false);
 		setAudioLoudnorm(false);
+		if (!rememberEncode()) {
+			setEncodeSettings({ ...DEFAULT_ENCODE_SETTINGS });
+		}
 		setStreamPreference("");
 		setHlsTier("");
 		setServerCutError("");
@@ -179,6 +194,13 @@ export default function App() {
 			stream_preference?: string;
 			resolution_pref?: string;
 			hls_tier?: string;
+			encode?: boolean;
+			encode_codec?: string;
+			encode_crf?: number;
+			encode_max_height?: number;
+			encode_output_mode?: string;
+			encode_preset?: string;
+			encode_threads?: number;
 		} = {};
 
 		if (includeCuts && !validateCutRanges(durationSec(), cuts())) {
@@ -198,6 +220,17 @@ export default function App() {
 		if (stream) payload.stream_preference = stream;
 		const tier = hlsTier().trim();
 		if (tier) payload.hls_tier = tier;
+
+		const encode = encodeSettings();
+		if (encode.enabled) {
+			payload.encode = true;
+			payload.encode_codec = encode.codec;
+			payload.encode_crf = encode.crf;
+			payload.encode_max_height = encode.maxHeight;
+			payload.encode_output_mode = encode.outputMode;
+			payload.encode_preset = encode.preset;
+			payload.encode_threads = encode.threads;
+		}
 
 		return payload;
 	}
@@ -259,6 +292,9 @@ export default function App() {
 			setCuts([newCutRange()]);
 			setAudioFade(false);
 			setAudioLoudnorm(false);
+			if (!rememberEncode()) {
+				setEncodeSettings({ ...DEFAULT_ENCODE_SETTINGS });
+			}
 			setStreamPreference("");
 			setHlsTier("");
 			if (!rememberSavePath() && !savePathCustom()) {
@@ -347,6 +383,22 @@ export default function App() {
 
 	function handleAudioLoudnormChange(value: boolean) {
 		setAudioLoudnorm(value);
+	}
+
+	function handleEncodeSettingsChange(value: EncodeSettings) {
+		setEncodeSettings(value);
+		if (rememberEncode()) {
+			persistEncodeSettings(value, true);
+		}
+	}
+
+	function handleRememberEncodeChange(checked: boolean) {
+		setRememberEncode(checked);
+		if (checked) {
+			persistEncodeSettings(encodeSettings(), true);
+		} else {
+			persistEncodeSettings(encodeSettings(), false);
+		}
 	}
 
 	function handleStreamPreferenceChange(label: string) {
@@ -569,6 +621,7 @@ export default function App() {
 		if (savePathCustom()) badges.save = 1;
 		if (streamPreference().trim()) badges.stream = 1;
 		if (hlsTier().trim()) badges.quality = 1;
+		if (encodeSettings().enabled) badges.encode = 1;
 		return badges;
 	});
 
@@ -673,6 +726,8 @@ export default function App() {
 							activeTool={activeTool()}
 							audioFade={audioFade()}
 							audioLoudnorm={audioLoudnorm()}
+							encodeSettings={encodeSettings()}
+							rememberEncode={rememberEncode()}
 							streamMirrors={meta().stream_mirrors ?? []}
 							activeStream={meta().active_stream ?? ""}
 							hlsTiers={meta().hls_tiers ?? []}
@@ -682,6 +737,8 @@ export default function App() {
 							onRemoveCut={handleRemoveCut}
 							onAudioFadeChange={handleAudioFadeChange}
 							onAudioLoudnormChange={handleAudioLoudnormChange}
+							onEncodeSettingsChange={handleEncodeSettingsChange}
+							onRememberEncodeChange={handleRememberEncodeChange}
 							onStreamPreferenceChange={handleStreamPreferenceChange}
 							onTryNextStream={handleTryNextStream}
 							onHlsTierChange={handleHlsTierChange}

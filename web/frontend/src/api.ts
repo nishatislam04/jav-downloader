@@ -80,6 +80,13 @@ export type DownloadOptions = {
   stream_preference?: string;
   resolution_pref?: string;
   hls_tier?: string;
+  encode?: boolean;
+  encode_codec?: string;
+  encode_crf?: number;
+  encode_max_height?: number;
+  encode_output_mode?: string;
+  encode_preset?: string;
+  encode_threads?: number;
 };
 
 export function resolveUrl(url: string, options: DownloadOptions = {}) {
