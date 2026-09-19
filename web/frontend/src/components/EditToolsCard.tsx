@@ -1,4 +1,11 @@
-import { createEffect, createMemo, createSignal, For, Index, Show } from "solid-js";
+import {
+	createEffect,
+	createMemo,
+	createSignal,
+	For,
+	Index,
+	Show,
+} from "solid-js";
 import type { ResolveResult } from "../api";
 import { validateFolder } from "../api";
 import {
@@ -114,7 +121,8 @@ export default function EditToolsCard(props: Props) {
 		}
 	}
 
-	const activeMeta = () => visibleTools().find((tool) => tool.id === props.activeTool);
+	const activeMeta = () =>
+		visibleTools().find((tool) => tool.id === props.activeTool);
 	const multiCut = () => props.cuts.length > 1;
 
 	const visibleTools = createMemo(() => {
@@ -129,7 +137,11 @@ export default function EditToolsCard(props: Props) {
 			insertAt += 1;
 		}
 		if (props.streamMirrors.length > 0) {
-			items.splice(insertAt, 0, { id: "stream", label: "Stream", Icon: StreamIcon });
+			items.splice(insertAt, 0, {
+				id: "stream",
+				label: "Stream",
+				Icon: StreamIcon,
+			});
 		}
 		return items;
 	});
@@ -153,6 +165,8 @@ export default function EditToolsCard(props: Props) {
 							type="button"
 							class={`tool-sidebar-btn ${props.activeTool === tool.id ? "active" : ""}`}
 							aria-pressed={props.activeTool === tool.id}
+							aria-label={tool.label}
+							title={tool.label}
 							onClick={() => props.onSelectTool(tool.id)}
 						>
 							<tool.Icon />
@@ -286,8 +300,9 @@ export default function EditToolsCard(props: Props) {
 									<p class="stream-active">
 										Active tier:{" "}
 										<strong>
-											{props.hlsTiers.find((tier) => tier.id === props.activeHlsTier)
-												?.label || "—"}
+											{props.hlsTiers.find(
+												(tier) => tier.id === props.activeHlsTier,
+											)?.label || "—"}
 										</strong>
 									</p>
 									<div class="stream-mirror-list">
@@ -309,8 +324,7 @@ export default function EditToolsCard(props: Props) {
 
 								<Show when={toolId() === "stream"}>
 									<p class="stream-active">
-										Active mirror:{" "}
-										<strong>{props.activeStream || "—"}</strong>
+										Active mirror: <strong>{props.activeStream || "—"}</strong>
 									</p>
 									<div class="stream-mirror-list">
 										<For each={props.streamMirrors}>

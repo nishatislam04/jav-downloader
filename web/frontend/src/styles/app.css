@@ -918,6 +918,11 @@ button.tool-btn.subtle {
   border-color: var(--accent-2);
 }
 
+/* Icon is a mobile-only affordance; desktop keeps the text label */
+.history-menu-btn svg {
+  display: none;
+}
+
 .history-dropdown {
   position: absolute;
   top: calc(100% + 8px);
@@ -1039,4 +1044,221 @@ button.tool-btn.subtle {
 
 .stream-next-btn {
   width: 100%;
+}
+
+/* ------------------------------------------------------------------ */
+/* Mobile: strip padding, dense icon-only UI                           */
+/* ------------------------------------------------------------------ */
+
+@media (max-width: 640px) {
+  .shell {
+    padding: 8px 8px 24px;
+  }
+
+  .app-header h1 {
+    margin: 0 0 4px;
+    font-size: 1.3rem;
+  }
+
+  .app-header {
+    gap: 8px;
+  }
+
+  .card {
+    margin-top: 8px;
+    padding: 10px;
+    border-radius: 10px;
+  }
+
+  /* History: icon-only trigger, full-width dropdown */
+  .history-menu-btn {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 36px;
+    height: 36px;
+    padding: 0;
+  }
+
+  .history-menu-btn-text {
+    display: none;
+  }
+
+  .history-menu-btn svg {
+    display: block;
+  }
+
+  /* Anchor the dropdown to the header so it can span the viewport */
+  .app-header {
+    position: relative;
+  }
+
+  .history-menu {
+    position: static;
+  }
+
+  .history-dropdown {
+    top: calc(100% + 6px);
+    right: 0;
+    width: calc(100vw - 16px);
+    max-height: 60vh;
+    padding: 6px;
+  }
+
+  /* History items: thumbnail row, then title/timestamp row */
+  .history-item {
+    flex-direction: column;
+    align-items: stretch;
+    gap: 6px;
+    padding: 8px;
+  }
+
+  .history-item-thumb {
+    width: 100%;
+    height: auto;
+    aspect-ratio: 16 / 9;
+  }
+
+  /* Meta: thumbnail on its own row, meta info below */
+  .meta-row {
+    display: block;
+  }
+
+  .thumb-preview-trigger {
+    display: block;
+    width: 100%;
+  }
+
+  .thumb {
+    width: 100%;
+    aspect-ratio: 16 / 9;
+  }
+
+  .meta .label:not(:first-child) {
+    margin-top: 10px;
+  }
+
+  /* Video tools: dense icon-only sidebar stays left, panel right */
+  .edit-tools-layout {
+    grid-template-columns: auto minmax(0, 1fr);
+    gap: 8px;
+    min-height: 0;
+  }
+
+  .edit-tools-sidebar {
+    width: 40px;
+    gap: 6px;
+    max-height: none;
+    padding-right: 0;
+  }
+
+  button.tool-sidebar-btn {
+    justify-content: center;
+    width: 40px;
+    min-height: 40px;
+    padding: 0;
+    border-radius: 8px;
+  }
+
+  .tool-sidebar-btn span {
+    display: none;
+  }
+
+  .edit-tools-panel {
+    padding: 10px;
+  }
+
+  .edit-tools-heading {
+    margin: 0 0 10px;
+  }
+
+  .tool-panel-title {
+    margin: 0 0 8px;
+  }
+
+  .tool-panel-empty {
+    min-height: 120px;
+  }
+
+  .cut-list {
+    gap: 10px;
+    margin-top: 8px;
+  }
+
+  .cut-range-row {
+    padding: 10px;
+  }
+
+  .cut-range-fields {
+    column-gap: 8px;
+  }
+
+  .cut-actions {
+    margin-top: 10px;
+    padding-top: 10px;
+  }
+
+  .toggle-row {
+    margin-bottom: 10px;
+  }
+
+  .stream-active {
+    margin: 0 0 8px;
+  }
+
+  .stream-mirror-list {
+    margin-bottom: 8px;
+  }
+
+  .stream-next-btn {
+    width: 100%;
+  }
+
+  input[type='url'],
+  input[type='text'],
+  textarea {
+    padding: 10px 12px;
+  }
+
+  .time-segments {
+    padding: 10px 12px;
+  }
+
+  .progress-head {
+    flex-wrap: wrap;
+  }
+
+  .job-log {
+    max-height: 160px;
+    padding: 10px 12px;
+  }
+}
+
+/* Very narrow phones: cut fields can no longer share one row */
+@media (max-width: 480px) {
+  .cut-range-fields {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .cut-duration-center {
+    min-width: 0;
+    height: auto;
+    margin-top: 0;
+    padding: 2px 0;
+  }
+
+  .cut-remove-slot {
+    width: 34px;
+    height: 34px;
+  }
+
+  .cut-remove-btn {
+    margin-top: 0;
+    justify-self: end;
+    margin-bottom: 2px;
+  }
+
+  .cut-range-row {
+    grid-template-columns: minmax(0, 1fr) auto;
+  }
 }
