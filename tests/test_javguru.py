@@ -34,13 +34,17 @@ _stub_runtime_dependency('cloudscraper', _cloudscraper_stub)
 _stub_runtime_dependency('m3u8', _m3u8_stub)
 
 from jav_downloader.sites import javguru as javguru_mod
+from bs4 import BeautifulSoup
+
 from jav_downloader.sites.javguru import (
     SiteJavGuru,
+    _extract_thumbnail,
     _format_resolve_errors,
     _gateway_url_from_config,
     _parse_localize_servers,
     _pick_streamhg_playlist,
     _polish_title,
+    _probe_hls_playlist,
     _server_label,
     _stream_redirect_url,
     _token_param_name,
@@ -137,6 +141,41 @@ def test_format_resolve_errors_lists_each_server():
     assert '所有來源均無法取得' in message
 
 
+def test_extract_thumbnail_reads_property_og_image_and_bg_param():
+    html = """
+    <html><head>
+      <meta property="og:image" content="https://cdn.example/poster.jpg" />
+    </head><body></body></html>
+    """
+    soup = BeautifulSoup(html, 'html.parser')
+    assert _extract_thumbnail(soup, html) == 'https://cdn.example/poster.jpg'
+
+    page = _sample_page_html()
+    soup = BeautifulSoup(page, 'html.parser')
+    assert _extract_thumbnail(soup, page) == 'https://example.test/poster.jpg'
+
+
+def test_probe_hls_playlist_accepts_master_m3u8_fallback(monkeypatch):
+    class FakeResp:
+        def __init__(self, status_code, text=''):
+            self.status_code = status_code
+            self.text = text
+
+    class FakeScraper:
+        def get(self, url, **kwargs):
+            if url.endswith('master.txt'):
+                return FakeResp(404, '')
+            if url.endswith('master.m3u8'):
+                return FakeResp(200, '#EXTM3U\n#EXTINF:1,\nseg.ts\n')
+            raise AssertionError(url)
+
+    assert _probe_hls_playlist(
+        FakeScraper(),
+        'https://cdn.example/hls3/master.txt',
+        {'Referer': 'https://javclan.com/'},
+    ) == 'https://cdn.example/hls3/master.m3u8'
+
+
 def test_get_url_infos_uses_first_working_server(monkeypatch):
     page_html = _sample_page_html()
 
@@ -177,12 +216,18 @@ def test_get_url_infos_uses_first_working_server(monkeypatch):
         lambda scraper, url, site_key, validate, timeout=30: (
             FakeResp(text=page_html), 'jav.guru', 'ok'),
     )
+    monkeypatch.setattr(
+        javguru_mod,
+        '_probe_hls_playlist',
+        lambda scraper, url, headers: url,
+    )
 
     crawler = SiteJavGuru.__new__(SiteJavGuru)
     crawler.silence = True
     crawler._url = 'https://jav.guru/1/example-title/'
     crawler.get_url_infos()
     assert crawler._m3u8url == 'https://cdn.example/master.txt'
+    assert crawler._imageUrl == 'https://example.test/poster.jpg'
     assert crawler._extra_headers['Referer'] == 'https://javclan.com/'
     assert crawler._extra_headers['Origin'] == 'https://javclan.com'
 

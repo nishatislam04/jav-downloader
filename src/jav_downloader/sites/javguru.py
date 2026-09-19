@@ -9,7 +9,7 @@ import random
 import re
 import string
 import time
-from urllib.parse import parse_qs, urlsplit
+from urllib.parse import parse_qs, urljoin, urlsplit
 
 try:
     from curl_cffi import requests as cffi_requests
@@ -250,9 +250,71 @@ def _extract_title(soup, html_text):
     return ''
 
 
-def _extract_thumbnail(html_text):
-    og = re.search(r'og:image"\s+content="([^"]+)"', html_text or '')
-    return og.group(1) if og else None
+def _extract_thumbnail(soup, html_text):
+    for selector in (
+        'meta[property="og:image"]',
+        'meta[name="og:image"]',
+        'meta[name="twitter:image"]',
+        'meta[property="twitter:image"]',
+    ):
+        tag = soup.select_one(selector)
+        content = tag.get('content') if tag else None
+        if content:
+            return html.unescape(str(content).strip())
+
+    for pattern in (
+        r'<meta[^>]+property=["\']og:image["\'][^>]+content=["\']([^"\']+)["\']',
+        r'<meta[^>]+content=["\']([^"\']+)["\'][^>]+property=["\']og:image["\']',
+        r'og:image["\']?\s+content=["\']([^"\']+)["\']',
+    ):
+        match = re.search(pattern, html_text or '', re.I)
+        if match:
+            return html.unescape(match.group(1).strip())
+
+    for match in re.finditer(
+            r'var\s+\w+\s*=\s*(\{.*?\})\s*;', html_text or '', re.S):
+        try:
+            cfg = json.loads(match.group(1))
+            raw = str((cfg or {}).get('iframe_url') or '').strip()
+            if not raw:
+                continue
+            gateway = base64.b64decode(raw).decode('utf-8', errors='ignore')
+            for key in ('bg', 'poster', 'img', 'image'):
+                values = parse_qs(urlsplit(gateway).query).get(key)
+                if not values:
+                    continue
+                raw = html.unescape(str(values[0]).strip())
+                if raw.startswith('http'):
+                    return raw
+                if raw.startswith('//'):
+                    return f'https:{raw}'
+                if raw.startswith('/'):
+                    return f'https://jav.guru{raw}'
+        except Exception:
+            continue
+
+    for selector in (
+        'img.wp-post-image',
+        '.post-thumbnail img',
+        '.inside-article img',
+        'article img',
+        '.entry-content img',
+        'img[src*="upload"]',
+    ):
+        img = soup.select_one(selector)
+        if not img:
+            continue
+        for attr in ('src', 'data-src', 'data-lazy-src', 'data-original'):
+            src = str(img.get(attr) or '').strip()
+            if not src or src.startswith('data:'):
+                continue
+            if src.startswith('//'):
+                return f'https:{src}'
+            if src.startswith('/'):
+                return f'https://jav.guru{src}'
+            if src.startswith('http'):
+                return src
+    return None
 
 
 def _headers_for_origin(origin):
@@ -312,7 +374,7 @@ def _normalize_voe_playlist(source, scraper, headers):
             continue
         if getattr(resp, 'status_code', 0) == 200 and '#EXTM3U' in (resp.text or ''):
             return candidate
-    return candidates[0]
+    return None
 
 
 def _resolve_voe(scraper, embed_url):
@@ -373,6 +435,87 @@ def _is_dood_host(host):
 def _looks_like_hls_url(url):
     lowered = str(url or '').lower()
     return any(marker in lowered for marker in ('.m3u8', '.txt', '/master.', '/index-'))
+
+
+def _hls_playlist_candidates(url):
+    text = str(url or '').strip()
+    if not text:
+        return []
+    seen: set[str] = set()
+    candidates = [text]
+    if '/' in text:
+        base, name = text.rsplit('/', 1)
+        if name.endswith('.txt'):
+            candidates.append(f'{base}/master.m3u8')
+            candidates.append(text[:-4] + '.m3u8')
+        elif not name.endswith('.m3u8'):
+            root = text.rstrip('/')
+            candidates.extend([
+                f'{root}/master.m3u8',
+                f'{root}/master.txt',
+                f'{root}.m3u8',
+            ])
+    out = []
+    for candidate in candidates:
+        if candidate not in seen:
+            seen.add(candidate)
+            out.append(candidate)
+    return out
+
+
+def _fetch_playlist_text(scraper, candidate, headers):
+    try:
+        resp = scraper.get(
+            candidate,
+            headers=headers,
+            timeout=20,
+            **config.proxy_request_kwargs(),
+        )
+    except Exception:
+        return None
+    if getattr(resp, 'status_code', 0) != 200:
+        return None
+    text = resp.text or ''
+    if '#EXTM3U' not in text:
+        return None
+    return text
+
+
+def _probe_hls_playlist(scraper, playlist_url, headers):
+    headers = dict(headers or {})
+    for candidate in _hls_playlist_candidates(playlist_url):
+        text = _fetch_playlist_text(scraper, candidate, headers)
+        if not text:
+            continue
+        if '#EXTINF' in text:
+            return candidate
+        if '#EXT-X-STREAM-INF' in text:
+            try:
+                import m3u8
+                master = m3u8.loads(text, uri=candidate)
+            except Exception:
+                continue
+            for variant in master.playlists[:4]:
+                variant_url = urljoin(candidate, variant.uri)
+                variant_text = _fetch_playlist_text(scraper, variant_url, headers)
+                if variant_text and '#EXTINF' in variant_text:
+                    return candidate
+    return None
+
+
+def _probe_direct_url(scraper, direct_url, headers):
+    headers = dict(headers or {})
+    try:
+        resp = scraper.head(
+            direct_url,
+            headers=headers,
+            timeout=20,
+            allow_redirects=True,
+            **config.proxy_request_kwargs(),
+        )
+    except Exception:
+        return False
+    return getattr(resp, 'status_code', 0) in (200, 206)
 
 
 def _resolve_doodstream(scraper, embed_url):
@@ -551,7 +694,9 @@ class SiteJavGuru(M3U8Crawler):
         with _make_scraper() as scraper:
             self._resolve_from_page(scraper)
 
-    def _resolve_from_page(self, scraper):
+    def _resolve_from_page(self, scraper, skip_labels=None):
+        skip_labels = set(skip_labels or ())
+
         def _validate(resp):
             return 'data-localize' in resp.text and 'wp-btn-iframe' in resp.text
 
@@ -568,10 +713,17 @@ class SiteJavGuru(M3U8Crawler):
         if not servers:
             raise Exception("此影片沒有可用的 STREAM 來源（版面改版？）")
 
+        self._targetName = _extract_title(soup, html_text)
+        self._imageUrl = _extract_thumbnail(soup, html_text)
+
         self._direct_url = None
         self._direct_referer = None
+        self._m3u8url = None
+        self._extra_headers = {}
         errors = []
         for label, token in servers.items():
+            if label in skip_labels:
+                continue
             cfg = _load_localize_config(html_text, token)
             gateway = _gateway_url_from_config(cfg)
             if not gateway:
@@ -613,12 +765,19 @@ class SiteJavGuru(M3U8Crawler):
 
             kind, stream_url, extra = resolved
             if kind == 'mp4' or (kind == 'hls' and not _looks_like_hls_url(stream_url)):
+                if not _probe_direct_url(scraper, stream_url, extra):
+                    errors.append((label, f'{embed_host}: direct URL unavailable'))
+                    continue
                 self._direct_url = stream_url
                 self._direct_referer = extra.get('Referer') or self.direct_default_referer
                 self._m3u8url = None
                 mode = 'MP4'
             elif kind == 'hls' and stream_url.startswith('http'):
-                self._m3u8url = stream_url
+                probed = _probe_hls_playlist(scraper, stream_url, extra)
+                if not probed:
+                    errors.append((label, f'{embed_host}: playlist unavailable'))
+                    continue
+                self._m3u8url = probed
                 self._extra_headers = extra
                 self._direct_url = None
                 mode = 'HLS'
@@ -626,22 +785,46 @@ class SiteJavGuru(M3U8Crawler):
                 errors.append((label, f'{embed_host}: unrecognized stream URL'))
                 continue
 
-            self._targetName = _extract_title(soup, html_text)
-            self._imageUrl = _extract_thumbnail(html_text)
+            self._active_stream_label = label
+            self._emit_job_log(f'Selected STREAM {label} ({embed_host}, {mode})')
             if not self.silence:
                 print(
                     f'[JavGuru] 使用 STREAM {label} ({embed_host}, {mode})',
                     flush=True)
-            return
+            return True
 
+        if skip_labels:
+            return False
         raise Exception(_format_resolve_errors(errors))
 
     def is_url_vaildate(self):
         return bool(self._m3u8url or getattr(self, '_direct_url', None))
 
     def start_download(self):
-        if self._m3u8url:
-            return super().start_download()
-        if getattr(self, '_direct_url', None):
-            return run_direct_download(self)
-        return super().start_download()
+        tried: set[str] = set()
+        last_error: Exception | None = None
+        while True:
+            try:
+                if getattr(self, '_direct_url', None):
+                    return run_direct_download(self)
+                if self._m3u8url:
+                    return super().start_download()
+                raise Exception('no stream configured')
+            except Exception as exc:
+                last_error = exc
+                label = getattr(self, '_active_stream_label', None)
+                if label:
+                    tried.add(label)
+                self._emit_job_log(f'STREAM {label or "?"} failed: {exc}')
+                with _make_scraper() as scraper:
+                    if not self._resolve_from_page(scraper, skip_labels=tried):
+                        break
+                self._emit_job_log('Trying next stream mirror…')
+                if not self.silence and label:
+                    print(
+                        f'[JavGuru] STREAM {label} failed ({exc}); trying next source',
+                        flush=True,
+                    )
+        if last_error is not None:
+            raise last_error
+        raise Exception('no stream configured')
