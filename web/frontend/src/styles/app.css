@@ -242,6 +242,13 @@ input.input-error,
   font-size: 1.1rem;
 }
 
+/* Reserve the remove-button column even for a single cut so the
+   fields never reflow when additional cuts are added */
+.cut-remove-slot {
+  width: 34px;
+  height: 34px;
+}
+
 .cut-remove-btn:hover:not(:disabled) {
   color: #ff8a8a;
   border-color: #ff8a8a;

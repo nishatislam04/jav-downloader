@@ -152,9 +152,7 @@ export default function EditToolsCard(props: Props) {
 
 												return (
 													<div class="cut-range-row">
-														<Show when={multiCut()}>
-															<p class="cut-range-label">Cut {index + 1}</p>
-														</Show>
+														<p class="cut-range-label">Cut {index + 1}</p>
 														<div class="cut-range-fields">
 															<TimeField
 																id={`cut-${cut().id}-start`}
@@ -185,7 +183,15 @@ export default function EditToolsCard(props: Props) {
 																}
 															/>
 														</div>
-														<Show when={multiCut()}>
+														<Show
+															when={multiCut()}
+															fallback={
+																<div
+																	class="cut-remove-slot"
+																	aria-hidden="true"
+																/>
+															}
+														>
 															<button
 																type="button"
 																class="cut-remove-btn"
@@ -265,7 +271,7 @@ export default function EditToolsCard(props: Props) {
 												)
 											}
 										/>
-										<span>Remember this folder for future downloads</span>
+										<span>Remember choice</span>
 									</label>
 									<div class="save-path-actions">
 										<button
