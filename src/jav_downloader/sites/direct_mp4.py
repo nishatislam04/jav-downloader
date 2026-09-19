@@ -59,6 +59,8 @@ def _safe_remove(path):
 
 
 def _has_time_cut(site):
+    if getattr(site, '_cut_ranges', None):
+        return True
     return (getattr(site, '_cut_start_sec', None) is not None or
             getattr(site, '_cut_end_sec', None) is not None)
 
@@ -263,7 +265,10 @@ def run_direct_download(site):
     label = getattr(site, 'direct_site_name', 'Direct')
 
     if _has_time_cut(site):
+        from jav_downloader.sites.multi_cut import run_stream_multi_cut, site_is_multi_cut
         _safe_remove(part)
+        if site_is_multi_cut(site):
+            return run_stream_multi_cut(site)
         return _download_ffmpeg_cut(site, part, out, ref, label)
 
     _sync_part_with_source(site, part, ref)

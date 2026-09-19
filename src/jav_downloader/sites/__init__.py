@@ -57,7 +57,7 @@ def VaildateUrl(url):  # noqa: N802 - legacy API typo retained for v2 callers
 
 def create_site(
         url, savepath="", silence=False, max_workers=None,
-        cut_start=None, cut_end=None):
+        cut_start=None, cut_end=None, cuts=None):
     site = validate_url(url)
     if site is None:
         return None
@@ -66,6 +66,7 @@ def create_site(
         'silence': silence,
         'cut_start': cut_start,
         'cut_end': cut_end,
+        'cuts': cuts,
     }
     if max_workers is not None:
         kwargs['max_workers'] = max_workers
@@ -74,9 +75,9 @@ def create_site(
 
 def CreateSite(  # noqa: N802
         url, savepath="", silence=False, max_workers=None,
-        cut_start=None, cut_end=None):
+        cut_start=None, cut_end=None, cuts=None):
     return create_site(
-        url, savepath, silence, max_workers, cut_start, cut_end)
+        url, savepath, silence, max_workers, cut_start, cut_end, cuts)
 
 
 def create_site_url_list(url, silence=False):

@@ -1,27 +1,45 @@
-import { createEffect, createMemo, createSignal, Show } from "solid-js";
+import { createEffect, createMemo, createSignal, For, Show } from "solid-js";
 import type { ResolveResult } from "../api";
 import { validateFolder } from "../api";
-import { cutClipDurationSec, formatDurationHuman } from "../lib/time";
+import {
+	cutClipDurationSec,
+	formatDurationHuman,
+	hasActiveCut,
+	splitCutFieldError,
+	validateCutRange,
+} from "../lib/time";
 import { CutIcon, FolderIcon, RenameIcon } from "./IconButton";
 import TimeField from "./TimeField";
 
 export type ToolId = "cut" | "rename" | "save";
 
+export type CutRange = {
+	id: string;
+	start: string;
+	end: string;
+};
+
+export function newCutRange(): CutRange {
+	return {
+		id: crypto.randomUUID(),
+		start: "",
+		end: "",
+	};
+}
+
 type Props = {
 	meta: ResolveResult;
 	durationSec: number | null;
-	cutStart: string;
-	cutEnd: string;
-	startFieldError: string;
-	endFieldError: string;
+	cuts: CutRange[];
 	customTitle: string;
 	savePath: string;
 	rememberSavePath: boolean;
 	activeTool: ToolId | null;
-	onCutStartChange: (value: string) => void;
-	onCutEndChange: (value: string) => void;
+	onCutChange: (id: string, field: "start" | "end", value: string) => void;
+	onAddCut: () => void;
+	onRemoveCut: (id: string) => void;
 	onCustomTitleChange: (value: string) => void;
-	onSavePathChange: (value: string) => void;
+	onSavePathChange: (path: string) => void;
 	onRememberSavePathChange: (value: boolean) => void;
 	onSelectTool: (tool: ToolId) => void;
 };
@@ -35,6 +53,26 @@ const TOOLS: Array<{
 	{ id: "rename", label: "Rename title", Icon: RenameIcon },
 	{ id: "save", label: "Save location", Icon: FolderIcon },
 ];
+
+function rowDurationLabel(
+	durationSec: number | null | undefined,
+	cut: CutRange,
+): string {
+	const sec = cutClipDurationSec(durationSec, cut.start, cut.end);
+	return sec === null ? "" : formatDurationHuman(sec);
+}
+
+function rowFieldErrors(
+	cut: CutRange,
+	durationSec: number | null | undefined,
+	multi: boolean,
+) {
+	const err = hasActiveCut(cut)
+		? validateCutRange(durationSec, cut.start, cut.end)
+		: null;
+	if (!err) return { start: "", end: "" };
+	return splitCutFieldError(err);
+}
 
 export default function EditToolsCard(props: Props) {
 	const [pathError, setPathError] = createSignal("");
@@ -62,14 +100,15 @@ export default function EditToolsCard(props: Props) {
 	}
 
 	const activeMeta = () => TOOLS.find((tool) => tool.id === props.activeTool);
+	const multiCut = () => props.cuts.length > 1;
 
-	const cutDurationLabel = createMemo(() => {
-		const sec = cutClipDurationSec(
-			props.durationSec,
-			props.cutStart,
-			props.cutEnd,
-		);
-		return sec === null ? "" : formatDurationHuman(sec);
+	const totalDurationLabel = createMemo(() => {
+		let total = 0;
+		for (const cut of props.cuts) {
+			const sec = cutClipDurationSec(props.durationSec, cut.start, cut.end);
+			if (sec !== null) total += sec;
+		}
+		return total > 0 ? formatDurationHuman(total) : "";
 	});
 
 	return (
@@ -107,26 +146,78 @@ export default function EditToolsCard(props: Props) {
 								<p class="tool-panel-title">{activeMeta()?.label}</p>
 
 								<Show when={toolId() === "cut"}>
-									<div class="cut-row">
-										<TimeField
-											id="cut-start"
-											label="Start at"
-											value={props.cutStart}
-											error={props.startFieldError}
-											onChange={props.onCutStartChange}
-										/>
-										<div class="cut-duration-center" aria-live="polite">
-											<Show when={cutDurationLabel()}>
-												<span class="cut-duration">{cutDurationLabel()}</span>
-											</Show>
-										</div>
-										<TimeField
-											id="cut-end"
-											label="End at"
-											value={props.cutEnd}
-											error={props.endFieldError}
-											onChange={props.onCutEndChange}
-										/>
+									<div class="cut-list">
+										<For each={props.cuts}>
+											{(cut, index) => {
+												const errors = () =>
+													rowFieldErrors(cut, props.durationSec, multiCut());
+												const durationLabel = () =>
+													rowDurationLabel(props.durationSec, cut);
+
+												return (
+													<div class="cut-range-row">
+														<Show when={multiCut()}>
+															<p class="cut-range-label">Cut {index() + 1}</p>
+														</Show>
+														<div class="cut-range-fields">
+															<TimeField
+																id={`cut-${cut.id}-start`}
+																label="Start at"
+																value={cut.start}
+																error={errors().start}
+																onChange={(value) =>
+																	props.onCutChange(cut.id, "start", value)
+																}
+															/>
+															<div
+																class="cut-duration-center"
+																aria-live="polite"
+															>
+																<Show when={durationLabel()}>
+																	<span class="cut-duration">
+																		{durationLabel()}
+																	</span>
+																</Show>
+															</div>
+															<TimeField
+																id={`cut-${cut.id}-end`}
+																label="End at"
+																value={cut.end}
+																error={errors().end}
+																onChange={(value) =>
+																	props.onCutChange(cut.id, "end", value)
+																}
+															/>
+														</div>
+														<Show when={multiCut()}>
+															<button
+																type="button"
+																class="cut-remove-btn"
+																aria-label={`Remove cut ${index() + 1}`}
+																onClick={() => props.onRemoveCut(cut.id)}
+															>
+																×
+															</button>
+														</Show>
+													</div>
+												);
+											}}
+										</For>
+									</div>
+									<div class="cut-actions">
+										<button
+											type="button"
+											class="cut-add-btn"
+											aria-label="Add another cut"
+											onClick={() => props.onAddCut()}
+										>
+											+
+										</button>
+										<Show when={totalDurationLabel() && multiCut()}>
+											<span class="cut-total-duration">
+												Total {totalDurationLabel()}
+											</span>
+										</Show>
 									</div>
 								</Show>
 

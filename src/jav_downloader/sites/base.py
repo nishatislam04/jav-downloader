@@ -433,6 +433,16 @@ def validate_cut_against_duration(cut_start_sec, cut_end_sec, duration_sec):
         raise ValueError('End time must be after start time')
 
 
+def _apply_legacy_cut_fields(site, cut_ranges):
+    if not cut_ranges:
+        site._cut_start_sec = None
+        site._cut_end_sec = None
+        return
+    start_sec, end_sec = cut_ranges[0]
+    site._cut_start_sec = start_sec
+    site._cut_end_sec = end_sec
+
+
 def select_variant(playlists, pref):
     items = [(playlist, *_variant_height_bw(playlist)) for playlist in (playlists or [])]
     if not items:
@@ -555,13 +565,11 @@ class M3U8Crawler:
 
     def __init__(
             self, url, savepath="", silence=False, max_workers=None,
-            cut_start=None, cut_end=None):
+            cut_start=None, cut_end=None, cuts=None):
         self.silence = silence
-        self._cut_start_sec = parse_time_seconds(cut_start)
-        self._cut_end_sec = parse_time_seconds(cut_end)
-        if (self._cut_start_sec is not None and self._cut_end_sec is not None and
-                self._cut_end_sec <= self._cut_start_sec):
-            raise ValueError('cut end must be after cut start')
+        from jav_downloader.sites.multi_cut import build_cut_ranges
+        self._cut_ranges = build_cut_ranges(cuts, cut_start, cut_end)
+        _apply_legacy_cut_fields(self, self._cut_ranges)
         self._duration_sec = None
         self._segment_durations = []
         self._tsList = []
@@ -619,9 +627,9 @@ class M3U8Crawler:
             self._temp_folder = os.path.join(self._dest_folder, self._dirName)
 
             self.get_url_infos()
-            validate_cut_against_duration(
-                self._cut_start_sec,
-                self._cut_end_sec,
+            from jav_downloader.sites.multi_cut import validate_cuts_against_duration
+            validate_cuts_against_duration(
+                getattr(self, '_cut_ranges', None) or [],
                 getattr(self, '_duration_sec', None),
             )
             self.add_source_video_metadata({'url': self._url})
@@ -685,8 +693,14 @@ class M3U8Crawler:
             os.makedirs(self._dest_folder, exist_ok=True)
 
     def _cut_output_suffix(self):
-        start = getattr(self, '_cut_start_sec', None)
-        end = getattr(self, '_cut_end_sec', None)
+        cut_ranges = getattr(self, '_cut_ranges', None) or []
+        if len(cut_ranges) > 1:
+            return f' [{len(cut_ranges)}cuts]'
+        if len(cut_ranges) == 1:
+            start, end = cut_ranges[0]
+        else:
+            start = getattr(self, '_cut_start_sec', None)
+            end = getattr(self, '_cut_end_sec', None)
         if start is None and end is None:
             return ''
         def _fmt(sec):
@@ -1167,6 +1181,12 @@ class M3U8Crawler:
         self._pause_job = False
         self._create_dest_folder()
         self.download_image()
+        from jav_downloader.sites.multi_cut import run_stream_multi_cut, site_is_multi_cut
+        if site_is_multi_cut(self):
+            if self.is_target_video_exist():
+                print('檔案已存在!!', flush=True)
+                return True
+            return run_stream_multi_cut(self)
         if not self.is_target_video_exist():
             self._create_temp_folder()
             self._emit_job_log('Loading HLS playlist…')

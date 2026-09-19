@@ -163,6 +163,7 @@ class WebHandler(BaseHTTPRequestHandler):
                 dest_folder=dest,
                 cut_start=payload.get('cut_start'),
                 cut_end=payload.get('cut_end'),
+                cuts=payload.get('cuts'),
                 output_title=output_title,
             )
             status = HTTPStatus.OK if result.get('ok') else HTTPStatus.UNPROCESSABLE_ENTITY
@@ -225,6 +226,7 @@ class WebHandler(BaseHTTPRequestHandler):
                 dest_folder=dest,
                 cut_start=payload.get('cut_start'),
                 cut_end=payload.get('cut_end'),
+                cuts=payload.get('cuts'),
                 output_title=output_title,
             )
             _json_response(self, HTTPStatus.ACCEPTED, {

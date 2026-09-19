@@ -56,6 +56,7 @@ export function validateCutRange(
   const duration = Math.floor(Number(durationSec) || 0);
   const startText = startRaw.trim();
   const endText = endRaw.trim();
+  if (!startText && !endText) return null;
   const start = startText ? parseTimeInputSec(startText) : 0;
   if (startText && start === null) {
     return 'Invalid start time';
@@ -78,6 +79,50 @@ export function validateCutRange(
     return 'End must be after start';
   }
   return null;
+}
+
+export type CutRangeInput = { start: string; end: string };
+
+export function hasActiveCut(cut: CutRangeInput): boolean {
+  return Boolean(cut.start.trim() || cut.end.trim());
+}
+
+export function validateCutRanges(
+  durationSec: number | null | undefined,
+  cuts: CutRangeInput[],
+): string | null {
+  let active = 0;
+  for (let i = 0; i < cuts.length; i += 1) {
+    const cut = cuts[i]!;
+    if (!hasActiveCut(cut)) continue;
+    active += 1;
+    const err = validateCutRange(durationSec, cut.start, cut.end);
+    if (err) {
+      return cuts.length > 1 ? `Cut ${i + 1}: ${err}` : err;
+    }
+  }
+  return null;
+}
+
+export function splitCutFieldError(error: string): { start: string; end: string } {
+  if (!error) return { start: '', end: '' };
+  if (
+    error.startsWith('Start') ||
+    error === 'Invalid start time' ||
+    error.toLowerCase().includes('invalid time format')
+  ) {
+    return { start: error, end: '' };
+  }
+  if (error.startsWith('End') || error === 'Invalid end time') {
+    return { start: '', end: error };
+  }
+  if (error === 'End must be after start') {
+    return { start: error, end: error };
+  }
+  if (error.toLowerCase().includes('cut end must be after')) {
+    return { start: error, end: error };
+  }
+  return { start: '', end: '' };
 }
 
 export function clampTimeInput(raw: string, maxSec: number | null | undefined): string {

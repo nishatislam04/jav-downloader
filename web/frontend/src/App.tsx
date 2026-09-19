@@ -20,7 +20,7 @@ import {
 	startDownload,
 	validateFolder,
 } from "./api";
-import EditToolsCard, { type ToolId } from "./components/EditToolsCard";
+import EditToolsCard, { type CutRange, newCutRange, type ToolId } from "./components/EditToolsCard";
 import { DownloadIcon, SuccessIcon } from "./components/IconButton";
 import MetaCard from "./components/MetaCard";
 import ProgressCard from "./components/ProgressCard";
@@ -30,7 +30,11 @@ import {
 	loadSavedPath,
 	persistSavePath,
 } from "./lib/persist";
-import { looksLikeSupportedUrl, validateCutRange } from "./lib/time";
+import {
+	hasActiveCut,
+	looksLikeSupportedUrl,
+	validateCutRanges,
+} from "./lib/time";
 
 type ResolvePhase = "" | "metadata" | "updating";
 
@@ -47,8 +51,7 @@ function isCutRelatedError(message: string): boolean {
 
 export default function App() {
 	const [url, setUrl] = createSignal("");
-	const [cutStart, setCutStart] = createSignal("");
-	const [cutEnd, setCutEnd] = createSignal("");
+	const [cuts, setCuts] = createSignal<CutRange[]>([newCutRange()]);
 	const [defaultDownloadDir, setDefaultDownloadDir] = createSignal("");
 	const [savePath, setSavePath] = createSignal("");
 	const [savePathCustom, setSavePathCustom] = createSignal(false);
@@ -109,8 +112,7 @@ export default function App() {
 	function resetEditTools() {
 		setActiveTool(null);
 		setCustomTitle("");
-		setCutStart("");
-		setCutEnd("");
+		setCuts([newCutRange()]);
 		if (!rememberSavePath()) {
 			setSavePathCustom(false);
 			setSavePath(defaultDownloadDir());
@@ -120,8 +122,7 @@ export default function App() {
 	}
 
 	function clearTransientState() {
-		setCutStart("");
-		setCutEnd("");
+		setCuts([newCutRange()]);
 		setServerCutError("");
 		setJob(null);
 		setDownloadComplete(false);
@@ -137,23 +138,29 @@ export default function App() {
 	const durationSec = () => resolved()?.duration_sec ?? null;
 
 	const cutValidation = createMemo(() => {
-		const local = validateCutRange(durationSec(), cutStart(), cutEnd());
+		const local = validateCutRanges(durationSec(), cuts());
 		return local || serverCutError();
 	});
 
+	function activeCutsPayload() {
+		return cuts()
+			.filter(hasActiveCut)
+			.map((cut) => ({
+				start: cut.start.trim() || undefined,
+				end: cut.end.trim() || undefined,
+			}));
+	}
+
 	function resolvePayload(includeCuts = true) {
 		const payload: {
-			cut_start?: string;
-			cut_end?: string;
+			cuts?: Array<{ start?: string; end?: string }>;
 			dest_folder?: string;
 			output_title?: string;
 		} = {};
 
-		if (includeCuts && !validateCutRange(durationSec(), cutStart(), cutEnd())) {
-			const start = cutStart().trim();
-			const end = cutEnd().trim();
-			if (start) payload.cut_start = start;
-			if (end) payload.cut_end = end;
+		if (includeCuts && !validateCutRanges(durationSec(), cuts())) {
+			const active = activeCutsPayload();
+			if (active.length) payload.cuts = active;
 		}
 
 		const dest = savePath().trim();
@@ -178,7 +185,7 @@ export default function App() {
 			return;
 		}
 
-		const localCutError = validateCutRange(durationSec(), cutStart(), cutEnd());
+		const localCutError = validateCutRanges(durationSec(), cuts());
 		if (localCutError && trigger === "cut") {
 			setServerCutError("");
 			setStatusMessage("", "");
@@ -219,8 +226,7 @@ export default function App() {
 		if (trigger === "url") {
 			setActiveTool(null);
 			setCustomTitle("");
-			setCutStart("");
-			setCutEnd("");
+			setCuts([newCutRange()]);
 			if (!rememberSavePath() && !savePathCustom()) {
 				if (data.dest_folder) {
 					setSavePath(data.dest_folder);
@@ -271,19 +277,35 @@ export default function App() {
 	});
 
 	createEffect(() => {
-		const start = cutStart().trim();
-		const end = cutEnd().trim();
+		const rows = cuts();
 		untrack(() => {
 			setServerCutError("");
-			if (start || end) {
+			if (rows.some(hasActiveCut)) {
 				setDownloadComplete(false);
 			}
-			if (!start && !end) return;
-			if (validateCutRange(durationSec(), start, end)) return;
+			if (!rows.some(hasActiveCut)) return;
+			if (validateCutRanges(durationSec(), rows)) return;
 			if (!looksLikeSupportedUrl(url()) || !hasResolvedOnce()) return;
 			scheduleResolve("cut");
 		});
 	});
+
+	function handleCutChange(id: string, field: "start" | "end", value: string) {
+		setCuts((prev) =>
+			prev.map((cut) => (cut.id === id ? { ...cut, [field]: value } : cut)),
+		);
+	}
+
+	function handleAddCut() {
+		setCuts((prev) => [...prev, newCutRange()]);
+	}
+
+	function handleRemoveCut(id: string) {
+		setCuts((prev) => {
+			const next = prev.filter((cut) => cut.id !== id);
+			return next.length ? next : [newCutRange()];
+		});
+	}
 
 	async function pollJob(jobId: string) {
 		if (pollTimer) clearInterval(pollTimer);
@@ -445,30 +467,6 @@ export default function App() {
 		}
 	}
 
-	const startFieldError = createMemo(() => {
-		const err = cutValidation();
-		if (!err) return "";
-		if (
-			err.startsWith("Start") ||
-			err === "Invalid start time" ||
-			err.toLowerCase().includes("invalid time format")
-		) {
-			return err;
-		}
-		if (err === "End must be after start") return err;
-		if (err.toLowerCase().includes("cut end must be after")) return err;
-		return "";
-	});
-
-	const endFieldError = createMemo(() => {
-		const err = cutValidation();
-		if (!err) return "";
-		if (err.startsWith("End") || err === "Invalid end time") return err;
-		if (err === "End must be after start") return err;
-		if (err.toLowerCase().includes("cut end must be after")) return err;
-		return "";
-	});
-
 	const urlUnsupported = createMemo(() => {
 		const value = url().trim();
 		return value.length > 0 && !looksLikeSupportedUrl(value);
@@ -583,16 +581,14 @@ export default function App() {
 						<EditToolsCard
 							meta={meta}
 							durationSec={durationSec()}
-							cutStart={cutStart()}
-							cutEnd={cutEnd()}
-							startFieldError={startFieldError()}
-							endFieldError={endFieldError()}
+							cuts={cuts()}
 							customTitle={customTitle()}
 							savePath={savePath()}
 							rememberSavePath={rememberSavePath()}
 							activeTool={activeTool()}
-							onCutStartChange={setCutStart}
-							onCutEndChange={setCutEnd}
+							onCutChange={handleCutChange}
+							onAddCut={handleAddCut}
+							onRemoveCut={handleRemoveCut}
 							onCustomTitleChange={handleCustomTitleChange}
 							onSavePathChange={handleSavePathChange}
 							onRememberSavePathChange={handleRememberSavePathChange}

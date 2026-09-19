@@ -58,6 +58,7 @@ export function fetchHealth() {
 export type DownloadOptions = {
   cut_start?: string;
   cut_end?: string;
+  cuts?: Array<{ start?: string; end?: string }>;
   dest_folder?: string;
   output_title?: string;
 };

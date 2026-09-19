@@ -55,6 +55,7 @@ def resolve_url(
         dest_folder: str | None = None,
         cut_start: str | None = None,
         cut_end: str | None = None,
+        cuts: list | None = None,
         output_title: str | None = None) -> dict:
     """Collect metadata for a supported URL without starting a download."""
     url = (url or '').strip()
@@ -78,6 +79,7 @@ def resolve_url(
             silence=True,
             cut_start=_optional_time(cut_start),
             cut_end=_optional_time(cut_end),
+            cuts=cuts,
         )
     except Exception as exc:
         return {'ok': False, 'error': str(exc)}
@@ -119,7 +121,8 @@ def _run_download(
         dest: str,
         cut_start: str | None,
         cut_end: str | None,
-        output_title: str | None = None) -> None:
+        output_title: str | None = None,
+        cuts: list | None = None) -> None:
     manager.update(job_id, status=JobStatus.DOWNLOADING, error='')
     try:
         site_cls = sites.validate_url(url)
@@ -129,6 +132,7 @@ def _run_download(
             silence=True,
             cut_start=cut_start,
             cut_end=cut_end,
+            cuts=cuts,
         )
         if site is None or not site.is_url_vaildate():
             manager.update(
@@ -246,6 +250,7 @@ def start_download(
         dest_folder: str | None = None,
         cut_start: str | None = None,
         cut_end: str | None = None,
+        cuts: list | None = None,
         output_title: str | None = None) -> Job:
     """Queue a download and return its job record."""
     url = (url or '').strip()
@@ -260,12 +265,13 @@ def start_download(
         'dest': dest,
         'cut_start': cut_start,
         'cut_end': cut_end,
+        'cuts': cuts,
         'output_title': output_title,
     }
 
     thread = threading.Thread(
         target=_run_download,
-        args=(manager, job.id, url, dest, cut_start, cut_end, output_title),
+        args=(manager, job.id, url, dest, cut_start, cut_end, output_title, cuts),
         name=f'jav-web-{job.id}',
         daemon=True,
     )
@@ -302,6 +308,7 @@ def resume_download(manager: JobManager, job_id: str) -> bool:
             params.get('cut_start'),
             params.get('cut_end'),
             params.get('output_title'),
+            params.get('cuts'),
         ),
         name=f'jav-web-{job_id}-resume',
         daemon=True,
