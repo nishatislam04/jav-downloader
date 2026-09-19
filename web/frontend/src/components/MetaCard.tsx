@@ -1,16 +1,11 @@
 import { Show } from 'solid-js';
 import type { ResolveResult } from '../api';
 import { formatDurationSec } from '../lib/time';
+import ThumbnailPreview, { thumbnailSrc } from './ThumbnailPreview';
 
 type Props = {
   meta: ResolveResult;
 };
-
-function thumbnailSrc(url: string): string {
-  if (!url) return '';
-  if (url.startsWith('/')) return url;
-  return `/api/thumbnail?url=${encodeURIComponent(url)}`;
-}
 
 export default function MetaCard(props: Props) {
   const hasDuration = () => {
@@ -25,7 +20,7 @@ export default function MetaCard(props: Props) {
     <section class="card meta">
       <div class="meta-row">
         <Show when={thumb()}>
-          <img src={thumb()} alt="" class="thumb" loading="lazy" />
+          <ThumbnailPreview src={thumb()} alt={props.meta.title || 'Video thumbnail'} />
         </Show>
         <div>
           <p class="label">Title</p>
