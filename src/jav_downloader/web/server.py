@@ -10,10 +10,12 @@ import os
 from http import HTTPStatus
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
-from urllib.parse import urlparse
+from urllib.parse import parse_qs, unquote, urlparse
 
 from jav_downloader.web.jobs import JobManager
-from jav_downloader.web.paths import default_download_dir
+from jav_downloader.web.paths import default_download_dir, validate_dest_folder
+from jav_downloader.web.reveal import reveal_in_file_manager
+from jav_downloader.web.thumbnail import fetch_thumbnail
 from jav_downloader.web import service
 
 STATIC_DIR = Path(__file__).resolve().parent / 'static'
@@ -50,6 +52,24 @@ class WebHandler(BaseHTTPRequestHandler):
     def do_GET(self) -> None:
         parsed = urlparse(self.path)
         path = parsed.path
+
+        if path == '/api/thumbnail':
+            raw_url = unquote(parse_qs(parsed.query).get('url', [''])[0])
+            try:
+                body, content_type = fetch_thumbnail(raw_url)
+            except ValueError as exc:
+                _json_response(self, HTTPStatus.BAD_REQUEST, {
+                    'ok': False,
+                    'error': str(exc),
+                })
+                return
+            self.send_response(HTTPStatus.OK)
+            self.send_header('Content-Type', content_type)
+            self.send_header('Content-Length', str(len(body)))
+            self.send_header('Cache-Control', 'public, max-age=3600')
+            self.end_headers()
+            self.wfile.write(body)
+            return
 
         if path == '/api/health':
             _json_response(self, HTTPStatus.OK, {
@@ -99,7 +119,43 @@ class WebHandler(BaseHTTPRequestHandler):
             })
             return
 
-        dest = payload.get('dest_folder') or default_download_dir()
+        dest = payload.get('dest_folder')
+        output_title = payload.get('output_title')
+
+        if path == '/api/validate-folder':
+            raw_path = payload.get('path') or payload.get('dest_folder') or ''
+            try:
+                folder = validate_dest_folder(str(raw_path))
+            except ValueError as exc:
+                _json_response(self, HTTPStatus.BAD_REQUEST, {
+                    'ok': False,
+                    'error': str(exc),
+                })
+                return
+            _json_response(self, HTTPStatus.OK, {
+                'ok': True,
+                'path': folder,
+            })
+            return
+
+        if path == '/api/reveal':
+            raw_path = str(payload.get('path') or '').strip()
+            if not raw_path:
+                _json_response(self, HTTPStatus.BAD_REQUEST, {
+                    'ok': False,
+                    'error': 'Path is required',
+                })
+                return
+            try:
+                reveal_in_file_manager(raw_path)
+            except ValueError as exc:
+                _json_response(self, HTTPStatus.BAD_REQUEST, {
+                    'ok': False,
+                    'error': str(exc),
+                })
+                return
+            _json_response(self, HTTPStatus.OK, {'ok': True})
+            return
 
         if path == '/api/resolve':
             result = service.resolve_url(
@@ -107,6 +163,7 @@ class WebHandler(BaseHTTPRequestHandler):
                 dest_folder=dest,
                 cut_start=payload.get('cut_start'),
                 cut_end=payload.get('cut_end'),
+                output_title=output_title,
             )
             status = HTTPStatus.OK if result.get('ok') else HTTPStatus.UNPROCESSABLE_ENTITY
             _json_response(self, status, result)
@@ -154,12 +211,21 @@ class WebHandler(BaseHTTPRequestHandler):
                     'error': 'URL is required',
                 })
                 return
+            try:
+                validate_dest_folder(dest)
+            except ValueError as exc:
+                _json_response(self, HTTPStatus.BAD_REQUEST, {
+                    'ok': False,
+                    'error': str(exc),
+                })
+                return
             job = service.start_download(
                 MANAGER,
                 url,
                 dest_folder=dest,
                 cut_start=payload.get('cut_start'),
                 cut_end=payload.get('cut_end'),
+                output_title=output_title,
             )
             _json_response(self, HTTPStatus.ACCEPTED, {
                 'ok': True,

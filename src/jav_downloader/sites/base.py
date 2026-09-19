@@ -602,6 +602,7 @@ class M3U8Crawler:
             float(getattr(self, 'segment_retry_max_delay', 6.0)))
         self._filename_mode = config.get_filename_mode()
         self._progress_callback = None   # (downloaded, total, speed_bps) -> None
+        self._job_log = None             # (message: str) -> None
         self._speed_lock = threading.Lock()
         self._bytes_downloaded = 0
         self._speed_start = 0.0
@@ -1154,6 +1155,11 @@ class M3U8Crawler:
         except Exception:
             pass
 
+    def _emit_job_log(self, message: str) -> None:
+        cb = getattr(self, '_job_log', None)
+        if cb:
+            cb(str(message))
+
     def start_download(self):
         if self._cancel_job:
             return False
@@ -1163,10 +1169,14 @@ class M3U8Crawler:
         self.download_image()
         if not self.is_target_video_exist():
             self._create_temp_folder()
+            self._emit_job_log('Loading HLS playlist…')
             self._create_m3u8()
+            self._emit_job_log(f'Found {len(self._tsList)} segments')
             if not self._stop_requested():
+                self._emit_job_log('Downloading segments…')
                 self._prepareCrawl()
             if not self._stop_requested() and not self._pending_set:
+                self._emit_job_log('Merging segments into MP4…')
                 merged = self._mergeMp4Chunks()
                 if not merged and not self._stop_requested():
                     raise Exception("merge/publish failed")

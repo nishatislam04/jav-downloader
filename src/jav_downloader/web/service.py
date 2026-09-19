@@ -4,10 +4,16 @@ from __future__ import annotations
 
 import os
 import threading
+import time
 
 from jav_downloader import sites
+from jav_downloader.sites.base import (
+    _apply_filename_mode,
+    _sanitize_filename,
+    _truncate_target_name,
+)
 from jav_downloader.web.jobs import Job, JobManager, JobStatus
-from jav_downloader.web.paths import default_download_dir
+from jav_downloader.web.paths import default_download_dir, validate_dest_folder
 
 _active_downloads: dict[str, object] = {}
 _active_lock = threading.Lock()
@@ -25,11 +31,31 @@ def _optional_time(value) -> str | None:
     return text or None
 
 
+def _optional_text(value) -> str | None:
+    if value is None:
+        return None
+    text = str(value).strip()
+    return text or None
+
+
+def _apply_output_title(site, output_title: str | None) -> None:
+    text = _optional_text(output_title)
+    if not text or site is None:
+        return
+    name = _sanitize_filename(text)
+    name = _apply_filename_mode(name, site._filename_mode)
+    if not name.strip():
+        return
+    site._targetName = _truncate_target_name(
+        name, site._dest_folder, site._dirName)
+
+
 def resolve_url(
         url: str,
         dest_folder: str | None = None,
         cut_start: str | None = None,
-        cut_end: str | None = None) -> dict:
+        cut_end: str | None = None,
+        output_title: str | None = None) -> dict:
     """Collect metadata for a supported URL without starting a download."""
     url = (url or '').strip()
     if not url:
@@ -39,7 +65,10 @@ def resolve_url(
     if site_cls is None:
         return {'ok': False, 'error': 'Unsupported URL'}
 
-    dest = dest_folder or default_download_dir()
+    try:
+        dest = validate_dest_folder(dest_folder)
+    except ValueError as exc:
+        return {'ok': False, 'error': str(exc)}
     os.makedirs(dest, exist_ok=True)
 
     try:
@@ -55,6 +84,11 @@ def resolve_url(
 
     if site is None:
         return {'ok': False, 'error': 'Unsupported URL'}
+
+    try:
+        _apply_output_title(site, output_title)
+    except OSError as exc:
+        return {'ok': False, 'error': str(exc)}
 
     if not site.is_url_vaildate():
         message = getattr(site, '_last_error', None)
@@ -84,7 +118,8 @@ def _run_download(
         url: str,
         dest: str,
         cut_start: str | None,
-        cut_end: str | None) -> None:
+        cut_end: str | None,
+        output_title: str | None = None) -> None:
     manager.update(job_id, status=JobStatus.DOWNLOADING, error='')
     try:
         site_cls = sites.validate_url(url)
@@ -103,6 +138,12 @@ def _run_download(
             )
             return
 
+        try:
+            _apply_output_title(site, output_title)
+        except OSError as exc:
+            manager.update(job_id, status=JobStatus.FAILED, error=str(exc))
+            return
+
         manager.update(
             job_id,
             title=site.target_name() or '',
@@ -110,6 +151,20 @@ def _run_download(
             thumbnail=getattr(site, '_imageUrl', None) or '',
             dest_folder=site.dest_folder() or dest,
         )
+
+        def _on_log(message: str) -> None:
+            stamp = time.strftime('%H:%M:%S')
+            manager.append_log(job_id, f'[{stamp}] {message}')
+
+        site._job_log = _on_log
+        _on_log('Preparing download…')
+        stream_label = getattr(site, '_active_stream_label', None)
+        if stream_label:
+            _on_log(f'Using stream mirror: {stream_label}')
+        if getattr(site, '_m3u8url', None):
+            _on_log(f'HLS source: {site._m3u8url}')
+        elif getattr(site, '_direct_url', None):
+            _on_log('Direct MP4 source resolved')
 
         if getattr(site, '_direct_url', None):
             progress_unit = 'bytes'
@@ -145,8 +200,10 @@ def _run_download(
                 )
                 return
 
+            _on_log('Starting transfer…')
             site.start_download()
             if getattr(site, '_pause_job', False):
+                _on_log('Download paused')
                 manager.update(
                     job_id,
                     status=JobStatus.PAUSED,
@@ -157,6 +214,7 @@ def _run_download(
             output = site._get_video_savename()
             if os.path.isfile(output):
                 size = os.path.getsize(output)
+                _on_log(f'Complete: {output}')
                 manager.update(
                     job_id,
                     status=JobStatus.COMPLETED,
@@ -178,6 +236,7 @@ def _run_download(
         job = manager.get(job_id)
         if job is not None and job.status == JobStatus.PAUSED:
             return
+        manager.append_log(job_id, f'[{time.strftime("%H:%M:%S")}] Error: {exc}')
         manager.update(job_id, status=JobStatus.FAILED, error=str(exc))
 
 
@@ -186,24 +245,27 @@ def start_download(
         url: str,
         dest_folder: str | None = None,
         cut_start: str | None = None,
-        cut_end: str | None = None) -> Job:
+        cut_end: str | None = None,
+        output_title: str | None = None) -> Job:
     """Queue a download and return its job record."""
     url = (url or '').strip()
     job = manager.create(url)
-    dest = dest_folder or default_download_dir()
+    dest = validate_dest_folder(dest_folder)
     os.makedirs(dest, exist_ok=True)
     cut_start = _optional_time(cut_start)
     cut_end = _optional_time(cut_end)
+    output_title = _optional_text(output_title)
     _job_params[job.id] = {
         'url': url,
         'dest': dest,
         'cut_start': cut_start,
         'cut_end': cut_end,
+        'output_title': output_title,
     }
 
     thread = threading.Thread(
         target=_run_download,
-        args=(manager, job.id, url, dest, cut_start, cut_end),
+        args=(manager, job.id, url, dest, cut_start, cut_end, output_title),
         name=f'jav-web-{job.id}',
         daemon=True,
     )
@@ -239,6 +301,7 @@ def resume_download(manager: JobManager, job_id: str) -> bool:
             params['dest'],
             params.get('cut_start'),
             params.get('cut_end'),
+            params.get('output_title'),
         ),
         name=f'jav-web-{job_id}-resume',
         daemon=True,

@@ -33,6 +33,7 @@ class Job:
     progress_pct: float = 0.0
     progress_unit: str = ''  # 'bytes', 'segments', or '' when unknown
     error: str = ''
+    log: list[str] = field(default_factory=list)
     created_at: float = field(default_factory=time.time)
     updated_at: float = field(default_factory=time.time)
 
@@ -52,6 +53,7 @@ class Job:
             'progress_pct': self.progress_pct,
             'progress_unit': self.progress_unit,
             'error': self.error,
+            'log': list(self.log),
             'created_at': self.created_at,
             'updated_at': self.updated_at,
         }
@@ -89,6 +91,19 @@ class JobManager:
                 setattr(job, key, value)
             job.updated_at = time.time()
             return job
+
+    def append_log(self, job_id: str, message: str) -> None:
+        text = str(message or '').strip()
+        if not text:
+            return
+        with self._lock:
+            job = self._jobs.get(job_id)
+            if job is None:
+                return
+            job.log.append(text)
+            if len(job.log) > 250:
+                job.log = job.log[-250:]
+            job.updated_at = time.time()
 
     def set_progress(
             self,

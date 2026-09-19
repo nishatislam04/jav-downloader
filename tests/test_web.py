@@ -1,9 +1,10 @@
 import json
-import os
 import threading
 from http.client import HTTPConnection
 
-from jav_downloader.web.paths import default_download_dir
+import pytest
+
+from jav_downloader.web.paths import default_download_dir, validate_dest_folder
 from jav_downloader.web.server import WebHandler, ThreadingHTTPServer
 
 
@@ -12,6 +13,19 @@ def test_default_download_dir_honors_env(tmp_path, monkeypatch):
     target.mkdir()
     monkeypatch.setenv('DOWNLOAD_DIR', str(target))
     assert default_download_dir() == str(target.resolve())
+
+
+def test_validate_dest_folder_requires_existing_writable_dir(tmp_path, monkeypatch):
+    monkeypatch.setenv('DOWNLOAD_DIR', str(tmp_path))
+    child = tmp_path / 'videos'
+    child.mkdir()
+    assert validate_dest_folder(str(child)) == str(child.resolve())
+
+
+def test_validate_dest_folder_rejects_missing_path(tmp_path, monkeypatch):
+    monkeypatch.setenv('DOWNLOAD_DIR', str(tmp_path))
+    with pytest.raises(ValueError):
+        validate_dest_folder(str(tmp_path / 'missing'))
 
 
 def test_health_endpoint(tmp_path, monkeypatch):
@@ -28,6 +42,65 @@ def test_health_endpoint(tmp_path, monkeypatch):
         assert resp.status == 200
         assert body['ok'] is True
         assert body['download_dir'] == str(tmp_path.resolve())
+    finally:
+        server.shutdown()
+        server.server_close()
+
+
+def test_validate_folder_endpoint(tmp_path, monkeypatch):
+    target = tmp_path / 'jav'
+    target.mkdir()
+    monkeypatch.setenv('DOWNLOAD_DIR', str(tmp_path))
+    server = ThreadingHTTPServer(('127.0.0.1', 0), WebHandler)
+    host, port = server.server_address
+    thread = threading.Thread(target=server.serve_forever, daemon=True)
+    thread.start()
+    try:
+        conn = HTTPConnection(host, port, timeout=5)
+        payload = json.dumps({'path': str(target)}).encode('utf-8')
+        conn.request(
+            'POST',
+            '/api/validate-folder',
+            body=payload,
+            headers={'Content-Type': 'application/json'},
+        )
+        resp = conn.getresponse()
+        body = json.loads(resp.read().decode('utf-8'))
+        assert resp.status == 200
+        assert body['ok'] is True
+        assert body['path'] == str(target.resolve())
+    finally:
+        server.shutdown()
+        server.server_close()
+
+
+def test_reveal_endpoint(tmp_path, monkeypatch):
+    target = tmp_path / 'clip.mp4'
+    target.write_bytes(b'x')
+    monkeypatch.setenv('DOWNLOAD_DIR', str(tmp_path))
+    called: list[str] = []
+    monkeypatch.setattr(
+        'jav_downloader.web.server.reveal_in_file_manager',
+        lambda path: called.append(path),
+    )
+    server = ThreadingHTTPServer(('127.0.0.1', 0), WebHandler)
+    host, port = server.server_address
+    thread = threading.Thread(target=server.serve_forever, daemon=True)
+    thread.start()
+    try:
+        conn = HTTPConnection(host, port, timeout=5)
+        payload = json.dumps({'path': str(target)}).encode('utf-8')
+        conn.request(
+            'POST',
+            '/api/reveal',
+            body=payload,
+            headers={'Content-Type': 'application/json'},
+        )
+        resp = conn.getresponse()
+        body = json.loads(resp.read().decode('utf-8'))
+        assert resp.status == 200
+        assert body['ok'] is True
+        assert called == [str(target.resolve())]
     finally:
         server.shutdown()
         server.server_close()

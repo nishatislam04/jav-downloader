@@ -1,4 +1,4 @@
-"""Default output paths for the web UI."""
+"""Default output paths and save-location validation for the web UI."""
 
 from __future__ import annotations
 
@@ -27,3 +27,18 @@ def default_download_dir() -> str:
     fallback = home / 'Downloads'
     fallback.mkdir(parents=True, exist_ok=True)
     return str(fallback.resolve())
+
+
+def validate_dest_folder(path: str | None) -> str:
+    """Return a normalized folder path or raise ValueError when unusable."""
+    text = str(path or '').strip()
+    if not text:
+        return default_download_dir()
+
+    resolved = Path(os.path.abspath(os.path.expanduser(text))).resolve()
+    if not resolved.is_dir():
+        raise ValueError('Save location must be an existing folder')
+    if not os.access(resolved, os.W_OK):
+        raise ValueError('Save location is not writable')
+
+    return str(resolved)
