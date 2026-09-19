@@ -166,3 +166,28 @@ export function CloseIcon() {
 		</svg>
 	);
 }
+
+export function AudioIcon() {
+	return (
+		<svg viewBox="0 0 24 24" width="18" height="18" aria-hidden="true">
+			<path
+				d="M9 9v6l5-3-5-3zm8 3a4 4 0 0 1-2 3.464V8.536A4 4 0 0 1 17 12z"
+				fill="currentColor"
+			/>
+		</svg>
+	);
+}
+
+export function StreamIcon() {
+	return (
+		<svg viewBox="0 0 24 24" width="18" height="18" aria-hidden="true">
+			<path
+				d="M4 6h16M4 12h10M4 18h16"
+				fill="none"
+				stroke="currentColor"
+				stroke-width="1.75"
+				stroke-linecap="round"
+			/>
+		</svg>
+	);
+}

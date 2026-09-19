@@ -262,6 +262,9 @@ def run_stream_multi_cut(site):
         _concat_clips(site, ffmpeg, clip_paths, safe_part, workdir, label)
         _safe_remove(part)
         os.replace(safe_part, out)
+        from jav_downloader.sites.audio_post import post_process_audio
+        post_process_audio(
+            site, out, total_clip_len or getattr(site, '_duration_sec', None))
     finally:
         for path in clip_paths:
             _safe_remove(path)

@@ -303,6 +303,8 @@ def run_direct_download(site):
     except OSError:
         _safe_remove(part)
         raise
+    from jav_downloader.sites.audio_post import post_process_audio
+    post_process_audio(site, out, getattr(site, '_duration_sec', None))
     print(f'\n下載完成: {os.path.basename(out)}', flush=True)
     return True
 
@@ -337,7 +339,9 @@ def _download_ffmpeg_cut(site, part, out, referer, label):
     fd, safe_part = tempfile.mkstemp(
         suffix='.mp4', prefix='jav-cut-', dir=dest_dir)
     os.close(fd)
-    cmd.extend(['-c', 'copy', '-movflags', '+faststart', safe_part])
+    from jav_downloader.sites.audio_post import append_ffmpeg_output_args
+    append_ffmpeg_output_args(cmd, site, clip_len)
+    cmd.append(safe_part)
 
     estimated_total = estimate_cut_total_bytes(
         site, start_sec, end_sec, duration, referer)

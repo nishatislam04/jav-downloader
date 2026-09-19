@@ -20,6 +20,7 @@ import {
 	startDownload,
 	validateFolder,
 } from "./api";
+import HistoryMenu from "./components/HistoryMenu";
 import EditToolsCard, {
 	type CutRange,
 	newCutRange,
@@ -34,6 +35,7 @@ import {
 	loadSavedPath,
 	persistSavePath,
 } from "./lib/persist";
+import { appendHistory } from "./lib/history";
 import {
 	hasActiveCut,
 	looksLikeSupportedUrl,
@@ -63,6 +65,9 @@ export default function App() {
 		loadRememberSavePath(),
 	);
 	const [customTitle, setCustomTitle] = createSignal("");
+	const [audioFade, setAudioFade] = createSignal(false);
+	const [audioLoudnorm, setAudioLoudnorm] = createSignal(false);
+	const [streamPreference, setStreamPreference] = createSignal("");
 	const [activeTool, setActiveTool] = createSignal<ToolId | null>(null);
 	const [status, setStatus] = createSignal("");
 	const [statusKind, setStatusKind] = createSignal<"ok" | "error" | "">("");
@@ -117,6 +122,9 @@ export default function App() {
 		setActiveTool(null);
 		setCustomTitle("");
 		setCuts([newCutRange()]);
+		setAudioFade(false);
+		setAudioLoudnorm(false);
+		setStreamPreference("");
 		if (!rememberSavePath()) {
 			setSavePathCustom(false);
 			setSavePath(defaultDownloadDir());
@@ -127,6 +135,9 @@ export default function App() {
 
 	function clearTransientState() {
 		setCuts([newCutRange()]);
+		setAudioFade(false);
+		setAudioLoudnorm(false);
+		setStreamPreference("");
 		setServerCutError("");
 		setJob(null);
 		setDownloadComplete(false);
@@ -160,6 +171,9 @@ export default function App() {
 			cuts?: Array<{ start?: string; end?: string }>;
 			dest_folder?: string;
 			output_title?: string;
+			audio_fade?: boolean;
+			audio_loudnorm?: boolean;
+			stream_preference?: string;
 		} = {};
 
 		if (includeCuts && !validateCutRanges(durationSec(), cuts())) {
@@ -172,6 +186,11 @@ export default function App() {
 
 		const title = customTitle().trim();
 		if (title) payload.output_title = title;
+
+		if (audioFade()) payload.audio_fade = true;
+		if (audioLoudnorm()) payload.audio_loudnorm = true;
+		const stream = streamPreference().trim();
+		if (stream) payload.stream_preference = stream;
 
 		return payload;
 	}
@@ -231,6 +250,9 @@ export default function App() {
 			setActiveTool(null);
 			setCustomTitle("");
 			setCuts([newCutRange()]);
+			setAudioFade(false);
+			setAudioLoudnorm(false);
+			setStreamPreference("");
 			if (!rememberSavePath() && !savePathCustom()) {
 				if (data.dest_folder) {
 					setSavePath(data.dest_folder);
@@ -311,6 +333,30 @@ export default function App() {
 		});
 	}
 
+	function handleAudioFadeChange(value: boolean) {
+		setAudioFade(value);
+	}
+
+	function handleAudioLoudnormChange(value: boolean) {
+		setAudioLoudnorm(value);
+	}
+
+	function handleStreamPreferenceChange(label: string) {
+		setStreamPreference(label);
+		scheduleResolve("edit");
+	}
+
+	function handleTryNextStream() {
+		const mirrors = resolved()?.stream_mirrors ?? [];
+		const active = resolved()?.active_stream ?? "";
+		if (!mirrors.length) return;
+		const index = Math.max(0, mirrors.indexOf(active));
+		const next = mirrors[(index + 1) % mirrors.length] ?? "";
+		if (!next) return;
+		setStreamPreference(next);
+		scheduleResolve("edit");
+	}
+
 	async function pollJob(jobId: string) {
 		if (pollTimer) clearInterval(pollTimer);
 
@@ -319,6 +365,13 @@ export default function App() {
 			if (!data.ok || !data.job) return;
 			setJob(data.job);
 			if (data.job.status === "completed") {
+				const meta = resolved();
+				appendHistory({
+					url: meta?.url || url().trim(),
+					title: meta?.title || data.job.title || "",
+					thumbnail: meta?.thumbnail || data.job.thumbnail || "",
+					downloadedAt: Date.now(),
+				});
 				setDownloadComplete(true);
 				setStatusMessage("", "");
 				setBusy(false);
@@ -500,8 +553,9 @@ export default function App() {
 
 	return (
 		<main class="shell">
-			<header>
+			<header class="app-header">
 				<h1>JAV Downloader</h1>
+				<HistoryMenu onSelect={(entry) => setUrl(entry.url)} />
 			</header>
 
 			<section class="card url-dashboard sticky-dashboard">
@@ -590,9 +644,17 @@ export default function App() {
 							savePath={savePath()}
 							rememberSavePath={rememberSavePath()}
 							activeTool={activeTool()}
+							audioFade={audioFade()}
+							audioLoudnorm={audioLoudnorm()}
+							streamMirrors={meta().stream_mirrors ?? []}
+							activeStream={meta().active_stream ?? ""}
 							onCutChange={handleCutChange}
 							onAddCut={handleAddCut}
 							onRemoveCut={handleRemoveCut}
+							onAudioFadeChange={handleAudioFadeChange}
+							onAudioLoudnormChange={handleAudioLoudnormChange}
+							onStreamPreferenceChange={handleStreamPreferenceChange}
+							onTryNextStream={handleTryNextStream}
 							onCustomTitleChange={handleCustomTitleChange}
 							onSavePathChange={handleSavePathChange}
 							onRememberSavePathChange={handleRememberSavePathChange}

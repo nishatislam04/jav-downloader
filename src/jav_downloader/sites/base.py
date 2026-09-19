@@ -565,11 +565,17 @@ class M3U8Crawler:
 
     def __init__(
             self, url, savepath="", silence=False, max_workers=None,
-            cut_start=None, cut_end=None, cuts=None):
+            cut_start=None, cut_end=None, cuts=None,
+            audio_fade=False, audio_loudnorm=False, stream_preference=None):
         self.silence = silence
         from jav_downloader.sites.multi_cut import build_cut_ranges
         self._cut_ranges = build_cut_ranges(cuts, cut_start, cut_end)
         _apply_legacy_cut_fields(self, self._cut_ranges)
+        self._audio_fade = bool(audio_fade)
+        self._audio_loudnorm = bool(audio_loudnorm)
+        self._stream_preference = (str(stream_preference).strip().upper()
+                                   if stream_preference else None) or None
+        self._available_stream_labels = []
         self._duration_sec = None
         self._segment_durations = []
         self._tsList = []
@@ -963,6 +969,8 @@ class M3U8Crawler:
                     except OSError: pass
                 return 0
             os.replace(part, saveName)
+            from jav_downloader.sites.audio_post import post_process_audio
+            post_process_audio(self, saveName, getattr(self, '_duration_sec', None))
             published = True
         finally:
             shutil.rmtree(workdir, ignore_errors=True)

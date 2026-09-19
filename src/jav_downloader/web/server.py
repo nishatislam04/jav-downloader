@@ -165,6 +165,9 @@ class WebHandler(BaseHTTPRequestHandler):
                 cut_end=payload.get('cut_end'),
                 cuts=payload.get('cuts'),
                 output_title=output_title,
+                audio_fade=service._optional_bool(payload.get('audio_fade')),
+                audio_loudnorm=service._optional_bool(payload.get('audio_loudnorm')),
+                stream_preference=payload.get('stream_preference'),
             )
             status = HTTPStatus.OK if result.get('ok') else HTTPStatus.UNPROCESSABLE_ENTITY
             _json_response(self, status, result)
@@ -228,6 +231,9 @@ class WebHandler(BaseHTTPRequestHandler):
                 cut_end=payload.get('cut_end'),
                 cuts=payload.get('cuts'),
                 output_title=output_title,
+                audio_fade=service._optional_bool(payload.get('audio_fade')),
+                audio_loudnorm=service._optional_bool(payload.get('audio_loudnorm')),
+                stream_preference=payload.get('stream_preference'),
             )
             _json_response(self, HTTPStatus.ACCEPTED, {
                 'ok': True,

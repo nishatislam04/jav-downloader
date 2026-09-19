@@ -713,6 +713,7 @@ class SiteJavGuru(M3U8Crawler):
         if not servers:
             raise Exception("此影片沒有可用的 STREAM 來源（版面改版？）")
 
+        self._available_stream_labels = list(servers.keys())
         self._targetName = _extract_title(soup, html_text)
         self._imageUrl = _extract_thumbnail(soup, html_text)
 
@@ -721,7 +722,12 @@ class SiteJavGuru(M3U8Crawler):
         self._m3u8url = None
         self._extra_headers = {}
         errors = []
-        for label, token in servers.items():
+        prefer = getattr(self, '_stream_preference', None)
+        labels = list(servers.keys())
+        if prefer and prefer in servers:
+            labels = [prefer] + [label for label in labels if label != prefer]
+        for label in labels:
+            token = servers[label]
             if label in skip_labels:
                 continue
             cfg = _load_localize_config(html_text, token)

@@ -38,6 +38,22 @@ def _optional_text(value) -> str | None:
     return text or None
 
 
+def _optional_bool(value) -> bool:
+    if isinstance(value, bool):
+        return value
+    if value is None:
+        return False
+    text = str(value).strip().lower()
+    return text in ('1', 'true', 'yes', 'on')
+
+
+def _site_resolve_extras(site) -> dict:
+    return {
+        'stream_mirrors': list(getattr(site, '_available_stream_labels', None) or []),
+        'active_stream': getattr(site, '_active_stream_label', None) or '',
+    }
+
+
 def _apply_output_title(site, output_title: str | None) -> None:
     text = _optional_text(output_title)
     if not text or site is None:
@@ -56,7 +72,10 @@ def resolve_url(
         cut_start: str | None = None,
         cut_end: str | None = None,
         cuts: list | None = None,
-        output_title: str | None = None) -> dict:
+        output_title: str | None = None,
+        audio_fade: bool = False,
+        audio_loudnorm: bool = False,
+        stream_preference: str | None = None) -> dict:
     """Collect metadata for a supported URL without starting a download."""
     url = (url or '').strip()
     if not url:
@@ -80,6 +99,9 @@ def resolve_url(
             cut_start=_optional_time(cut_start),
             cut_end=_optional_time(cut_end),
             cuts=cuts,
+            audio_fade=audio_fade,
+            audio_loudnorm=audio_loudnorm,
+            stream_preference=_optional_text(stream_preference),
         )
     except Exception as exc:
         return {'ok': False, 'error': str(exc)}
@@ -111,6 +133,7 @@ def resolve_url(
         'quality': getattr(site, '_quality_label', None) or '',
         'views': getattr(site, '_views_label', None) or '',
         'uploader': getattr(site, '_uploader', None) or '',
+        **_site_resolve_extras(site),
     }
 
 
@@ -122,7 +145,10 @@ def _run_download(
         cut_start: str | None,
         cut_end: str | None,
         output_title: str | None = None,
-        cuts: list | None = None) -> None:
+        cuts: list | None = None,
+        audio_fade: bool = False,
+        audio_loudnorm: bool = False,
+        stream_preference: str | None = None) -> None:
     manager.update(job_id, status=JobStatus.DOWNLOADING, error='')
     try:
         site_cls = sites.validate_url(url)
@@ -133,6 +159,9 @@ def _run_download(
             cut_start=cut_start,
             cut_end=cut_end,
             cuts=cuts,
+            audio_fade=audio_fade,
+            audio_loudnorm=audio_loudnorm,
+            stream_preference=stream_preference,
         )
         if site is None or not site.is_url_vaildate():
             manager.update(
@@ -251,7 +280,10 @@ def start_download(
         cut_start: str | None = None,
         cut_end: str | None = None,
         cuts: list | None = None,
-        output_title: str | None = None) -> Job:
+        output_title: str | None = None,
+        audio_fade: bool = False,
+        audio_loudnorm: bool = False,
+        stream_preference: str | None = None) -> Job:
     """Queue a download and return its job record."""
     url = (url or '').strip()
     job = manager.create(url)
@@ -260,6 +292,7 @@ def start_download(
     cut_start = _optional_time(cut_start)
     cut_end = _optional_time(cut_end)
     output_title = _optional_text(output_title)
+    stream_preference = _optional_text(stream_preference)
     _job_params[job.id] = {
         'url': url,
         'dest': dest,
@@ -267,11 +300,17 @@ def start_download(
         'cut_end': cut_end,
         'cuts': cuts,
         'output_title': output_title,
+        'audio_fade': audio_fade,
+        'audio_loudnorm': audio_loudnorm,
+        'stream_preference': stream_preference,
     }
 
     thread = threading.Thread(
         target=_run_download,
-        args=(manager, job.id, url, dest, cut_start, cut_end, output_title, cuts),
+        args=(
+            manager, job.id, url, dest, cut_start, cut_end, output_title, cuts,
+            audio_fade, audio_loudnorm, stream_preference,
+        ),
         name=f'jav-web-{job.id}',
         daemon=True,
     )
@@ -309,6 +348,9 @@ def resume_download(manager: JobManager, job_id: str) -> bool:
             params.get('cut_end'),
             params.get('output_title'),
             params.get('cuts'),
+            bool(params.get('audio_fade')),
+            bool(params.get('audio_loudnorm')),
+            params.get('stream_preference'),
         ),
         name=f'jav-web-{job_id}-resume',
         daemon=True,

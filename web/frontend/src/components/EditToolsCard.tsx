@@ -1,4 +1,4 @@
-import { createEffect, createMemo, createSignal, Index, Show } from "solid-js";
+import { createEffect, createMemo, createSignal, For, Index, Show } from "solid-js";
 import type { ResolveResult } from "../api";
 import { validateFolder } from "../api";
 import {
@@ -8,10 +8,16 @@ import {
 	splitCutFieldError,
 	validateCutRange,
 } from "../lib/time";
-import { CutIcon, FolderIcon, RenameIcon } from "./IconButton";
+import {
+	AudioIcon,
+	CutIcon,
+	FolderIcon,
+	RenameIcon,
+	StreamIcon,
+} from "./IconButton";
 import TimeField from "./TimeField";
 
-export type ToolId = "cut" | "rename" | "save";
+export type ToolId = "cut" | "audio" | "stream" | "rename" | "save";
 
 export type CutRange = {
 	id: string;
@@ -35,21 +41,30 @@ type Props = {
 	savePath: string;
 	rememberSavePath: boolean;
 	activeTool: ToolId | null;
+	audioFade: boolean;
+	audioLoudnorm: boolean;
+	streamMirrors: string[];
+	activeStream: string;
 	onCutChange: (id: string, field: "start" | "end", value: string) => void;
 	onAddCut: () => void;
 	onRemoveCut: (id: string) => void;
+	onAudioFadeChange: (value: boolean) => void;
+	onAudioLoudnormChange: (value: boolean) => void;
+	onStreamPreferenceChange: (label: string) => void;
+	onTryNextStream: () => void;
 	onCustomTitleChange: (value: string) => void;
 	onSavePathChange: (path: string) => void;
 	onRememberSavePathChange: (value: boolean) => void;
 	onSelectTool: (tool: ToolId) => void;
 };
 
-const TOOLS: Array<{
+const BASE_TOOLS: Array<{
 	id: ToolId;
 	label: string;
 	Icon: typeof CutIcon;
 }> = [
 	{ id: "cut", label: "Cut", Icon: CutIcon },
+	{ id: "audio", label: "Audio", Icon: AudioIcon },
 	{ id: "rename", label: "Rename title", Icon: RenameIcon },
 	{ id: "save", label: "Save location", Icon: FolderIcon },
 ];
@@ -95,8 +110,16 @@ export default function EditToolsCard(props: Props) {
 		}
 	}
 
-	const activeMeta = () => TOOLS.find((tool) => tool.id === props.activeTool);
+	const activeMeta = () => visibleTools().find((tool) => tool.id === props.activeTool);
 	const multiCut = () => props.cuts.length > 1;
+
+	const visibleTools = createMemo(() => {
+		const items = [...BASE_TOOLS];
+		if (props.streamMirrors.length > 0) {
+			items.splice(2, 0, { id: "stream", label: "Stream", Icon: StreamIcon });
+		}
+		return items;
+	});
 
 	const totalDurationLabel = createMemo(() => {
 		let total = 0;
@@ -112,7 +135,7 @@ export default function EditToolsCard(props: Props) {
 			<p class="edit-tools-heading">Video tools</p>
 			<div class="edit-tools-layout">
 				<nav class="edit-tools-sidebar" aria-label="Video tools">
-					{TOOLS.map((tool) => (
+					{visibleTools().map((tool) => (
 						<button
 							type="button"
 							class={`tool-sidebar-btn ${props.activeTool === tool.id ? "active" : ""}`}
@@ -221,6 +244,58 @@ export default function EditToolsCard(props: Props) {
 											</span>
 										</Show>
 									</div>
+								</Show>
+
+								<Show when={toolId() === "audio"}>
+									<label class="toggle-row">
+										<input
+											type="checkbox"
+											checked={props.audioFade}
+											onChange={(event) =>
+												props.onAudioFadeChange(event.currentTarget.checked)
+											}
+										/>
+										<span>Fade in / out (0.5s at start and end)</span>
+									</label>
+									<label class="toggle-row">
+										<input
+											type="checkbox"
+											checked={props.audioLoudnorm}
+											onChange={(event) =>
+												props.onAudioLoudnormChange(event.currentTarget.checked)
+											}
+										/>
+										<span>Normalize loudness</span>
+									</label>
+								</Show>
+
+								<Show when={toolId() === "stream"}>
+									<p class="stream-active">
+										Active mirror:{" "}
+										<strong>{props.activeStream || "—"}</strong>
+									</p>
+									<div class="stream-mirror-list">
+										<For each={props.streamMirrors}>
+											{(label) => (
+												<button
+													type="button"
+													class={`stream-mirror-btn ${
+														label === props.activeStream ? "active" : ""
+													}`}
+													onClick={() => props.onStreamPreferenceChange(label)}
+												>
+													STREAM {label}
+												</button>
+											)}
+										</For>
+									</div>
+									<button
+										type="button"
+										class="tool-btn subtle stream-next-btn"
+										onClick={() => props.onTryNextStream()}
+									>
+										Try next mirror
+									</button>
 								</Show>
 
 								<Show when={toolId() === "rename"}>

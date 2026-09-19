@@ -9,6 +9,8 @@ export type ResolveResult = {
   quality?: string;
   views?: string;
   uploader?: string;
+  stream_mirrors?: string[];
+  active_stream?: string;
   exists?: boolean;
   error?: string;
 };
@@ -61,6 +63,9 @@ export type DownloadOptions = {
   cuts?: Array<{ start?: string; end?: string }>;
   dest_folder?: string;
   output_title?: string;
+  audio_fade?: boolean;
+  audio_loudnorm?: boolean;
+  stream_preference?: string;
 };
 
 export function resolveUrl(url: string, options: DownloadOptions = {}) {
