@@ -68,6 +68,7 @@ export default function App() {
 	const [audioFade, setAudioFade] = createSignal(false);
 	const [audioLoudnorm, setAudioLoudnorm] = createSignal(false);
 	const [streamPreference, setStreamPreference] = createSignal("");
+	const [hlsTier, setHlsTier] = createSignal("");
 	const [activeTool, setActiveTool] = createSignal<ToolId | null>(null);
 	const [status, setStatus] = createSignal("");
 	const [statusKind, setStatusKind] = createSignal<"ok" | "error" | "">("");
@@ -125,6 +126,7 @@ export default function App() {
 		setAudioFade(false);
 		setAudioLoudnorm(false);
 		setStreamPreference("");
+		setHlsTier("");
 		if (!rememberSavePath()) {
 			setSavePathCustom(false);
 			setSavePath(defaultDownloadDir());
@@ -138,6 +140,7 @@ export default function App() {
 		setAudioFade(false);
 		setAudioLoudnorm(false);
 		setStreamPreference("");
+		setHlsTier("");
 		setServerCutError("");
 		setJob(null);
 		setDownloadComplete(false);
@@ -174,6 +177,8 @@ export default function App() {
 			audio_fade?: boolean;
 			audio_loudnorm?: boolean;
 			stream_preference?: string;
+			resolution_pref?: string;
+			hls_tier?: string;
 		} = {};
 
 		if (includeCuts && !validateCutRanges(durationSec(), cuts())) {
@@ -191,6 +196,8 @@ export default function App() {
 		if (audioLoudnorm()) payload.audio_loudnorm = true;
 		const stream = streamPreference().trim();
 		if (stream) payload.stream_preference = stream;
+		const tier = hlsTier().trim();
+		if (tier) payload.hls_tier = tier;
 
 		return payload;
 	}
@@ -253,6 +260,7 @@ export default function App() {
 			setAudioFade(false);
 			setAudioLoudnorm(false);
 			setStreamPreference("");
+		setHlsTier("");
 			if (!rememberSavePath() && !savePathCustom()) {
 				if (data.dest_folder) {
 					setSavePath(data.dest_folder);
@@ -354,6 +362,11 @@ export default function App() {
 		const next = mirrors[(index + 1) % mirrors.length] ?? "";
 		if (!next) return;
 		setStreamPreference(next);
+		scheduleResolve("edit");
+	}
+
+	function handleHlsTierChange(tierId: string) {
+		setHlsTier(tierId);
 		scheduleResolve("edit");
 	}
 
@@ -648,6 +661,8 @@ export default function App() {
 							audioLoudnorm={audioLoudnorm()}
 							streamMirrors={meta().stream_mirrors ?? []}
 							activeStream={meta().active_stream ?? ""}
+							hlsTiers={meta().hls_tiers ?? []}
+							activeHlsTier={meta().active_hls_tier ?? ""}
 							onCutChange={handleCutChange}
 							onAddCut={handleAddCut}
 							onRemoveCut={handleRemoveCut}
@@ -655,6 +670,7 @@ export default function App() {
 							onAudioLoudnormChange={handleAudioLoudnormChange}
 							onStreamPreferenceChange={handleStreamPreferenceChange}
 							onTryNextStream={handleTryNextStream}
+							onHlsTierChange={handleHlsTierChange}
 							onCustomTitleChange={handleCustomTitleChange}
 							onSavePathChange={handleSavePathChange}
 							onRememberSavePathChange={handleRememberSavePathChange}

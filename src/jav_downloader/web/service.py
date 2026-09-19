@@ -48,9 +48,17 @@ def _optional_bool(value) -> bool:
 
 
 def _site_resolve_extras(site) -> dict:
+    from jav_downloader.sites.output_meta import estimate_output_size, populate_hls_tiers
+
+    populate_hls_tiers(site)
+    size_bytes, size_exact = estimate_output_size(site)
     return {
         'stream_mirrors': list(getattr(site, '_available_stream_labels', None) or []),
         'active_stream': getattr(site, '_active_stream_label', None) or '',
+        'hls_tiers': list(getattr(site, '_hls_tiers', None) or []),
+        'active_hls_tier': getattr(site, '_active_hls_tier', None) or '',
+        'output_size_bytes': size_bytes,
+        'output_size_exact': bool(size_exact) if size_bytes else False,
     }
 
 
@@ -75,7 +83,9 @@ def resolve_url(
         output_title: str | None = None,
         audio_fade: bool = False,
         audio_loudnorm: bool = False,
-        stream_preference: str | None = None) -> dict:
+        stream_preference: str | None = None,
+        resolution_pref: str | None = None,
+        hls_tier: str | None = None) -> dict:
     """Collect metadata for a supported URL without starting a download."""
     url = (url or '').strip()
     if not url:
@@ -102,6 +112,8 @@ def resolve_url(
             audio_fade=audio_fade,
             audio_loudnorm=audio_loudnorm,
             stream_preference=_optional_text(stream_preference),
+            resolution_pref=_optional_text(resolution_pref),
+            hls_tier=_optional_text(hls_tier),
         )
     except Exception as exc:
         return {'ok': False, 'error': str(exc)}
@@ -148,7 +160,9 @@ def _run_download(
         cuts: list | None = None,
         audio_fade: bool = False,
         audio_loudnorm: bool = False,
-        stream_preference: str | None = None) -> None:
+        stream_preference: str | None = None,
+        resolution_pref: str | None = None,
+        hls_tier: str | None = None) -> None:
     manager.update(job_id, status=JobStatus.DOWNLOADING, error='')
     try:
         site_cls = sites.validate_url(url)
@@ -162,6 +176,8 @@ def _run_download(
             audio_fade=audio_fade,
             audio_loudnorm=audio_loudnorm,
             stream_preference=stream_preference,
+            resolution_pref=resolution_pref,
+            hls_tier=hls_tier,
         )
         if site is None or not site.is_url_vaildate():
             manager.update(
@@ -283,7 +299,9 @@ def start_download(
         output_title: str | None = None,
         audio_fade: bool = False,
         audio_loudnorm: bool = False,
-        stream_preference: str | None = None) -> Job:
+        stream_preference: str | None = None,
+        resolution_pref: str | None = None,
+        hls_tier: str | None = None) -> Job:
     """Queue a download and return its job record."""
     url = (url or '').strip()
     job = manager.create(url)
@@ -293,6 +311,8 @@ def start_download(
     cut_end = _optional_time(cut_end)
     output_title = _optional_text(output_title)
     stream_preference = _optional_text(stream_preference)
+    resolution_pref = _optional_text(resolution_pref)
+    hls_tier = _optional_text(hls_tier)
     _job_params[job.id] = {
         'url': url,
         'dest': dest,
@@ -303,6 +323,8 @@ def start_download(
         'audio_fade': audio_fade,
         'audio_loudnorm': audio_loudnorm,
         'stream_preference': stream_preference,
+        'resolution_pref': resolution_pref,
+        'hls_tier': hls_tier,
     }
 
     thread = threading.Thread(
@@ -310,6 +332,7 @@ def start_download(
         args=(
             manager, job.id, url, dest, cut_start, cut_end, output_title, cuts,
             audio_fade, audio_loudnorm, stream_preference,
+            resolution_pref, hls_tier,
         ),
         name=f'jav-web-{job.id}',
         daemon=True,
@@ -351,6 +374,8 @@ def resume_download(manager: JobManager, job_id: str) -> bool:
             bool(params.get('audio_fade')),
             bool(params.get('audio_loudnorm')),
             params.get('stream_preference'),
+            params.get('resolution_pref'),
+            params.get('hls_tier'),
         ),
         name=f'jav-web-{job_id}-resume',
         daemon=True,

@@ -566,15 +566,22 @@ class M3U8Crawler:
     def __init__(
             self, url, savepath="", silence=False, max_workers=None,
             cut_start=None, cut_end=None, cuts=None,
-            audio_fade=False, audio_loudnorm=False, stream_preference=None):
+            audio_fade=False, audio_loudnorm=False, stream_preference=None,
+            resolution_pref=None, hls_tier=None):
         self.silence = silence
         from jav_downloader.sites.multi_cut import build_cut_ranges
+        from jav_downloader.sites.output_meta import apply_download_options
         self._cut_ranges = build_cut_ranges(cuts, cut_start, cut_end)
         _apply_legacy_cut_fields(self, self._cut_ranges)
         self._audio_fade = bool(audio_fade)
         self._audio_loudnorm = bool(audio_loudnorm)
         self._stream_preference = (str(stream_preference).strip().upper()
                                    if stream_preference else None) or None
+        apply_download_options(self, resolution_pref, hls_tier)
+        self._hls_tiers = []
+        self._active_hls_tier = ''
+        self._selected_variant_bandwidth = 0
+        self._selected_variant_height = None
         self._available_stream_labels = []
         self._duration_sec = None
         self._segment_durations = []
@@ -780,9 +787,12 @@ class M3U8Crawler:
 
         m3u8obj = self._load_m3u8(self._m3u8url)
         if len(m3u8obj.playlists) > 0:
-            # Pick variant based on resolution preference
-            best = select_variant(m3u8obj.playlists, _resolution_pref)
+            from jav_downloader.sites.output_meta import pick_hls_playlist
+            best = pick_hls_playlist(m3u8obj.playlists, self)
             if best:
+                height, bandwidth = _variant_height_bw(best)
+                self._selected_variant_height = height
+                self._selected_variant_bandwidth = bandwidth
                 m3u8obj, downloadurl = self._getm3u8PlayList(best.uri)
 
         # Extract key info (store bytes + IV, not a cipher - cipher is NOT thread-safe)

@@ -1,3 +1,11 @@
+export type HlsTier = {
+  id: string;
+  label: string;
+  height?: number | null;
+  bandwidth?: number | null;
+  pref?: string;
+};
+
 export type ResolveResult = {
   ok: boolean;
   url?: string;
@@ -11,6 +19,10 @@ export type ResolveResult = {
   uploader?: string;
   stream_mirrors?: string[];
   active_stream?: string;
+  hls_tiers?: HlsTier[];
+  active_hls_tier?: string;
+  output_size_bytes?: number | null;
+  output_size_exact?: boolean;
   exists?: boolean;
   error?: string;
 };
@@ -66,6 +78,8 @@ export type DownloadOptions = {
   audio_fade?: boolean;
   audio_loudnorm?: boolean;
   stream_preference?: string;
+  resolution_pref?: string;
+  hls_tier?: string;
 };
 
 export function resolveUrl(url: string, options: DownloadOptions = {}) {

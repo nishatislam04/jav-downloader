@@ -12,12 +12,13 @@ import {
 	AudioIcon,
 	CutIcon,
 	FolderIcon,
+	QualityIcon,
 	RenameIcon,
 	StreamIcon,
 } from "./IconButton";
 import TimeField from "./TimeField";
 
-export type ToolId = "cut" | "audio" | "stream" | "rename" | "save";
+export type ToolId = "cut" | "audio" | "stream" | "quality" | "rename" | "save";
 
 export type CutRange = {
 	id: string;
@@ -45,6 +46,8 @@ type Props = {
 	audioLoudnorm: boolean;
 	streamMirrors: string[];
 	activeStream: string;
+	hlsTiers: NonNullable<ResolveResult["hls_tiers"]>;
+	activeHlsTier: string;
 	onCutChange: (id: string, field: "start" | "end", value: string) => void;
 	onAddCut: () => void;
 	onRemoveCut: (id: string) => void;
@@ -52,6 +55,7 @@ type Props = {
 	onAudioLoudnormChange: (value: boolean) => void;
 	onStreamPreferenceChange: (label: string) => void;
 	onTryNextStream: () => void;
+	onHlsTierChange: (tierId: string) => void;
 	onCustomTitleChange: (value: string) => void;
 	onSavePathChange: (path: string) => void;
 	onRememberSavePathChange: (value: boolean) => void;
@@ -115,8 +119,17 @@ export default function EditToolsCard(props: Props) {
 
 	const visibleTools = createMemo(() => {
 		const items = [...BASE_TOOLS];
+		let insertAt = 2;
+		if (props.hlsTiers.length > 0) {
+			items.splice(insertAt, 0, {
+				id: "quality",
+				label: "Quality",
+				Icon: QualityIcon,
+			});
+			insertAt += 1;
+		}
 		if (props.streamMirrors.length > 0) {
-			items.splice(2, 0, { id: "stream", label: "Stream", Icon: StreamIcon });
+			items.splice(insertAt, 0, { id: "stream", label: "Stream", Icon: StreamIcon });
 		}
 		return items;
 	});
@@ -267,6 +280,31 @@ export default function EditToolsCard(props: Props) {
 										/>
 										<span>Normalize loudness</span>
 									</label>
+								</Show>
+
+								<Show when={toolId() === "quality"}>
+									<p class="stream-active">
+										Active tier:{" "}
+										<strong>
+											{props.hlsTiers.find((tier) => tier.id === props.activeHlsTier)
+												?.label || "—"}
+										</strong>
+									</p>
+									<div class="stream-mirror-list">
+										<For each={props.hlsTiers}>
+											{(tier) => (
+												<button
+													type="button"
+													class={`stream-mirror-btn ${
+														tier.id === props.activeHlsTier ? "active" : ""
+													}`}
+													onClick={() => props.onHlsTierChange(tier.id)}
+												>
+													{tier.label}
+												</button>
+											)}
+										</For>
+									</div>
 								</Show>
 
 								<Show when={toolId() === "stream"}>

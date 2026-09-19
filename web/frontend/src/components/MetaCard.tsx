@@ -1,5 +1,6 @@
 import { Show } from 'solid-js';
 import type { ResolveResult } from '../api';
+import { formatBytes } from '../lib/format';
 import { formatDurationSec } from '../lib/time';
 import ThumbnailPreview, { thumbnailSrc } from './ThumbnailPreview';
 
@@ -15,6 +16,12 @@ export default function MetaCard(props: Props) {
 
   const duration = () => formatDurationSec(props.meta.duration_sec ?? 0);
   const thumb = () => thumbnailSrc(props.meta.thumbnail || '');
+  const hasSize = () => {
+    const bytes = props.meta.output_size_bytes;
+    return typeof bytes === 'number' && bytes > 0;
+  };
+  const sizeLabel = () => (props.meta.output_size_exact ? 'Size' : 'Est. size');
+  const sizeText = () => formatBytes(props.meta.output_size_bytes ?? 0);
 
   return (
     <section class="card meta">
@@ -28,6 +35,10 @@ export default function MetaCard(props: Props) {
           <Show when={hasDuration()}>
             <p class="label">Duration</p>
             <p class="mono meta-duration">{duration()}</p>
+          </Show>
+          <Show when={hasSize()}>
+            <p class="label">{sizeLabel()}</p>
+            <p class="mono">{sizeText()}</p>
           </Show>
           {props.meta.quality ? (
             <>

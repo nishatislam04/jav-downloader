@@ -168,6 +168,8 @@ class WebHandler(BaseHTTPRequestHandler):
                 audio_fade=service._optional_bool(payload.get('audio_fade')),
                 audio_loudnorm=service._optional_bool(payload.get('audio_loudnorm')),
                 stream_preference=payload.get('stream_preference'),
+                resolution_pref=payload.get('resolution_pref'),
+                hls_tier=payload.get('hls_tier'),
             )
             status = HTTPStatus.OK if result.get('ok') else HTTPStatus.UNPROCESSABLE_ENTITY
             _json_response(self, status, result)
@@ -234,6 +236,8 @@ class WebHandler(BaseHTTPRequestHandler):
                 audio_fade=service._optional_bool(payload.get('audio_fade')),
                 audio_loudnorm=service._optional_bool(payload.get('audio_loudnorm')),
                 stream_preference=payload.get('stream_preference'),
+                resolution_pref=payload.get('resolution_pref'),
+                hls_tier=payload.get('hls_tier'),
             )
             _json_response(self, HTTPStatus.ACCEPTED, {
                 'ok': True,
