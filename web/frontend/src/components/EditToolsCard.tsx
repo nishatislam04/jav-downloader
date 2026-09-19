@@ -62,11 +62,7 @@ function rowDurationLabel(
 	return sec === null ? "" : formatDurationHuman(sec);
 }
 
-function rowFieldErrors(
-	cut: CutRange,
-	durationSec: number | null | undefined,
-	multi: boolean,
-) {
+function rowFieldErrors(cut: CutRange, durationSec: number | null | undefined) {
 	const err = hasActiveCut(cut)
 		? validateCutRange(durationSec, cut.start, cut.end)
 		: null;
@@ -150,14 +146,14 @@ export default function EditToolsCard(props: Props) {
 										<Index each={props.cuts}>
 											{(cut, index) => {
 												const errors = () =>
-													rowFieldErrors(cut(), props.durationSec, multiCut());
+													rowFieldErrors(cut(), props.durationSec);
 												const durationLabel = () =>
 													rowDurationLabel(props.durationSec, cut());
 
 												return (
 													<div class="cut-range-row">
 														<Show when={multiCut()}>
-															<p class="cut-range-label">Cut {index() + 1}</p>
+															<p class="cut-range-label">Cut {index + 1}</p>
 														</Show>
 														<div class="cut-range-fields">
 															<TimeField
@@ -193,7 +189,7 @@ export default function EditToolsCard(props: Props) {
 															<button
 																type="button"
 																class="cut-remove-btn"
-																aria-label={`Remove cut ${index() + 1}`}
+																aria-label={`Remove cut ${index + 1}`}
 																onClick={() => props.onRemoveCut(cut().id)}
 															>
 																×

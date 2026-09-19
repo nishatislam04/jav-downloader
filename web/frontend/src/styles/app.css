@@ -165,11 +165,15 @@ input.input-error,
   grid-template-columns: minmax(0, 1fr) auto;
   gap: 8px;
   align-items: start;
+  padding: 12px 14px 14px;
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  background: #12151c;
 }
 
 .cut-range-label {
   grid-column: 1 / -1;
-  margin: 0 0 -6px;
+  margin: 0 0 2px;
   color: var(--muted);
   font-size: 0.78rem;
   font-weight: 600;
@@ -206,7 +210,9 @@ input.input-error,
   display: flex;
   align-items: center;
   gap: 12px;
-  margin-top: 12px;
+  margin-top: 16px;
+  padding-top: 14px;
+  border-top: 1px solid var(--border);
 }
 
 .cut-add-btn,
