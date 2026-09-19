@@ -6,7 +6,7 @@ PIP = $(VENV)/bin/pip
 PY = $(VENV)/bin/python
 NPM = npm
 FRONTEND = web/frontend
-STATIC = src/uav_downloader/web/static
+STATIC = src/jav_downloader/web/static
 WEB_PORT ?= 8765
 
 # Termux sets TERMUX_VERSION; bind 0.0.0.0 and default to phone Downloads.
@@ -16,16 +16,6 @@ export DOWNLOAD_DIR ?= $(HOME)/storage/downloads
 else
 WEB_HOST ?= 127.0.0.1
 endif
-
-help:
-	@echo "Targets:"
-	@echo "  make install       Create venv and install Python package"
-	@echo "  make install-web   Install frontend deps (npm)"
-	@echo "  make web-build     Force-build Solid UI into $(STATIC)"
-	@echo "  make start         Run web app (auto-build UI when npm is available)"
-	@echo "  make web-api       Run Python API only on :$(WEB_PORT)"
-	@echo "  make web-dev       Vite dev server on :5173 (run web-api separately)"
-	@echo "  make test          Run pytest"
 
 install:
 	$(PYTHON) -m venv $(VENV)
@@ -58,13 +48,13 @@ web-build-if-needed:
 
 start: web-build-if-needed
 	@[ -n "$(DOWNLOAD_DIR)" ] && mkdir -p "$(DOWNLOAD_DIR)" || true
-	$(PY) -m uav_downloader.web.server --host "$(WEB_HOST)" --port "$(WEB_PORT)"
+	$(PY) -m jav_downloader.web.server --host "$(WEB_HOST)" --port "$(WEB_PORT)"
 
 web: start
 	@:
 
 web-api:
-	$(PY) -m uav_downloader.web.server --host "$(WEB_HOST)" --port "$(WEB_PORT)"
+	$(PY) -m jav_downloader.web.server --host "$(WEB_HOST)" --port "$(WEB_PORT)"
 
 web-dev: install-web
 	cd $(FRONTEND) && $(NPM) run dev

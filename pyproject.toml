@@ -3,7 +3,7 @@ requires = ["setuptools>=69", "wheel"]
 build-backend = "setuptools.build_meta"
 
 [project]
-name = "uav-downloader"
+name = "jav-downloader"
 version = "3.1.4"
 description = "Headless downloader for JableTV, MissAV, SupJav, Hanime1, Jav.guru, and SpankBang"
 readme = "README.md"
@@ -38,10 +38,10 @@ Releases = "https://github.com/nishatislam04/jav-downloader/releases"
 Issues = "https://github.com/nishatislam04/jav-downloader/issues"
 
 [project.scripts]
-uav = "uav_downloader.cli.main:main"
-uav-downloader = "uav_downloader.cli.main:main"
-uav-downloader-cli = "uav_downloader.cli.headless:main"
-uav-web = "uav_downloader.web.server:main"
+jav = "jav_downloader.cli.main:main"
+jav-downloader = "jav_downloader.cli.main:main"
+jav-downloader-cli = "jav_downloader.cli.headless:main"
+jav-web = "jav_downloader.web.server:main"
 
 [tool.setuptools]
 package-dir = { "" = "src" }

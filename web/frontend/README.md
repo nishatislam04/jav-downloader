@@ -1,6 +1,6 @@
-# UAV Downloader Web UI
+# JAV Downloader Web UI
 
-Vite + SolidJS frontend. Built assets land in `src/uav_downloader/web/static/` for the Python server.
+Vite + SolidJS frontend. Built assets land in `src/jav_downloader/web/static/` for the Python server.
 
 ## Commands
 

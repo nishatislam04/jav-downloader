@@ -2,7 +2,7 @@ import { defineConfig } from 'vite';
 import solid from 'vite-plugin-solid';
 import { resolve } from 'node:path';
 
-const staticOut = resolve(__dirname, '../../src/uav_downloader/web/static');
+const staticOut = resolve(__dirname, '../../src/jav_downloader/web/static');
 
 export default defineConfig({
   plugins: [solid()],
