@@ -28,8 +28,15 @@ export type Job = {
   progress_pct?: number;
   progress_unit?: '' | 'bytes' | 'segments';
   error?: string;
+  log?: string[];
   created_at?: number;
   updated_at?: number;
+};
+
+export type FolderPathResult = {
+  ok: boolean;
+  path?: string;
+  error?: string;
 };
 
 async function request<T>(path: string, options: RequestInit = {}): Promise<T> {
@@ -48,22 +55,38 @@ export function fetchHealth() {
   return request<{ ok: boolean; download_dir?: string }>('/api/health');
 }
 
-export type CutOptions = {
+export type DownloadOptions = {
   cut_start?: string;
   cut_end?: string;
+  dest_folder?: string;
+  output_title?: string;
 };
 
-export function resolveUrl(url: string, options: CutOptions = {}) {
+export function resolveUrl(url: string, options: DownloadOptions = {}) {
   return request<ResolveResult>('/api/resolve', {
     method: 'POST',
     body: JSON.stringify({ url, ...options }),
   });
 }
 
-export function startDownload(url: string, options: CutOptions = {}) {
+export function startDownload(url: string, options: DownloadOptions = {}) {
   return request<{ ok: boolean; job?: Job; error?: string }>('/api/download', {
     method: 'POST',
     body: JSON.stringify({ url, ...options }),
+  });
+}
+
+export function validateFolder(path: string) {
+  return request<FolderPathResult>('/api/validate-folder', {
+    method: 'POST',
+    body: JSON.stringify({ path }),
+  });
+}
+
+export function revealFile(path: string) {
+  return request<{ ok: boolean; error?: string }>('/api/reveal', {
+    method: 'POST',
+    body: JSON.stringify({ path }),
   });
 }
 

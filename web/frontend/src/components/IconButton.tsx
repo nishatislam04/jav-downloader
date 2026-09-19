@@ -41,6 +41,66 @@ export function PlayIcon() {
   );
 }
 
+export function SuccessIcon() {
+  return (
+    <svg viewBox="0 0 24 24" width="22" height="22" aria-hidden="true">
+      <path
+        d="M7 12.5l3 3 7-7"
+        fill="none"
+        stroke="currentColor"
+        stroke-width="2.5"
+        stroke-linecap="round"
+        stroke-linejoin="round"
+      />
+    </svg>
+  );
+}
+
+export function CutIcon() {
+  return (
+    <svg viewBox="0 0 24 24" width="18" height="18" aria-hidden="true">
+      <circle cx="7" cy="8" r="2.25" fill="none" stroke="currentColor" stroke-width="1.75" />
+      <circle cx="7" cy="16" r="2.25" fill="none" stroke="currentColor" stroke-width="1.75" />
+      <path
+        d="M9.25 9.25l9.5 9.5M18.75 9.25l-9.5 9.5"
+        fill="none"
+        stroke="currentColor"
+        stroke-width="1.75"
+        stroke-linecap="round"
+      />
+    </svg>
+  );
+}
+
+export function RenameIcon() {
+  return (
+    <svg viewBox="0 0 24 24" width="16" height="16" aria-hidden="true">
+      <path
+        d="M4 20h4l10-10-4-4L4 16v4zM14 6l4 4"
+        fill="none"
+        stroke="currentColor"
+        stroke-width="2"
+        stroke-linecap="round"
+        stroke-linejoin="round"
+      />
+    </svg>
+  );
+}
+
+export function FolderIcon() {
+  return (
+    <svg viewBox="0 0 24 24" width="16" height="16" aria-hidden="true">
+      <path
+        d="M4 8h5l2 2h9v8a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V8z"
+        fill="none"
+        stroke="currentColor"
+        stroke-width="2"
+        stroke-linejoin="round"
+      />
+    </svg>
+  );
+}
+
 export function DownloadIcon() {
   return (
     <svg viewBox="0 0 24 24" width="22" height="22" aria-hidden="true">

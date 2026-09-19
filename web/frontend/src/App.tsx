@@ -1,375 +1,634 @@
-import { createEffect, createMemo, createSignal, onCleanup, onMount, Show } from 'solid-js';
 import {
-  cancelJob,
-  fetchHealth,
-  fetchJob,
-  pauseJob,
-  resolveUrl,
-  resumeJob,
-  startDownload,
-  type Job,
-  type ResolveResult,
-} from './api';
-import { DownloadIcon } from './components/IconButton';
-import MetaCard from './components/MetaCard';
-import ProgressCard from './components/ProgressCard';
-import TimeField, { durationHint } from './components/TimeField';
+	createEffect,
+	createMemo,
+	createSignal,
+	onCleanup,
+	onMount,
+	Show,
+	untrack,
+} from "solid-js";
 import {
-  formatDurationSec,
-  looksLikeSupportedUrl,
-  normalizeTimeInput,
-  validateCutRange,
-} from './lib/time';
+	cancelJob,
+	fetchHealth,
+	fetchJob,
+	type Job,
+	pauseJob,
+	type ResolveResult,
+	resolveUrl,
+	resumeJob,
+	revealFile,
+	startDownload,
+	validateFolder,
+} from "./api";
+import EditToolsCard, { type ToolId } from "./components/EditToolsCard";
+import { DownloadIcon, SuccessIcon } from "./components/IconButton";
+import MetaCard from "./components/MetaCard";
+import ProgressCard from "./components/ProgressCard";
+import ProgressRing from "./components/ProgressRing";
+import {
+	loadRememberSavePath,
+	loadSavedPath,
+	persistSavePath,
+} from "./lib/persist";
+import {
+	formatDurationSec,
+	looksLikeSupportedUrl,
+	normalizeTimeInput,
+	validateCutRange,
+} from "./lib/time";
+
+type ResolvePhase = "" | "metadata" | "updating";
+
+function isCutRelatedError(message: string): boolean {
+	const text = message.toLowerCase();
+	return (
+		text.includes("cut ") ||
+		text.includes("time format") ||
+		text.includes("invalid start") ||
+		text.includes("invalid end") ||
+		text.includes("exceeds video length")
+	);
+}
 
 export default function App() {
-  const [url, setUrl] = createSignal('');
-  const [cutStart, setCutStart] = createSignal('');
-  const [cutEnd, setCutEnd] = createSignal('');
-  const [downloadDir, setDownloadDir] = createSignal('Loading…');
-  const [status, setStatus] = createSignal('');
-  const [statusKind, setStatusKind] = createSignal<'ok' | 'error' | ''>('');
-  const [resolved, setResolved] = createSignal<ResolveResult | null>(null);
-  const [job, setJob] = createSignal<Job | null>(null);
-  const [busy, setBusy] = createSignal(false);
-  const [resolving, setResolving] = createSignal(false);
-  const [actionBusy, setActionBusy] = createSignal(false);
+	const [url, setUrl] = createSignal("");
+	const [cutStart, setCutStart] = createSignal("");
+	const [cutEnd, setCutEnd] = createSignal("");
+	const [defaultDownloadDir, setDefaultDownloadDir] = createSignal("");
+	const [savePath, setSavePath] = createSignal("");
+	const [savePathCustom, setSavePathCustom] = createSignal(false);
+	const [rememberSavePath, setRememberSavePath] = createSignal(loadRememberSavePath());
+	const [customTitle, setCustomTitle] = createSignal("");
+	const [activeTool, setActiveTool] = createSignal<ToolId | null>(null);
+	const [status, setStatus] = createSignal("");
+	const [statusKind, setStatusKind] = createSignal<"ok" | "error" | "">("");
+	const [resolvePhase, setResolvePhase] = createSignal<ResolvePhase>("");
+	const [resolved, setResolved] = createSignal<ResolveResult | null>(null);
+	const [job, setJob] = createSignal<Job | null>(null);
+	const [busy, setBusy] = createSignal(false);
+	const [resolving, setResolving] = createSignal(false);
+	const [actionBusy, setActionBusy] = createSignal(false);
+	const [hasResolvedOnce, setHasResolvedOnce] = createSignal(false);
+	const [downloadComplete, setDownloadComplete] = createSignal(false);
+	const [serverCutError, setServerCutError] = createSignal("");
 
-  let pollTimer: ReturnType<typeof setInterval> | undefined;
-  let resolveTimer: ReturnType<typeof setTimeout> | undefined;
-  let resolveRequest = 0;
+	let urlInput: HTMLInputElement | undefined;
+	let pollTimer: ReturnType<typeof setInterval> | undefined;
+	let resolveTimer: ReturnType<typeof setTimeout> | undefined;
+	let editResolveTimer: ReturnType<typeof setTimeout> | undefined;
+	let resolveRequest = 0;
 
-  onCleanup(() => {
-    if (pollTimer) clearInterval(pollTimer);
-    if (resolveTimer) clearTimeout(resolveTimer);
-  });
+	onCleanup(() => {
+		if (pollTimer) clearInterval(pollTimer);
+		if (resolveTimer) clearTimeout(resolveTimer);
+		if (editResolveTimer) clearTimeout(editResolveTimer);
+	});
 
-  onMount(async () => {
-    const health = await fetchHealth();
-    if (health.download_dir) setDownloadDir(health.download_dir);
-  });
+	onMount(async () => {
+		urlInput?.focus();
+		const health = await fetchHealth();
+		const downloadDir = health.download_dir || "";
+		setDefaultDownloadDir(downloadDir);
 
-  function setStatusMessage(text: string, kind: 'ok' | 'error' | '' = '') {
-    setStatus(text);
-    setStatusKind(kind);
-  }
+		if (rememberSavePath()) {
+			const stored = loadSavedPath().trim();
+			if (stored) {
+				const result = await validateFolder(stored);
+				if (result.ok && result.path) {
+					setSavePath(result.path);
+					setSavePathCustom(true);
+					return;
+				}
+				persistSavePath("", false);
+				setRememberSavePath(false);
+			}
+		}
 
-  const durationSec = () => resolved()?.duration_sec ?? null;
+		if (!savePathCustom()) {
+			setSavePath(downloadDir);
+		}
+	});
 
-  const cutValidation = createMemo(() =>
-    validateCutRange(durationSec(), cutStart(), cutEnd()),
-  );
+	function resetEditTools() {
+		setActiveTool(null);
+		setCustomTitle("");
+		setCutStart("");
+		setCutEnd("");
+		if (!rememberSavePath()) {
+			setSavePathCustom(false);
+			setSavePath(defaultDownloadDir());
+		}
+		setHasResolvedOnce(false);
+		setServerCutError("");
+	}
 
-  function cutPayload() {
-    const payload: { cut_start?: string; cut_end?: string } = {};
-    const start = cutStart().trim();
-    const end = cutEnd().trim();
-    if (start) payload.cut_start = start;
-    if (end) payload.cut_end = end;
-    return payload;
-  }
+	function clearTransientState() {
+		setCutStart("");
+		setCutEnd("");
+		setServerCutError("");
+		setJob(null);
+		setDownloadComplete(false);
+		setBusy(false);
+		setStatusMessage("", "");
+	}
 
-  async function runResolve(trigger: 'url' | 'cut' = 'url') {
-    const value = url().trim();
-    if (!looksLikeSupportedUrl(value)) {
-      setResolved(null);
-      if (!value) setStatusMessage('');
-      return;
-    }
+	function setStatusMessage(text: string, kind: "ok" | "error" | "" = "") {
+		setStatus(text);
+		setStatusKind(kind);
+	}
 
-    if (cutValidation()) {
-      setResolved(null);
-      setStatusMessage(cutValidation()!, 'error');
-      return;
-    }
+	const durationSec = () => resolved()?.duration_sec ?? null;
 
-    const requestId = ++resolveRequest;
-    setResolving(true);
-    if (trigger === 'url') {
-      setStatusMessage('Resolving metadata…');
-    }
-    const data = await resolveUrl(value, cutPayload());
-    if (requestId !== resolveRequest) return;
-    setResolving(false);
+	const cutValidation = createMemo(() => {
+		const local = validateCutRange(durationSec(), cutStart(), cutEnd());
+		return local || serverCutError();
+	});
 
-    if (!data.ok) {
-      setResolved(null);
-      setStatusMessage(data.error || 'Resolve failed', 'error');
-      return;
-    }
+	function resolvePayload(includeCuts = true) {
+		const payload: {
+			cut_start?: string;
+			cut_end?: string;
+			dest_folder?: string;
+			output_title?: string;
+		} = {};
 
-    setResolved(data);
-    if (cutValidation()) {
-      setStatusMessage(cutValidation()!, 'error');
-      return;
-    }
-    setStatusMessage(
-      data.exists
-        ? 'File already exists in the download folder.'
-        : 'Ready to download.',
-      'ok',
-    );
-  }
+		if (includeCuts && !validateCutRange(durationSec(), cutStart(), cutEnd())) {
+			const start = cutStart().trim();
+			const end = cutEnd().trim();
+			if (start) payload.cut_start = start;
+			if (end) payload.cut_end = end;
+		}
 
-  function scheduleResolve(trigger: 'url' | 'cut' = 'url') {
-    if (resolveTimer) clearTimeout(resolveTimer);
-    resolveTimer = setTimeout(() => {
-      void runResolve(trigger);
-    }, trigger === 'url' ? 650 : 450);
-  }
+		const dest = savePath().trim();
+		if (dest) payload.dest_folder = dest;
 
-  createEffect(() => {
-    const value = url();
-    if (!value.trim()) {
-      setResolved(null);
-      return;
-    }
-    scheduleResolve('url');
-  });
+		const title = customTitle().trim();
+		if (title) payload.output_title = title;
 
-  createEffect(() => {
-    cutStart();
-    cutEnd();
-    if (!looksLikeSupportedUrl(url())) return;
-    scheduleResolve('cut');
-  });
+		return payload;
+	}
 
-  async function pollJob(jobId: string) {
-    if (pollTimer) clearInterval(pollTimer);
+	async function runResolve(trigger: "url" | "cut" | "edit" = "url") {
+		const value = url().trim();
+		if (!looksLikeSupportedUrl(value)) {
+			setResolved(null);
+			setResolvePhase("");
+			setResolving(false);
+			if (!value) {
+				resetEditTools();
+				setStatusMessage("");
+			}
+			return;
+		}
 
-    const tick = async () => {
-      const data = await fetchJob(jobId);
-      if (!data.ok || !data.job) return;
-      setJob(data.job);
-      if (data.job.status === 'completed') {
-        setStatusMessage('Download finished.', 'ok');
-        setBusy(false);
-        if (pollTimer) clearInterval(pollTimer);
-      } else if (data.job.status === 'failed') {
-        setStatusMessage(data.job.error || 'Download failed', 'error');
-        setBusy(false);
-        if (pollTimer) clearInterval(pollTimer);
-      } else if (data.job.status === 'paused') {
-        setBusy(false);
-        setStatusMessage('Download paused.', '');
-        if (pollTimer) clearInterval(pollTimer);
-      }
-    };
+		const localCutError = validateCutRange(durationSec(), cutStart(), cutEnd());
+		if (localCutError && trigger === "cut") {
+			setServerCutError("");
+			setStatusMessage("", "");
+			return;
+		}
 
-    await tick();
-    pollTimer = setInterval(tick, 800);
-  }
+		const includeCuts = trigger === "cut" && !localCutError;
+		const silent = trigger !== "url" && hasResolvedOnce();
+		const requestId = ++resolveRequest;
+		if (!silent) {
+			setResolving(true);
+			setResolvePhase("metadata");
+		}
+		const data = await resolveUrl(value, resolvePayload(includeCuts));
+		if (requestId !== resolveRequest) return;
+		if (!silent) {
+			setResolving(false);
+			setResolvePhase("");
+		}
 
-  async function handlePause(jobId: string) {
-    setActionBusy(true);
-    const data = await pauseJob(jobId);
-    setActionBusy(false);
-    if (!data.ok || !data.job) {
-      setStatusMessage(data.error || 'Could not pause download', 'error');
-      return;
-    }
-    setJob(data.job);
-    setBusy(false);
-    setStatusMessage('Download paused.', '');
-  }
+		if (!data.ok) {
+			const message = data.error || "Resolve failed";
+			if (hasResolvedOnce() && isCutRelatedError(message)) {
+				setServerCutError(message);
+				setStatusMessage("", "");
+				return;
+			}
+			setResolved(null);
+			setHasResolvedOnce(false);
+			setStatusMessage(message, "error");
+			return;
+		}
 
-  async function handleResume(jobId: string) {
-    setActionBusy(true);
-    const data = await resumeJob(jobId);
-    setActionBusy(false);
-    if (!data.ok || !data.job) {
-      setStatusMessage(data.error || 'Could not resume download', 'error');
-      return;
-    }
-    setJob(data.job);
-    setBusy(true);
-    setStatusMessage('Resuming download…');
-    await pollJob(jobId);
-  }
+		setResolved(data);
+		setHasResolvedOnce(true);
+		setServerCutError("");
 
-  async function handleCancel(jobId: string) {
-    setActionBusy(true);
-    const data = await cancelJob(jobId);
-    setActionBusy(false);
-    if (!data.ok || !data.job) {
-      setStatusMessage(data.error || 'Could not cancel download', 'error');
-      return;
-    }
-    setJob(data.job);
-    setBusy(false);
-    setStatusMessage('Download cancelled.', 'error');
-  }
+		if (trigger === "url") {
+			setActiveTool(null);
+			setCustomTitle("");
+			setCutStart("");
+			setCutEnd("");
+			if (!rememberSavePath() && !savePathCustom()) {
+				if (data.dest_folder) {
+					setSavePath(data.dest_folder);
+				}
+			}
+		}
 
-  async function startDownloadJob() {
-    const meta = resolved();
-    const value = meta?.url || url().trim();
-    if (!value) {
-      setStatusMessage('Paste a supported URL first.', 'error');
-      return;
-    }
-    if (cutValidation()) {
-      setStatusMessage(cutValidation()!, 'error');
-      return;
-    }
-    if (!meta?.ok) {
-      setStatusMessage('Waiting for metadata…', 'error');
-      return;
-    }
+		if (data.exists) {
+			setStatusMessage("File already exists in the download folder.", "ok");
+		} else {
+			setStatusMessage("", "");
+		}
+	}
 
-    setBusy(true);
-    setStatusMessage('Starting download…');
-    const data = await startDownload(value, cutPayload());
-    if (!data.ok || !data.job) {
-      setStatusMessage(data.error || 'Could not start download', 'error');
-      setBusy(false);
-      return;
-    }
+	function scheduleResolve(trigger: "url" | "cut" | "edit" = "url") {
+		if (resolveTimer) clearTimeout(resolveTimer);
+		const delay = trigger === "url" ? 650 : 450;
+		resolveTimer = setTimeout(() => {
+			void runResolve(trigger);
+		}, delay);
+	}
 
-    setJob(data.job);
-    await pollJob(data.job.id);
-  }
+	function scheduleEditResolve() {
+		if (!hasResolvedOnce()) return;
+		if (editResolveTimer) clearTimeout(editResolveTimer);
+		editResolveTimer = setTimeout(() => {
+			void runResolve("edit");
+		}, 450);
+	}
 
-  async function handleDownload() {
-    await startDownloadJob();
-  }
+	createEffect(() => {
+		const value = url();
+		if (!value.trim()) {
+			setResolved(null);
+			setResolving(false);
+			setResolvePhase("");
+			resetEditTools();
+			return;
+		}
+		if (looksLikeSupportedUrl(value)) {
+			setResolved(null);
+			setResolving(true);
+			setResolvePhase("metadata");
+		}
+		clearTransientState();
+		setHasResolvedOnce(false);
+		scheduleResolve("url");
+	});
 
-  async function handleRetry() {
-    await startDownloadJob();
-  }
+	createEffect(() => {
+		const start = cutStart().trim();
+		const end = cutEnd().trim();
+		untrack(() => {
+			setServerCutError("");
+			if (start || end) {
+				setDownloadComplete(false);
+			}
+			if (!start && !end) return;
+			if (validateCutRange(durationSec(), start, end)) return;
+			if (!looksLikeSupportedUrl(url()) || !hasResolvedOnce()) return;
+			scheduleResolve("cut");
+		});
+	});
 
-  function normalizeStart(value: string) {
-    setCutStart(normalizeTimeInput(value));
-  }
+	async function pollJob(jobId: string) {
+		if (pollTimer) clearInterval(pollTimer);
 
-  function normalizeEnd(value: string) {
-    setCutEnd(normalizeTimeInput(value));
-  }
+		const tick = async () => {
+			const data = await fetchJob(jobId);
+			if (!data.ok || !data.job) return;
+			setJob(data.job);
+			if (data.job.status === "completed") {
+				setDownloadComplete(true);
+				setStatusMessage("", "");
+				setBusy(false);
+				if (pollTimer) clearInterval(pollTimer);
+			} else if (data.job.status === "failed") {
+				setStatusMessage(data.job.error || "Download failed", "error");
+				setBusy(false);
+				setDownloadComplete(false);
+				if (pollTimer) clearInterval(pollTimer);
+			} else if (data.job.status === "paused") {
+				setBusy(false);
+				setStatusMessage("Download paused.", "");
+				if (pollTimer) clearInterval(pollTimer);
+			}
+		};
 
-  const endPlaceholder = () => {
-    const duration = durationSec();
-    return duration && duration > 0 ? formatDurationSec(duration) : '2:00';
-  };
+		await tick();
+		pollTimer = setInterval(tick, 800);
+	}
 
-  const startFieldError = createMemo(() => {
-    const err = cutValidation();
-    if (!err) return '';
-    if (err.startsWith('Start') || err === 'Invalid start time') return err;
-    if (err === 'End must be after start') return err;
-    return '';
-  });
+	async function handlePause(jobId: string) {
+		setActionBusy(true);
+		const data = await pauseJob(jobId);
+		setActionBusy(false);
+		if (!data.ok || !data.job) {
+			setStatusMessage(data.error || "Could not pause download", "error");
+			return;
+		}
+		setJob(data.job);
+		setBusy(false);
+		setStatusMessage("Download paused.", "");
+	}
 
-  const endFieldError = createMemo(() => {
-    const err = cutValidation();
-    if (!err) return '';
-    if (err.startsWith('End') || err === 'Invalid end time') return err;
-    return '';
-  });
+	async function handleResume(jobId: string) {
+		setActionBusy(true);
+		const data = await resumeJob(jobId);
+		setActionBusy(false);
+		if (!data.ok || !data.job) {
+			setStatusMessage(data.error || "Could not resume download", "error");
+			return;
+		}
+		setJob(data.job);
+		setBusy(true);
+		setDownloadComplete(false);
+		setStatusMessage("Resuming download…");
+		await pollJob(jobId);
+	}
 
-  const urlUnsupported = createMemo(() => {
-    const value = url().trim();
-    return value.length > 0 && !looksLikeSupportedUrl(value);
-  });
+	async function handleCancel(jobId: string) {
+		setActionBusy(true);
+		const data = await cancelJob(jobId);
+		setActionBusy(false);
+		if (!data.ok || !data.job) {
+			setStatusMessage(data.error || "Could not cancel download", "error");
+			return;
+		}
+		setJob(data.job);
+		setBusy(false);
+		setDownloadComplete(false);
+		setStatusMessage("Download cancelled.", "error");
+	}
 
-  const canDownload = createMemo(
-    () => !!resolved()?.ok && !cutValidation() && !busy() && !resolving(),
-  );
+	async function startDownloadJob() {
+		const meta = resolved();
+		const value = meta?.url || url().trim();
+		if (!value) {
+			setStatusMessage("Paste a supported URL first.", "error");
+			return;
+		}
+		if (cutValidation()) {
+			setActiveTool("cut");
+			return;
+		}
+		if (!meta?.ok) {
+			setStatusMessage("Waiting for metadata…", "error");
+			return;
+		}
 
-  return (
-    <main class="shell">
-      <header>
-        <h1>JAV Downloader</h1>
-      </header>
+		setBusy(true);
+		setDownloadComplete(false);
+		setStatusMessage("", "");
+		const data = await startDownload(value, resolvePayload(true));
+		if (!data.ok || !data.job) {
+			const message = data.error || "Could not start download";
+			if (isCutRelatedError(message)) {
+				setServerCutError(message);
+				setActiveTool("cut");
+				setStatusMessage("", "");
+			} else {
+				setStatusMessage(message, "error");
+			}
+			setBusy(false);
+			return;
+		}
 
-      <section class="card">
-        <label for="url" class="url-label">
-          <span>Video URL</span>
-          <Show when={urlUnsupported()}>
-            <span class="badge-unsupported">Unsupported</span>
-          </Show>
-          <Show when={resolving()}>
-            <span class="spinner" aria-label="Resolving" title="Resolving" />
-          </Show>
-        </label>
-        <div class="url-input-row">
-          <input
-            id="url"
-            type="url"
-            placeholder="https://jav.guru/123456/example-title/"
-            autocomplete="off"
-            spellcheck={false}
-            value={url()}
-            onInput={(event) => setUrl(event.currentTarget.value)}
-          />
-          <Show when={canDownload()}>
-            <button
-              type="button"
-              class="download-circle"
-              aria-label="Download"
-              title="Download"
-              onClick={handleDownload}
-            >
-              <DownloadIcon />
-            </button>
-          </Show>
-        </div>
+		setJob(data.job);
+		await pollJob(data.job.id);
+	}
 
-        <div class="cut-row">
-          <TimeField
-            id="cut-start"
-            label="Start at"
-            value={cutStart()}
-            placeholder="0:00"
-            hint={durationHint(durationSec())}
-            error={startFieldError()}
-            onChange={setCutStart}
-            onBlurNormalize={normalizeStart}
-          />
-          <TimeField
-            id="cut-end"
-            label="End at"
-            value={cutEnd()}
-            placeholder={endPlaceholder()}
-            hint={
-              durationSec()
-                ? `Max ${formatDurationSec(durationSec())} · leave empty for full`
-                : 'Leave empty for full video'
-            }
-            error={endFieldError()}
-            onChange={setCutEnd}
-            onBlurNormalize={normalizeEnd}
-          />
-        </div>
-        <p class="hint">
-          Timestamps must be within the video length once metadata loads. Use{' '}
-          <code>mm:ss</code> or seconds (e.g. <code>90</code> → <code>1:30</code>
-          ).
-        </p>
+	async function handleDownload() {
+		await startDownloadJob();
+	}
 
-        <p class={`status ${statusKind()}`} aria-live="polite">
-          {status()}
-        </p>
-      </section>
+	async function handleRetry() {
+		await startDownloadJob();
+	}
 
-      <Show when={resolved()} keyed>
-        {(meta) => (meta.ok ? <MetaCard meta={meta} /> : null)}
-      </Show>
+	async function handleReveal(path: string) {
+		const result = await revealFile(path);
+		if (!result.ok) {
+			setStatusMessage(result.error || "Could not open file location", "error");
+		}
+	}
 
-      <Show when={job()}>
-        {(current) => (
-          <ProgressCard
-            job={current()}
-            onPause={handlePause}
-            onResume={handleResume}
-            onCancel={handleCancel}
-            onRetry={handleRetry}
-            actionBusy={actionBusy()}
-          />
-        )}
-      </Show>
+	function normalizeStart(value: string) {
+		setCutStart(normalizeTimeInput(value));
+	}
 
-      <section class="card foot">
-        <p class="label">Output directory</p>
-        <p class="mono">{downloadDir()}</p>
-      </section>
-    </main>
-  );
+	function normalizeEnd(value: string) {
+		setCutEnd(normalizeTimeInput(value));
+	}
+
+	function selectTool(tool: ToolId) {
+		setActiveTool(tool);
+		if (tool === "rename" && !customTitle().trim()) {
+			setCustomTitle(resolved()?.title || "");
+		}
+	}
+
+	function handleCustomTitleChange(value: string) {
+		setCustomTitle(value);
+		setResolved((prev) => {
+			if (!prev?.ok) return prev;
+			return { ...prev, title: value };
+		});
+		scheduleEditResolve();
+	}
+
+	function handleSavePathChange(path: string) {
+		setSavePathCustom(true);
+		setSavePath(path);
+		if (rememberSavePath()) {
+			persistSavePath(path, true);
+		}
+		scheduleEditResolve();
+	}
+
+	function handleRememberSavePathChange(checked: boolean) {
+		setRememberSavePath(checked);
+		if (checked) {
+			const path = savePath().trim();
+			if (path) {
+				setSavePathCustom(true);
+				persistSavePath(path, true);
+			}
+		} else {
+			persistSavePath("", false);
+		}
+	}
+
+	const endPlaceholder = () => {
+		const duration = durationSec();
+		return duration && duration > 0 ? formatDurationSec(duration) : "2:00";
+	};
+
+	const startFieldError = createMemo(() => {
+		const err = cutValidation();
+		if (!err) return "";
+		if (
+			err.startsWith("Start") ||
+			err === "Invalid start time" ||
+			err.toLowerCase().includes("invalid time format")
+		) {
+			return err;
+		}
+		if (err === "End must be after start") return err;
+		if (err.toLowerCase().includes("cut end must be after")) return err;
+		return "";
+	});
+
+	const endFieldError = createMemo(() => {
+		const err = cutValidation();
+		if (!err) return "";
+		if (err.startsWith("End") || err === "Invalid end time") return err;
+		if (err === "End must be after start") return err;
+		if (err.toLowerCase().includes("cut end must be after")) return err;
+		return "";
+	});
+
+	const urlUnsupported = createMemo(() => {
+		const value = url().trim();
+		return value.length > 0 && !looksLikeSupportedUrl(value);
+	});
+
+	const canDownload = createMemo(
+		() => !!resolved()?.ok && !cutValidation() && !busy() && !resolving(),
+	);
+
+	const progressPct = createMemo(() => {
+		const current = job();
+		if (!busy() || !current) return 0;
+		return Math.max(0, Math.min(100, current.progress_pct ?? 0));
+	});
+
+	const resolveBadgeLabel = createMemo(() => {
+		if (resolvePhase() === "metadata") return "Parse metadata";
+		if (resolvePhase() === "updating") return "Update metadata";
+		return "";
+	});
+
+	const resolvedMeta = createMemo(() => {
+		if (resolving()) return undefined;
+		const meta = resolved();
+		return meta?.ok ? meta : undefined;
+	});
+
+	return (
+		<main class="shell">
+			<header>
+				<h1>JAV Downloader</h1>
+			</header>
+
+			<section class="card url-dashboard sticky-dashboard">
+				<label for="url" class="url-label">
+					<span>Video URL</span>
+					<Show when={urlUnsupported()}>
+						<span class="badge-unsupported">Unsupported</span>
+					</Show>
+					<Show when={resolving() && resolveBadgeLabel()}>
+						<span class="badge-loading">
+							<span class="spinner" aria-hidden="true" />
+							{resolveBadgeLabel()}
+						</span>
+					</Show>
+				</label>
+				<div class="url-input-row">
+					<input
+						ref={urlInput}
+						id="url"
+						type="url"
+						placeholder="Provide supported link to download video"
+						autocomplete="off"
+						spellcheck={false}
+						value={url()}
+						onInput={(event) => setUrl(event.currentTarget.value)}
+					/>
+					<Show
+						when={downloadComplete()}
+						fallback={
+							<Show
+								when={busy()}
+								fallback={
+									<Show when={canDownload()}>
+										<button
+											type="button"
+											class="download-circle"
+											aria-label="Download"
+											title="Download"
+											onClick={handleDownload}
+										>
+											<DownloadIcon />
+										</button>
+									</Show>
+								}
+							>
+								<ProgressRing
+									progress={progressPct()}
+									title={`Downloading ${progressPct().toFixed(0)}%`}
+								>
+									<span class="progress-ring-label">{progressPct().toFixed(0)}%</span>
+								</ProgressRing>
+							</Show>
+						}
+					>
+						<div
+							class="success-circle"
+							aria-label="Download complete"
+							title="Download complete"
+						>
+							<SuccessIcon />
+						</div>
+					</Show>
+				</div>
+
+				<Show when={status() && !cutValidation()}>
+					<p class={`status ${statusKind()}`} aria-live="polite">
+						{status()}
+					</p>
+				</Show>
+			</section>
+
+			<Show when={resolvedMeta()} keyed>
+				{(meta) => (
+					<>
+						<MetaCard meta={meta} />
+						<EditToolsCard
+							meta={meta}
+							durationSec={durationSec()}
+							cutStart={cutStart()}
+							cutEnd={cutEnd()}
+							startFieldError={startFieldError()}
+							endFieldError={endFieldError()}
+							endPlaceholder={endPlaceholder()}
+							customTitle={customTitle()}
+							savePath={savePath()}
+							rememberSavePath={rememberSavePath()}
+							activeTool={activeTool()}
+							onCutStartChange={setCutStart}
+							onCutEndChange={setCutEnd}
+							onNormalizeStart={normalizeStart}
+							onNormalizeEnd={normalizeEnd}
+							onCustomTitleChange={handleCustomTitleChange}
+							onSavePathChange={handleSavePathChange}
+							onRememberSavePathChange={handleRememberSavePathChange}
+							onSelectTool={selectTool}
+						/>
+					</>
+				)}
+			</Show>
+
+			<Show when={job()}>
+				{(current) => (
+					<ProgressCard
+						job={current()}
+						onPause={handlePause}
+						onResume={handleResume}
+						onCancel={handleCancel}
+						onRetry={handleRetry}
+						onReveal={handleReveal}
+						actionBusy={actionBusy()}
+					/>
+				)}
+			</Show>
+		</main>
+	);
 }

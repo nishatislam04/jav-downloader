@@ -1,3 +1,4 @@
+import { Show } from 'solid-js';
 import type { ResolveResult } from '../api';
 import { formatDurationSec } from '../lib/time';
 
@@ -5,25 +6,34 @@ type Props = {
   meta: ResolveResult;
 };
 
+function thumbnailSrc(url: string): string {
+  if (!url) return '';
+  if (url.startsWith('/')) return url;
+  return `/api/thumbnail?url=${encodeURIComponent(url)}`;
+}
+
 export default function MetaCard(props: Props) {
-  const duration = () => {
+  const hasDuration = () => {
     const sec = props.meta.duration_sec;
-    return sec && sec > 0 ? formatDurationSec(sec) : '—';
+    return !!sec && sec > 0;
   };
+
+  const duration = () => formatDurationSec(props.meta.duration_sec ?? 0);
+  const thumb = () => thumbnailSrc(props.meta.thumbnail || '');
 
   return (
     <section class="card meta">
       <div class="meta-row">
-        {props.meta.thumbnail ? (
-          <img src={props.meta.thumbnail} alt="" class="thumb" />
-        ) : null}
+        <Show when={thumb()}>
+          <img src={thumb()} alt="" class="thumb" loading="lazy" />
+        </Show>
         <div>
-          <p class="label">Site</p>
-          <p>{props.meta.site || '—'}</p>
           <p class="label">Title</p>
-          <p>{props.meta.title || '—'}</p>
+          <p class="mono meta-title">{props.meta.title || '—'}</p>
           <p class="label">Duration</p>
-          <p>{duration()}</p>
+          <Show when={hasDuration()} fallback={<p class="mono not-found">not found</p>}>
+            <p class="mono meta-duration">{duration()}</p>
+          </Show>
           {props.meta.quality ? (
             <>
               <p class="label">Quality</p>
@@ -42,8 +52,6 @@ export default function MetaCard(props: Props) {
               <p>{props.meta.uploader}</p>
             </>
           ) : null}
-          <p class="label">Save folder</p>
-          <p class="mono">{props.meta.dest_folder || '—'}</p>
         </div>
       </div>
     </section>

@@ -45,17 +45,13 @@ export function validateCutRange(
   endRaw: string,
 ): string | null {
   const duration = Math.floor(Number(durationSec) || 0);
-  if (duration <= 0) {
-    return null;
-  }
-
   const startText = startRaw.trim();
   const endText = endRaw.trim();
   const start = startText ? parseTimeInputSec(startText) : 0;
   if (startText && start === null) {
     return 'Invalid start time';
   }
-  if ((start ?? 0) >= duration) {
+  if (duration > 0 && (start ?? 0) >= duration) {
     return `Start exceeds video length (${formatDurationSec(duration)})`;
   }
 
@@ -66,7 +62,7 @@ export function validateCutRange(
   if (end === null) {
     return 'Invalid end time';
   }
-  if (end > duration) {
+  if (duration > 0 && end > duration) {
     return `End exceeds video length (${formatDurationSec(duration)})`;
   }
   if (end <= (start ?? 0)) {

@@ -1,8 +1,9 @@
-import { Show } from 'solid-js';
+import { createEffect, For, Show } from 'solid-js';
 import type { Job } from '../api';
 import { formatProgress } from '../lib/format';
 import IconButton, {
   CloseIcon,
+  FolderIcon,
   PauseIcon,
   PlayIcon,
   RetryIcon,
@@ -14,6 +15,7 @@ type Props = {
   onResume?: (jobId: string) => void;
   onCancel?: (jobId: string) => void;
   onRetry?: () => void;
+  onReveal?: (path: string) => void;
   actionBusy?: boolean;
 };
 
@@ -31,6 +33,8 @@ function progressText(job: Job): string {
 }
 
 export default function ProgressCard(props: Props) {
+  let logEl: HTMLDivElement | undefined;
+
   const pct = () => props.job.progress_pct || 0;
   const barWidth = () => {
     const value = pct();
@@ -40,16 +44,36 @@ export default function ProgressCard(props: Props) {
   const isDownloading = () => props.job.status === 'downloading';
   const isPaused = () => props.job.status === 'paused';
   const isFailed = () => props.job.status === 'failed';
+  const isCompleted = () => props.job.status === 'completed';
   const canRetry = () =>
     isFailed() && props.job.error !== 'Download cancelled';
   const showControls = () => isDownloading() || isPaused() || canRetry();
+  const outputFile = () => props.job.output_file || '';
+  const logLines = () => props.job.log || [];
+
+  createEffect(() => {
+    logLines();
+    if (logEl) {
+      logEl.scrollTop = logEl.scrollHeight;
+    }
+  });
 
   return (
     <section class="card progress-card">
       <div class="progress-head">
         <p class="label">Progress</p>
-        <Show when={showControls()}>
+        <Show when={showControls() || (isCompleted() && outputFile() && props.onReveal)}>
           <div class="progress-actions">
+            <Show when={isCompleted() && outputFile() && props.onReveal}>
+              <button
+                type="button"
+                class="tool-btn subtle reveal-btn"
+                onClick={() => props.onReveal?.(outputFile())}
+              >
+                <FolderIcon />
+                <span>Show in folder</span>
+              </button>
+            </Show>
             <Show when={isDownloading() && props.onPause}>
               <IconButton
                 label="Pause download"
@@ -99,6 +123,11 @@ export default function ProgressCard(props: Props) {
           <div class="bar-fill" style={{ width: `${barWidth()}%` }} />
         </div>
         <p class="mono progress-text">{progressText(props.job)}</p>
+        <Show when={logLines().length > 0}>
+          <div class="job-log" ref={logEl} aria-live="polite">
+            <For each={logLines()}>{(line) => <div class="job-log-line">{line}</div>}</For>
+          </div>
+        </Show>
       </div>
     </section>
   );
