@@ -30,12 +30,7 @@ import {
 	loadSavedPath,
 	persistSavePath,
 } from "./lib/persist";
-import {
-	formatDurationSec,
-	looksLikeSupportedUrl,
-	normalizeTimeInput,
-	validateCutRange,
-} from "./lib/time";
+import { looksLikeSupportedUrl, validateCutRange } from "./lib/time";
 
 type ResolvePhase = "" | "metadata" | "updating";
 
@@ -57,7 +52,9 @@ export default function App() {
 	const [defaultDownloadDir, setDefaultDownloadDir] = createSignal("");
 	const [savePath, setSavePath] = createSignal("");
 	const [savePathCustom, setSavePathCustom] = createSignal(false);
-	const [rememberSavePath, setRememberSavePath] = createSignal(loadRememberSavePath());
+	const [rememberSavePath, setRememberSavePath] = createSignal(
+		loadRememberSavePath(),
+	);
 	const [customTitle, setCustomTitle] = createSignal("");
 	const [activeTool, setActiveTool] = createSignal<ToolId | null>(null);
 	const [status, setStatus] = createSignal("");
@@ -410,14 +407,6 @@ export default function App() {
 		}
 	}
 
-	function normalizeStart(value: string) {
-		setCutStart(normalizeTimeInput(value));
-	}
-
-	function normalizeEnd(value: string) {
-		setCutEnd(normalizeTimeInput(value));
-	}
-
 	function selectTool(tool: ToolId) {
 		setActiveTool(tool);
 		if (tool === "rename" && !customTitle().trim()) {
@@ -455,11 +444,6 @@ export default function App() {
 			persistSavePath("", false);
 		}
 	}
-
-	const endPlaceholder = () => {
-		const duration = durationSec();
-		return duration && duration > 0 ? formatDurationSec(duration) : "2:00";
-	};
 
 	const startFieldError = createMemo(() => {
 		const err = cutValidation();
@@ -541,6 +525,9 @@ export default function App() {
 						spellcheck={false}
 						value={url()}
 						onInput={(event) => setUrl(event.currentTarget.value)}
+						onFocus={(event) => {
+							if (event.currentTarget.value) event.currentTarget.select();
+						}}
 					/>
 					<Show
 						when={downloadComplete()}
@@ -565,7 +552,9 @@ export default function App() {
 									progress={progressPct()}
 									title={`Downloading ${progressPct().toFixed(0)}%`}
 								>
-									<span class="progress-ring-label">{progressPct().toFixed(0)}%</span>
+									<span class="progress-ring-label">
+										{progressPct().toFixed(0)}%
+									</span>
 								</ProgressRing>
 							</Show>
 						}
@@ -598,15 +587,12 @@ export default function App() {
 							cutEnd={cutEnd()}
 							startFieldError={startFieldError()}
 							endFieldError={endFieldError()}
-							endPlaceholder={endPlaceholder()}
 							customTitle={customTitle()}
 							savePath={savePath()}
 							rememberSavePath={rememberSavePath()}
 							activeTool={activeTool()}
 							onCutStartChange={setCutStart}
 							onCutEndChange={setCutEnd}
-							onNormalizeStart={normalizeStart}
-							onNormalizeEnd={normalizeEnd}
 							onCustomTitleChange={handleCustomTitleChange}
 							onSavePathChange={handleSavePathChange}
 							onRememberSavePathChange={handleRememberSavePathChange}

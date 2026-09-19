@@ -1,3 +1,12 @@
+export function pad2(n: number): string {
+  return String(Math.floor(n)).padStart(2, '0');
+}
+
+/** Parse canonical or colon-separated time string to total seconds. */
+export function parseHmsToSec(raw: string): number | null {
+  return parseTimeInputSec(raw);
+}
+
 /** Parse user time input into canonical m:ss or h:mm:ss. */
 export function normalizeTimeInput(raw: string): string {
   const text = raw.trim();
@@ -90,6 +99,44 @@ export function formatDurationSec(totalSec: number | null | undefined): string {
     return `${hours}:${String(minutes).padStart(2, '0')}:${String(seconds).padStart(2, '0')}`;
   }
   return `${minutes}:${String(seconds).padStart(2, '0')}`;
+}
+
+/** Human-readable duration; omits zero-valued units (e.g. 90 → "1 min 30 sec"). */
+export function formatDurationHuman(totalSec: number | null | undefined): string {
+  const sec = Math.max(0, Math.floor(Number(totalSec) || 0));
+  const hours = Math.floor(sec / 3600);
+  const minutes = Math.floor((sec % 3600) / 60);
+  const seconds = sec % 60;
+  const parts: string[] = [];
+  if (hours > 0) parts.push(`${hours} hr`);
+  if (minutes > 0) parts.push(`${minutes} min`);
+  if (seconds > 0 || parts.length === 0) parts.push(`${seconds} sec`);
+  return parts.join(' ');
+}
+
+/** Clip length from cut range; null when unset, invalid, or not computable. */
+export function cutClipDurationSec(
+  durationSec: number | null | undefined,
+  startRaw: string,
+  endRaw: string,
+): number | null {
+  const startText = startRaw.trim();
+  const endText = endRaw.trim();
+  if (!startText && !endText) return null;
+  if (validateCutRange(durationSec, startRaw, endRaw)) return null;
+
+  const start = startText ? parseTimeInputSec(startText) : 0;
+  if (start === null) return null;
+
+  if (endText) {
+    const end = parseTimeInputSec(endText);
+    if (end === null || end <= start) return null;
+    return end - start;
+  }
+
+  const duration = Math.floor(Number(durationSec) || 0);
+  if (duration <= 0 || start >= duration) return null;
+  return duration - start;
 }
 
 export function looksLikeSupportedUrl(value: string): boolean {

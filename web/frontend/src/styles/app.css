@@ -131,7 +131,8 @@ textarea.title-textarea {
   line-height: 1.45;
 }
 
-input.input-error {
+input.input-error,
+.time-segments.input-error {
   border-color: #ff8a8a;
 }
 
@@ -154,9 +155,26 @@ input.input-error {
 
 .cut-row {
   display: grid;
-  grid-template-columns: 1fr 1fr;
-  gap: 12px;
+  grid-template-columns: 1fr auto 1fr;
+  gap: 10px 12px;
+  align-items: end;
   margin-top: 12px;
+}
+
+.cut-duration-center {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 5.5rem;
+  padding: 0 4px 12px;
+}
+
+.cut-duration {
+  color: var(--accent-2);
+  font-size: 0.82rem;
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+  text-align: center;
 }
 
 .hint {
@@ -384,6 +402,50 @@ button.icon-btn-danger:hover:not(:disabled) {
   flex-direction: column;
 }
 
+.time-segments {
+  display: inline-flex;
+  align-items: center;
+  gap: 0;
+  padding: 12px 14px;
+  border-radius: 10px;
+  border: 1px solid var(--border);
+  background: #0c0e13;
+  font-size: 1rem;
+  width: fit-content;
+}
+
+.time-segments:focus-within {
+  border-color: var(--accent-2);
+}
+
+.time-segments .time-seg {
+  width: 2ch;
+  padding: 0;
+  border: none;
+  border-radius: 0;
+  background: transparent;
+  color: var(--text);
+  text-align: center;
+  font-size: 1rem;
+  font-variant-numeric: tabular-nums;
+}
+
+.time-seg::placeholder {
+  color: var(--muted);
+  opacity: 0.55;
+}
+
+.time-seg::selection {
+  background: var(--accent-2);
+  color: #111;
+}
+
+.time-sep {
+  color: var(--muted);
+  user-select: none;
+  line-height: 1;
+}
+
 .time-hint {
   margin: 6px 0 0;
   color: var(--muted);
@@ -435,6 +497,7 @@ button.tool-sidebar-btn {
 button.tool-sidebar-btn svg {
   flex-shrink: 0;
   display: block;
+  overflow: visible;
 }
 
 button.tool-sidebar-btn:hover:not(.active) {
@@ -461,12 +524,6 @@ button.tool-sidebar-btn.active {
   flex-direction: column;
   justify-content: center;
   min-height: 180px;
-}
-
-.tool-panel-desc {
-  margin: -6px 0 14px;
-  color: var(--muted);
-  font-size: 0.84rem;
 }
 
 .job-log {
