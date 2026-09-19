@@ -689,7 +689,8 @@ button.icon-btn-danger:hover:not(:disabled) {
   gap: 8px;
   max-height: 320px;
   overflow-y: auto;
-  padding-right: 4px;
+  /* Room for the corner badges so overflow doesn't clip them */
+  padding: 6px 8px 2px 0;
 }
 
 button.tool-sidebar-btn {
@@ -722,6 +723,59 @@ button.tool-sidebar-btn:hover:not(.active) {
 button.tool-sidebar-btn.active {
   border-color: var(--accent-2);
   background: rgba(245, 185, 66, 0.14);
+  color: var(--accent-2);
+}
+
+/* Modification count badge on a tool icon (e.g. number of active cuts) */
+.tool-badge {
+  position: absolute;
+  top: -6px;
+  right: -6px;
+  min-width: 16px;
+  height: 16px;
+  padding: 0 4px;
+  border-radius: 999px;
+  background: var(--accent);
+  color: #fff;
+  font-size: 0.66rem;
+  font-weight: 700;
+  line-height: 16px;
+  text-align: center;
+  font-variant-numeric: tabular-nums;
+}
+
+button.tool-sidebar-btn {
+  position: relative;
+}
+
+/* Log block: header row holds the copy button, then the log itself */
+.log-block {
+  margin-top: 2px;
+}
+
+.log-block-head {
+  display: flex;
+  justify-content: flex-end;
+  min-height: 26px;
+  margin-bottom: 2px;
+}
+
+.log-copy-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  min-height: 26px;
+  padding: 4px 10px;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: #0c0e13;
+  color: var(--text);
+  font-size: 0.78rem;
+  line-height: 1;
+}
+
+.log-copy-btn:hover {
+  border-color: var(--accent-2);
   color: var(--accent-2);
 }
 
@@ -1151,10 +1205,10 @@ button.tool-btn.subtle {
   }
 
   .edit-tools-sidebar {
-    width: 40px;
-    gap: 6px;
+    width: 46px;
+    gap: 8px;
     max-height: none;
-    padding-right: 0;
+    padding: 6px 6px 2px 0;
   }
 
   button.tool-sidebar-btn {

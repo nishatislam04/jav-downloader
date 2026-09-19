@@ -20,22 +20,22 @@ import {
 	startDownload,
 	validateFolder,
 } from "./api";
-import HistoryMenu from "./components/HistoryMenu";
 import EditToolsCard, {
 	type CutRange,
 	newCutRange,
 	type ToolId,
 } from "./components/EditToolsCard";
+import HistoryMenu from "./components/HistoryMenu";
 import { DownloadIcon, SuccessIcon } from "./components/IconButton";
 import MetaCard from "./components/MetaCard";
 import ProgressCard from "./components/ProgressCard";
 import ProgressRing from "./components/ProgressRing";
+import { appendHistory } from "./lib/history";
 import {
 	loadRememberSavePath,
 	loadSavedPath,
 	persistSavePath,
 } from "./lib/persist";
-import { appendHistory } from "./lib/history";
 import {
 	hasActiveCut,
 	looksLikeSupportedUrl,
@@ -260,7 +260,7 @@ export default function App() {
 			setAudioFade(false);
 			setAudioLoudnorm(false);
 			setStreamPreference("");
-		setHlsTier("");
+			setHlsTier("");
 			if (!rememberSavePath() && !savePathCustom()) {
 				if (data.dest_folder) {
 					setSavePath(data.dest_folder);
@@ -558,6 +558,20 @@ export default function App() {
 		return "";
 	});
 
+	// Modification count per tool, shown as a badge on its sidebar icon.
+	const toolBadges = createMemo(() => {
+		const badges: Partial<Record<ToolId, number>> = {};
+		const activeCuts = cuts().filter(hasActiveCut).length;
+		if (activeCuts) badges.cut = activeCuts;
+		const audioCount = (audioFade() ? 1 : 0) + (audioLoudnorm() ? 1 : 0);
+		if (audioCount) badges.audio = audioCount;
+		if (customTitle().trim()) badges.rename = 1;
+		if (savePathCustom()) badges.save = 1;
+		if (streamPreference().trim()) badges.stream = 1;
+		if (hlsTier().trim()) badges.quality = 1;
+		return badges;
+	});
+
 	const resolvedMeta = createMemo(() => {
 		if (resolving()) return undefined;
 		const meta = resolved();
@@ -675,6 +689,7 @@ export default function App() {
 							onSavePathChange={handleSavePathChange}
 							onRememberSavePathChange={handleRememberSavePathChange}
 							onSelectTool={selectTool}
+							toolBadges={toolBadges()}
 						/>
 					</>
 				)}

@@ -79,6 +79,8 @@ type Props = {
 	onSavePathChange: (path: string) => void;
 	onRememberSavePathChange: (value: boolean) => void;
 	onSelectTool: (tool: ToolId) => void;
+	/** Per-tool modification counts rendered as badges; 0/undefined hides. */
+	toolBadges?: Partial<Record<ToolId, number>>;
 };
 
 const BASE_TOOLS: Array<{
@@ -177,12 +179,21 @@ export default function EditToolsCard(props: Props) {
 							type="button"
 							class={`tool-sidebar-btn ${props.activeTool === tool.id ? "active" : ""}`}
 							aria-pressed={props.activeTool === tool.id}
-							aria-label={tool.label}
+							aria-label={
+								(props.toolBadges?.[tool.id] ?? 0) > 0
+									? `${tool.label} (${props.toolBadges?.[tool.id]})`
+									: tool.label
+							}
 							title={tool.label}
 							onClick={() => props.onSelectTool(tool.id)}
 						>
 							<tool.Icon />
 							<span>{tool.label}</span>
+							<Show when={(props.toolBadges?.[tool.id] ?? 0) > 0}>
+								<span class="tool-badge" aria-hidden="true">
+									{props.toolBadges?.[tool.id]}
+								</span>
+							</Show>
 						</button>
 					))}
 				</nav>
