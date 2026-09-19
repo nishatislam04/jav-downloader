@@ -139,6 +139,9 @@ export default function EditToolsCard(props: Props) {
 		visibleTools().find((tool) => tool.id === props.activeTool);
 	const multiCut = () => props.cuts.length > 1;
 
+	// Apply is only enabled while the draft differs from the applied path.
+	const pathDirty = createMemo(() => draftPath().trim() !== props.savePath);
+
 	const visibleTools = createMemo(() => {
 		const items = [...BASE_TOOLS];
 		let insertAt = 2;
@@ -225,30 +228,27 @@ export default function EditToolsCard(props: Props) {
 
 												return (
 													<div class="cut-range-row">
-														<p class="cut-range-label">Cut {index + 1}</p>
+														<div class="cut-range-head">
+															<p class="cut-range-label">Cut {index + 1}</p>
+															<Show when={durationLabel()}>
+																<span class="cut-duration">
+																	{durationLabel()}
+																</span>
+															</Show>
+														</div>
 														<div class="cut-range-fields">
 															<TimeField
 																id={`cut-${cut().id}-start`}
-																label="Start at"
+																label="Start"
 																value={cut().start}
 																error={errors().start}
 																onChange={(value) =>
 																	props.onCutChange(cut().id, "start", value)
 																}
 															/>
-															<div
-																class="cut-duration-center"
-																aria-live="polite"
-															>
-																<Show when={durationLabel()}>
-																	<span class="cut-duration">
-																		{durationLabel()}
-																	</span>
-																</Show>
-															</div>
 															<TimeField
 																id={`cut-${cut().id}-end`}
-																label="End at"
+																label="End"
 																value={cut().end}
 																error={errors().end}
 																onChange={(value) =>
@@ -377,7 +377,7 @@ export default function EditToolsCard(props: Props) {
 									<textarea
 										id="output-title"
 										class="title-textarea mono"
-										rows={4}
+										rows={8}
 										autocomplete="off"
 										spellcheck={false}
 										placeholder={props.meta.title || "Video title"}
@@ -390,7 +390,6 @@ export default function EditToolsCard(props: Props) {
 
 								<Show when={toolId() === "save"}>
 									<div class="save-path-field">
-										<FolderIcon />
 										<input
 											id="save-path"
 											type="text"
@@ -426,8 +425,8 @@ export default function EditToolsCard(props: Props) {
 									<div class="save-path-actions">
 										<button
 											type="button"
-											class="tool-btn subtle"
-											disabled={!draftPath().trim()}
+											class="tool-btn subtle save-apply-btn"
+											disabled={!pathDirty() || !draftPath().trim()}
 											onClick={() => void applyPath()}
 										>
 											Apply

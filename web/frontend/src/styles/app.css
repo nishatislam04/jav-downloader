@@ -171,9 +171,17 @@ input.input-error,
   background: #12151c;
 }
 
-.cut-range-label {
+/* "Cut n" + calculated clip duration on one header row */
+.cut-range-head {
   grid-column: 1 / -1;
-  margin: 0 0 2px;
+  display: flex;
+  align-items: baseline;
+  gap: 10px;
+  margin-bottom: 10px;
+}
+
+.cut-range-label {
+  margin: 0;
   color: var(--muted);
   font-size: 0.78rem;
   font-weight: 600;
@@ -181,29 +189,18 @@ input.input-error,
   text-transform: uppercase;
 }
 
-.cut-range-fields {
-  display: grid;
-  grid-template-columns: minmax(0, 1fr) auto minmax(0, 1fr);
-  column-gap: 10px;
-  align-items: start;
-}
-
-.cut-duration-center {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  min-width: 4.75rem;
-  height: 46px;
-  margin-top: calc(0.9rem + 8px);
-  pointer-events: none;
-}
-
 .cut-duration {
   color: var(--accent-2);
   font-size: 0.82rem;
   font-variant-numeric: tabular-nums;
   white-space: nowrap;
-  text-align: center;
+}
+
+.cut-range-fields {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+  gap: 10px;
+  align-items: start;
 }
 
 .cut-actions {
@@ -237,7 +234,7 @@ input.input-error,
 }
 
 .cut-remove-btn {
-  margin-top: calc(0.9rem + 8px);
+  align-self: end;
   color: var(--muted);
   font-size: 1.1rem;
 }
@@ -247,6 +244,7 @@ input.input-error,
 .cut-remove-slot {
   width: 34px;
   height: 34px;
+  align-self: end;
 }
 
 .cut-remove-btn:hover:not(:disabled) {
@@ -860,6 +858,18 @@ button.tool-btn.subtle {
   font-size: 0.82rem;
 }
 
+/* Save-location Apply: yellow with white text, enabled only when dirty */
+button.save-apply-btn:not(:disabled) {
+  background: var(--accent-2);
+  border-color: var(--accent-2);
+  color: #fff;
+}
+
+button.save-apply-btn:not(:disabled):hover {
+  filter: brightness(1.08);
+  color: #fff;
+}
+
 .edit-panel {
   margin-top: 14px;
 }
@@ -1248,8 +1258,12 @@ button.tool-btn.subtle {
     padding: 10px;
   }
 
+  .cut-range-head {
+    margin-bottom: 8px;
+  }
+
   .cut-range-fields {
-    column-gap: 8px;
+    gap: 8px;
   }
 
   .cut-actions {
@@ -1293,17 +1307,10 @@ button.tool-btn.subtle {
   }
 }
 
-/* Very narrow phones: cut fields can no longer share one row */
+/* Very narrow phones: start/end inputs stack, remove button moves up */
 @media (max-width: 480px) {
   .cut-range-fields {
     grid-template-columns: minmax(0, 1fr);
-  }
-
-  .cut-duration-center {
-    min-width: 0;
-    height: auto;
-    margin-top: 0;
-    padding: 2px 0;
   }
 
   .cut-remove-slot {
@@ -1312,12 +1319,6 @@ button.tool-btn.subtle {
   }
 
   .cut-remove-btn {
-    margin-top: 0;
     justify-self: end;
-    margin-bottom: 2px;
-  }
-
-  .cut-range-row {
-    grid-template-columns: minmax(0, 1fr) auto;
   }
 }

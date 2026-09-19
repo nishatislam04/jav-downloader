@@ -21,8 +21,14 @@ _job_params: dict[str, dict] = {}
 
 
 def _log_stamp() -> str:
-    """Local 12-hour timestamp like `2:05:09 PM` for progress log lines."""
-    return time.strftime('%I:%M:%S %p').lstrip('0')
+    """Local 12-hour timestamp like `2:05:09 PM` for progress log lines.
+
+    Computed manually (not via %I/%p) so locale quirks can never yield 24h.
+    """
+    now = time.localtime()
+    hour12 = now.tm_hour % 12 or 12
+    suffix = 'AM' if now.tm_hour < 12 else 'PM'
+    return f'{hour12}:{now.tm_min:02d}:{now.tm_sec:02d} {suffix}'
 
 
 def _site_label(site_cls) -> str:
@@ -227,13 +233,14 @@ def _run_download(
         else:
             progress_unit = ''
 
-        def _on_progress(downloaded: int, total: int, speed: float) -> None:
+        def _on_progress(
+                downloaded: int, total: int, speed: float, unit: str | None = None) -> None:
             manager.set_progress(
                 job_id,
                 downloaded,
                 total,
                 speed,
-                progress_unit=progress_unit,
+                progress_unit=unit or progress_unit,
             )
 
         site._progress_callback = _on_progress
