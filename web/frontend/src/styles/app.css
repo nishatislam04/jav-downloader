@@ -68,6 +68,19 @@ label {
   animation: spin 0.8s linear infinite;
 }
 
+.badge-unsupported {
+  display: inline-flex;
+  align-items: center;
+  padding: 2px 8px;
+  border-radius: 999px;
+  background: rgba(255, 82, 99, 0.18);
+  color: #ff8a8a;
+  font-size: 0.72rem;
+  font-weight: 600;
+  letter-spacing: 0.02em;
+  text-transform: uppercase;
+}
+
 @keyframes spin {
   to {
     transform: rotate(360deg);
@@ -125,12 +138,6 @@ input.input-error {
   font-size: 0.8rem;
 }
 
-.actions {
-  display: flex;
-  gap: 10px;
-  margin-top: 12px;
-}
-
 button {
   border: 0;
   border-radius: 10px;
@@ -141,9 +148,21 @@ button {
   color: #fff;
 }
 
-button.download-btn {
+button.download-circle {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  width: 44px;
+  height: 44px;
+  padding: 0;
+  border-radius: 50%;
   background: var(--accent-2);
   color: #111;
+}
+
+button.download-circle:hover:not(:disabled) {
+  filter: brightness(1.08);
 }
 
 button:disabled {

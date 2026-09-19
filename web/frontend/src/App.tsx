@@ -10,7 +10,7 @@ import {
   type Job,
   type ResolveResult,
 } from './api';
-import IconButton, { PasteIcon } from './components/IconButton';
+import { DownloadIcon } from './components/IconButton';
 import MetaCard from './components/MetaCard';
 import ProgressCard from './components/ProgressCard';
 import TimeField, { durationHint } from './components/TimeField';
@@ -159,17 +159,6 @@ export default function App() {
     pollTimer = setInterval(tick, 800);
   }
 
-  async function handlePasteUrl() {
-    try {
-      const text = await navigator.clipboard.readText();
-      if (text?.trim()) {
-        setUrl(text.trim());
-      }
-    } catch {
-      setStatusMessage('Could not read clipboard.', 'error');
-    }
-  }
-
   async function handlePause(jobId: string) {
     setActionBusy(true);
     const data = await pauseJob(jobId);
@@ -275,18 +264,27 @@ export default function App() {
     return '';
   });
 
+  const urlUnsupported = createMemo(() => {
+    const value = url().trim();
+    return value.length > 0 && !looksLikeSupportedUrl(value);
+  });
+
+  const canDownload = createMemo(
+    () => !!resolved()?.ok && !cutValidation() && !busy() && !resolving(),
+  );
+
   return (
     <main class="shell">
       <header>
         <h1>JAV Downloader</h1>
-        <p class="subtitle">
-          Paste a JableTV, MissAV, SupJav, Hanime1, Jav.guru, or SpankBang URL.
-        </p>
       </header>
 
       <section class="card">
         <label for="url" class="url-label">
           <span>Video URL</span>
+          <Show when={urlUnsupported()}>
+            <span class="badge-unsupported">Unsupported</span>
+          </Show>
           <Show when={resolving()}>
             <span class="spinner" aria-label="Resolving" title="Resolving" />
           </Show>
@@ -301,9 +299,17 @@ export default function App() {
             value={url()}
             onInput={(event) => setUrl(event.currentTarget.value)}
           />
-          <IconButton label="Paste URL" title="Paste" onClick={handlePasteUrl}>
-            <PasteIcon />
-          </IconButton>
+          <Show when={canDownload()}>
+            <button
+              type="button"
+              class="download-circle"
+              aria-label="Download"
+              title="Download"
+              onClick={handleDownload}
+            >
+              <DownloadIcon />
+            </button>
+          </Show>
         </div>
 
         <div class="cut-row">
@@ -337,17 +343,6 @@ export default function App() {
           <code>mm:ss</code> or seconds (e.g. <code>90</code> → <code>1:30</code>
           ).
         </p>
-
-        <div class="actions">
-          <button
-            type="button"
-            class="download-btn"
-            disabled={busy() || resolving() || !resolved()?.ok || !!cutValidation()}
-            onClick={handleDownload}
-          >
-            Download
-          </button>
-        </div>
 
         <p class={`status ${statusKind()}`} aria-live="polite">
           {status()}
