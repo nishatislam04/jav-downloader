@@ -3,7 +3,9 @@ import type { Job } from "../api";
 import { formatProgress } from "../lib/format";
 import IconButton, {
 	CloseIcon,
+	CollapseIcon,
 	CopyIcon,
+	ExpandIcon,
 	FolderIcon,
 	PauseIcon,
 	PlayIcon,
@@ -39,6 +41,7 @@ export default function ProgressCard(props: Props) {
 	// Copy affordance appears only once log output has settled for a moment.
 	const [logIdle, setLogIdle] = createSignal(false);
 	const [copied, setCopied] = createSignal(false);
+	const [logFull, setLogFull] = createSignal(false);
 	let idleTimer: ReturnType<typeof setTimeout> | undefined;
 	let copiedTimer: ReturnType<typeof setTimeout> | undefined;
 	let lastLogKey = "";
@@ -59,6 +62,23 @@ export default function ProgressCard(props: Props) {
 	onCleanup(() => {
 		if (idleTimer) clearTimeout(idleTimer);
 		if (copiedTimer) clearTimeout(copiedTimer);
+	});
+
+	function toggleLogFull() {
+		setLogFull((value) => !value);
+	}
+
+	function onLogFullKey(event: KeyboardEvent) {
+		if (event.key === "Escape" && logFull()) {
+			event.preventDefault();
+			setLogFull(false);
+		}
+	}
+
+	createEffect(() => {
+		if (!logFull()) return;
+		window.addEventListener("keydown", onLogFullKey);
+		onCleanup(() => window.removeEventListener("keydown", onLogFullKey));
 	});
 
 	async function copyLog() {
@@ -177,19 +197,35 @@ export default function ProgressCard(props: Props) {
 				</div>
 				<p class="mono progress-text">{progressText(props.job)}</p>
 				<Show when={logLines().length > 0}>
-					<div class="log-block">
+					<div class="log-block" classList={{ "log-block-full": logFull() }}>
 						<div class="log-block-head">
-							<Show when={logIdle()}>
+							<span class="log-block-title">Log</span>
+							<span class="log-block-actions">
+								<Show when={logIdle()}>
+									<button
+										type="button"
+										class="log-copy-btn"
+										aria-label="Copy log"
+										onClick={() => void copyLog()}
+									>
+										<CopyIcon />
+										<span>{copied() ? "Copied" : "Copy"}</span>
+									</button>
+								</Show>
 								<button
 									type="button"
-									class="log-copy-btn"
-									aria-label="Copy log"
-									onClick={() => void copyLog()}
+									class="log-copy-btn log-full-btn"
+									aria-label={
+										logFull() ? "Exit fullscreen log" : "View fullscreen log"
+									}
+									title={logFull() ? "Exit fullscreen" : "Fullscreen"}
+									onClick={toggleLogFull}
 								>
-									<CopyIcon />
-									<span>{copied() ? "Copied" : "Copy"}</span>
+									<Show when={logFull()} fallback={<ExpandIcon />}>
+										<CollapseIcon />
+									</Show>
 								</button>
-							</Show>
+							</span>
 						</div>
 						<div class="job-log" ref={logEl} aria-live="polite">
 							<For each={logLines()}>

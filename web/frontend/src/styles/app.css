@@ -746,16 +746,31 @@ button.tool-sidebar-btn {
   position: relative;
 }
 
-/* Log block: header row holds the copy button, then the log itself */
+/* Log block: header row holds the copy/fullscreen buttons, then the log */
 .log-block {
   margin-top: 2px;
 }
 
 .log-block-head {
   display: flex;
-  justify-content: flex-end;
+  align-items: center;
+  justify-content: space-between;
   min-height: 26px;
   margin-bottom: 2px;
+}
+
+.log-block-title {
+  color: var(--muted);
+  font-size: 0.78rem;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+
+.log-block-actions {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
 }
 
 .log-copy-btn {
@@ -775,6 +790,32 @@ button.tool-sidebar-btn {
 .log-copy-btn:hover {
   border-color: var(--accent-2);
   color: var(--accent-2);
+}
+
+/* Fullscreen log: fixed overlay using the whole viewport */
+.log-block-full {
+  position: fixed;
+  inset: 0;
+  z-index: 90;
+  display: flex;
+  flex-direction: column;
+  padding: 12px;
+  background: rgba(5, 7, 11, 0.97);
+}
+
+.log-block-full .log-block-head {
+  min-height: 34px;
+  margin-bottom: 8px;
+}
+
+.log-block-full .log-block-title {
+  font-size: 0.85rem;
+}
+
+.log-block-full .job-log {
+  flex: 1;
+  max-height: none;
+  margin: 0;
 }
 
 .edit-tools-panel {
@@ -1307,10 +1348,11 @@ button.save-apply-btn:not(:disabled):hover {
   }
 }
 
-/* Very narrow phones: start/end inputs stack, remove button moves up */
+/* Very narrow phones: keep Start/End side by side, tighten gaps */
 @media (max-width: 480px) {
   .cut-range-fields {
-    grid-template-columns: minmax(0, 1fr);
+    grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+    gap: 6px;
   }
 
   .cut-remove-slot {
@@ -1320,5 +1362,18 @@ button.save-apply-btn:not(:disabled):hover {
 
   .cut-remove-btn {
     justify-self: end;
+  }
+
+  .time-segments {
+    padding: 10px 8px;
+  }
+
+  .time-segments .time-seg {
+    width: 2ch;
+    font-size: 0.92rem;
+  }
+
+  .time-field label {
+    font-size: 0.8rem;
   }
 }

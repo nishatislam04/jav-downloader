@@ -222,6 +222,36 @@ export function CopyIcon() {
 	);
 }
 
+export function ExpandIcon() {
+	return (
+		<svg viewBox="0 0 24 24" width="14" height="14" aria-hidden="true">
+			<path
+				d="M9 3H3v6M15 3h6v6M9 21H3v-6M15 21h6v-6"
+				fill="none"
+				stroke="currentColor"
+				stroke-width="1.75"
+				stroke-linecap="round"
+				stroke-linejoin="round"
+			/>
+		</svg>
+	);
+}
+
+export function CollapseIcon() {
+	return (
+		<svg viewBox="0 0 24 24" width="14" height="14" aria-hidden="true">
+			<path
+				d="M3 9h6V3M21 9h-6V3M3 15h6v6M21 15h-6v6"
+				fill="none"
+				stroke="currentColor"
+				stroke-width="1.75"
+				stroke-linecap="round"
+				stroke-linejoin="round"
+			/>
+		</svg>
+	);
+}
+
 export function AudioIcon() {
 	return (
 		<svg viewBox="0 0 24 24" width="18" height="18" aria-hidden="true">
