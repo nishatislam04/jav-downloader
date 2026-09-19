@@ -214,7 +214,7 @@ def _emit_cut_progress(
     elif (downloaded > 0 and total <= 0 and out_time_sec > 0 and
           clip_len > 0):
         total = max(downloaded, int(downloaded * clip_len / out_time_sec))
-    site._progress_callback(downloaded, total, speed)
+    site._progress_callback(downloaded, total, speed, 'bytes')
 
 
 def _cut_progress_total(estimated_total, downloaded, out_time_sec, clip_len):
@@ -265,9 +265,15 @@ def run_direct_download(site):
     label = getattr(site, 'direct_site_name', 'Direct')
 
     if _has_time_cut(site):
-        from jav_downloader.sites.multi_cut import run_stream_multi_cut, site_is_multi_cut
+        from jav_downloader.sites.multi_cut import (
+            run_hls_multi_cut,
+            run_stream_multi_cut,
+            site_is_multi_cut,
+        )
         _safe_remove(part)
         if site_is_multi_cut(site):
+            if getattr(site, '_m3u8url', None) and not getattr(site, '_direct_url', None):
+                return run_hls_multi_cut(site)
             return run_stream_multi_cut(site)
         return _download_ffmpeg_cut(site, part, out, ref, label)
 
@@ -303,8 +309,8 @@ def run_direct_download(site):
     except OSError:
         _safe_remove(part)
         raise
-    from jav_downloader.sites.audio_post import post_process_audio
-    post_process_audio(site, out, getattr(site, '_duration_sec', None))
+    from jav_downloader.sites.media_post import post_process_media
+    post_process_media(site, out, getattr(site, '_duration_sec', None))
     print(f'\n下載完成: {os.path.basename(out)}', flush=True)
     return True
 
@@ -404,7 +410,7 @@ def _download_ffmpeg_cut(site, part, out, referer, label):
         size = os.path.getsize(out)
         elapsed = time.time() - started
         speed = size / elapsed if elapsed > 0 else 0
-        site._progress_callback(size, size, speed)
+        site._progress_callback(size, size, speed, 'bytes')
     print(f'\n下載完成: {os.path.basename(out)}', flush=True)
     return True
 

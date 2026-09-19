@@ -153,6 +153,8 @@ def _extract_clip(
 
 
 def _concat_clips(site, ffmpeg, clip_paths, output_path, workdir, label):
+    from jav_downloader.sites.direct_mp4 import _drain_stderr
+
     list_path = os.path.join(workdir, 'concat.txt')
     with open(list_path, 'w', encoding='utf-8') as handle:
         for path in clip_paths:
@@ -199,6 +201,101 @@ def _total_clip_length(site, cut_ranges):
     return total
 
 
+def _download_hls_clip(site, start_sec, end_sec, clip_path, index):
+    """Download one cut range via filtered HLS segments."""
+    from jav_downloader.sites.base import DownloadIncompleteError
+
+    site._cut_start_sec = start_sec
+    site._cut_end_sec = end_sec
+    site._create_temp_folder()
+    emit = getattr(site, '_emit_job_log', None)
+    if emit:
+        emit(f'Loading HLS playlist for clip {index + 1}…')
+    site._create_m3u8()
+    if emit:
+        emit(f'Clip {index + 1}: found {len(site._tsList)} segments')
+    if not site._stop_requested():
+        if emit:
+            emit(f'Clip {index + 1}: downloading segments…')
+        site._prepareCrawl()
+    if site._stop_requested():
+        return False
+    if site._pending_set:
+        pending = len(site._pending_set)
+        raise DownloadIncompleteError(pending)
+    if emit:
+        emit(f'Clip {index + 1}: merging segments…')
+    merged = site._mergeMp4Chunks()
+    if not merged:
+        raise Exception(f'clip {index + 1} merge failed')
+    merged_out = site._get_video_savename()
+    if not os.path.isfile(merged_out):
+        raise Exception(f'clip {index + 1} output missing')
+    os.replace(merged_out, clip_path)
+    site._deleteMp4Chunks()
+    return True
+
+
+def run_hls_multi_cut(site):
+    """Multi-range HLS cuts via per-range segment download and ffmpeg concat."""
+    from jav_downloader.sites.direct_mp4 import _safe_remove, _stop_requested
+
+    cut_ranges = getattr(site, '_cut_ranges', None) or []
+    if not cut_ranges:
+        return False
+
+    ffmpeg = locate_ffmpeg()
+    if not ffmpeg:
+        raise Exception('時間裁剪需要 ffmpeg，但系統找不到 ffmpeg')
+
+    out = site._get_video_savename()
+    label = getattr(site, 'direct_site_name', None) or site.__class__.__name__
+    dest_dir = os.path.dirname(out) or os.getcwd()
+    os.makedirs(dest_dir, exist_ok=True)
+    workdir = tempfile.mkdtemp(prefix='jav-hlsmulticut-', dir=dest_dir)
+    clip_paths = []
+    try:
+        for index, (start_sec, end_sec) in enumerate(cut_ranges):
+            if _stop_requested(site):
+                return False
+            clip_path = os.path.join(workdir, f'clip_{index:02d}.mp4')
+            if not _download_hls_clip(site, start_sec, end_sec, clip_path, index):
+                return False
+            clip_paths.append(clip_path)
+
+        fd, safe_part = tempfile.mkstemp(suffix='.mp4', prefix='jav-hlsmulticut-', dir=dest_dir)
+        os.close(fd)
+        if len(clip_paths) == 1:
+            os.replace(clip_paths[0], safe_part)
+        else:
+            _concat_clips(site, ffmpeg, clip_paths, safe_part, workdir, label)
+        _safe_remove(out)
+        os.replace(safe_part, out)
+        from jav_downloader.sites.media_post import post_process_media
+        post_process_media(
+            site, out, _total_clip_length(site, cut_ranges) or getattr(site, '_duration_sec', None))
+    finally:
+        for path in clip_paths:
+            _safe_remove(path)
+        try:
+            import shutil
+            shutil.rmtree(workdir, ignore_errors=True)
+        except Exception:
+            pass
+
+    _emit_hls_multicut_progress(site, out)
+    print(f'\n下載完成: {os.path.basename(out)}', flush=True)
+    return True
+
+
+def _emit_hls_multicut_progress(site, output_path):
+    cb = getattr(site, '_progress_callback', None)
+    if not cb or not os.path.isfile(output_path):
+        return
+    size = os.path.getsize(output_path)
+    cb(size, size, 0.0, 'bytes')
+
+
 def run_stream_multi_cut(site):
     """Download by extracting each cut range and concatenating into one MP4."""
     from jav_downloader.sites.direct_mp4 import (
@@ -211,6 +308,10 @@ def run_stream_multi_cut(site):
     cut_ranges = getattr(site, '_cut_ranges', None) or []
     if not cut_ranges:
         return False
+
+    # Remote ffmpeg HLS cannot fetch disguised segment URLs (google CDN, .woff2, etc.).
+    if getattr(site, '_m3u8url', None) and not getattr(site, '_direct_url', None):
+        return run_hls_multi_cut(site)
 
     ffmpeg = locate_ffmpeg()
     if not ffmpeg:
@@ -262,8 +363,8 @@ def run_stream_multi_cut(site):
         _concat_clips(site, ffmpeg, clip_paths, safe_part, workdir, label)
         _safe_remove(part)
         os.replace(safe_part, out)
-        from jav_downloader.sites.audio_post import post_process_audio
-        post_process_audio(
+        from jav_downloader.sites.media_post import post_process_media
+        post_process_media(
             site, out, total_clip_len or getattr(site, '_duration_sec', None))
     finally:
         for path in clip_paths:
@@ -274,10 +375,6 @@ def run_stream_multi_cut(site):
         except Exception:
             pass
 
-    if site._progress_callback:
-        size = os.path.getsize(out)
-        elapsed = time.time() - started
-        speed = size / elapsed if elapsed > 0 else 0
-        site._progress_callback(size, size, speed)
+    _emit_hls_multicut_progress(site, out)
     print(f'\n下載完成: {os.path.basename(out)}', flush=True)
     return True

@@ -694,8 +694,17 @@ class SiteJavGuru(M3U8Crawler):
         with _make_scraper() as scraper:
             self._resolve_from_page(scraper)
 
+    def _log_stream_resolve(self, label, message):
+        emit = getattr(self, '_emit_job_log', None)
+        if emit:
+            emit(f'STREAM {label}: {message}')
+
     def _resolve_from_page(self, scraper, skip_labels=None):
         skip_labels = set(skip_labels or ())
+
+        def _reject(label, reason):
+            errors.append((label, reason))
+            self._log_stream_resolve(label, reason)
 
         def _validate(resp):
             return 'data-localize' in resp.text and 'wp-btn-iframe' in resp.text
@@ -726,18 +735,22 @@ class SiteJavGuru(M3U8Crawler):
         labels = list(servers.keys())
         if prefer and prefer in servers:
             labels = [prefer] + [label for label in labels if label != prefer]
+        if skip_labels:
+            self._emit_job_log(
+                f'Resolving next mirror (skipping {", ".join(sorted(skip_labels))})…')
         for label in labels:
             token = servers[label]
             if label in skip_labels:
+                self._log_stream_resolve(label, 'skipped (already tried)')
                 continue
             cfg = _load_localize_config(html_text, token)
             gateway = _gateway_url_from_config(cfg)
             if not gateway:
-                errors.append((label, 'missing gateway config'))
+                _reject(label, 'missing gateway config')
                 continue
             stream_redirect = _stream_redirect_url(gateway)
             if not stream_redirect:
-                errors.append((label, 'missing searcho token'))
+                _reject(label, 'missing searcho token')
                 continue
             try:
                 embed_resp = scraper.get(
@@ -748,14 +761,14 @@ class SiteJavGuru(M3U8Crawler):
                     **config.proxy_request_kwargs(),
                 )
             except Exception as exc:
-                errors.append((label, f'redirect failed ({exc})'))
+                _reject(label, f'redirect failed ({exc})')
                 continue
             if _is_cf_interstitial(embed_resp):
-                errors.append((label, 'blocked by Cloudflare'))
+                _reject(label, 'blocked by Cloudflare')
                 continue
             embed_url = str(getattr(embed_resp, 'url', '') or '')
             if not embed_url.startswith('http'):
-                errors.append((label, 'invalid embed redirect'))
+                _reject(label, 'invalid embed redirect')
                 continue
             embed_host = urlsplit(embed_url).netloc
             try:
@@ -763,16 +776,16 @@ class SiteJavGuru(M3U8Crawler):
             except MirrorsBlockedError:
                 raise
             except Exception as exc:
-                errors.append((label, f'{embed_host}: {exc}'))
+                _reject(label, f'{embed_host}: {exc}')
                 continue
             if not resolved:
-                errors.append((label, f'{embed_host}: no playlist or direct URL'))
+                _reject(label, f'{embed_host}: no playlist or direct URL')
                 continue
 
             kind, stream_url, extra = resolved
             if kind == 'mp4' or (kind == 'hls' and not _looks_like_hls_url(stream_url)):
                 if not _probe_direct_url(scraper, stream_url, extra):
-                    errors.append((label, f'{embed_host}: direct URL unavailable'))
+                    _reject(label, f'{embed_host}: direct URL unavailable')
                     continue
                 self._direct_url = stream_url
                 self._direct_referer = extra.get('Referer') or self.direct_default_referer
@@ -781,14 +794,14 @@ class SiteJavGuru(M3U8Crawler):
             elif kind == 'hls' and stream_url.startswith('http'):
                 probed = _probe_hls_playlist(scraper, stream_url, extra)
                 if not probed:
-                    errors.append((label, f'{embed_host}: playlist unavailable'))
+                    _reject(label, f'{embed_host}: playlist unavailable')
                     continue
                 self._m3u8url = probed
                 self._extra_headers = extra
                 self._direct_url = None
                 mode = 'HLS'
             else:
-                errors.append((label, f'{embed_host}: unrecognized stream URL'))
+                _reject(label, f'{embed_host}: unrecognized stream URL')
                 continue
 
             self._active_stream_label = label
@@ -800,6 +813,8 @@ class SiteJavGuru(M3U8Crawler):
             return True
 
         if skip_labels:
+            if errors:
+                self._emit_job_log('No remaining STREAM mirrors resolved.')
             return False
         raise Exception(_format_resolve_errors(errors))
 

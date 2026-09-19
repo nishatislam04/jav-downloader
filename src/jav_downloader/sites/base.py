@@ -505,6 +505,14 @@ def _get_cffi_session():
     return session
 
 
+def _playlist_referer_origin(url):
+    """Origin-style Referer for segment/key requests on the media playlist host."""
+    parts = urlsplit(str(url or ''))
+    if not parts.scheme or not parts.netloc:
+        return None
+    return f'{parts.scheme}://{parts.netloc}/'
+
+
 def _is_cf_block_resp(resp):
     try:
         if getattr(resp, 'status_code', None) not in (403, 429, 503):
@@ -567,14 +575,28 @@ class M3U8Crawler:
             self, url, savepath="", silence=False, max_workers=None,
             cut_start=None, cut_end=None, cuts=None,
             audio_fade=False, audio_loudnorm=False, stream_preference=None,
-            resolution_pref=None, hls_tier=None):
+            resolution_pref=None, hls_tier=None,
+            encode=None, encode_codec=None, encode_crf=None,
+            encode_max_height=None, encode_output_mode=None,
+            encode_preset=None, encode_threads=None):
         self.silence = silence
         from jav_downloader.sites.multi_cut import build_cut_ranges
         from jav_downloader.sites.output_meta import apply_download_options
+        from jav_downloader.sites.media_post import apply_encode_options
         self._cut_ranges = build_cut_ranges(cuts, cut_start, cut_end)
         _apply_legacy_cut_fields(self, self._cut_ranges)
         self._audio_fade = bool(audio_fade)
         self._audio_loudnorm = bool(audio_loudnorm)
+        apply_encode_options(
+            self,
+            encode=encode,
+            encode_codec=encode_codec,
+            encode_crf=encode_crf,
+            encode_max_height=encode_max_height,
+            encode_output_mode=encode_output_mode,
+            encode_preset=encode_preset,
+            encode_threads=encode_threads,
+        )
         self._stream_preference = (str(stream_preference).strip().upper()
                                    if stream_preference else None) or None
         apply_download_options(self, resolution_pref, hls_tier)
@@ -585,6 +607,9 @@ class M3U8Crawler:
         self._available_stream_labels = []
         self._duration_sec = None
         self._segment_durations = []
+        self._segment_seq_nums = []
+        self._media_playlist_url = None
+        self._segment_referer = None
         self._tsList = []
         self._key_content = None   # raw bytes of AES key
         self._key_method = None    # e.g. 'AES-128'
@@ -746,8 +771,16 @@ class M3U8Crawler:
         return os.path.exists(self._get_image_savename())
 
     def _m3u8_headers(self):
-        """Merged headers for m3u8 and segment requests."""
+        """Merged headers for master/media playlist requests."""
         return {**headers, **self._extra_headers}
+
+    def _segment_headers(self):
+        """Headers for TS segment (and key) fetches on the media-playlist host."""
+        hdrs = self._m3u8_headers()
+        seg_ref = getattr(self, '_segment_referer', None)
+        if seg_ref:
+            hdrs['Referer'] = seg_ref
+        return hdrs
 
     def _load_m3u8(self, url):
         resp = _http_get(url, self._m3u8_headers(), timeout=20)
@@ -777,6 +810,7 @@ class M3U8Crawler:
             baseurl = '/'.join(m3u8urlPath)
             playListUrl = baseurl + '/' + uri.lstrip('/')
         m3u8obj = self._load_m3u8(playListUrl)
+        self._media_playlist_url = playListUrl
         variantBase = playListUrl.rsplit('/', 1)[0] + '/'
         return m3u8obj, variantBase
 
@@ -785,6 +819,7 @@ class M3U8Crawler:
         m3u8urlList.pop(-1)
         downloadurl = '/'.join(m3u8urlList) + '/'
 
+        self._media_playlist_url = self._m3u8url
         m3u8obj = self._load_m3u8(self._m3u8url)
         if len(m3u8obj.playlists) > 0:
             from jav_downloader.sites.output_meta import pick_hls_playlist
@@ -795,6 +830,9 @@ class M3U8Crawler:
                 self._selected_variant_bandwidth = bandwidth
                 m3u8obj, downloadurl = self._getm3u8PlayList(best.uri)
 
+        self._segment_referer = _playlist_referer_origin(
+            getattr(self, '_media_playlist_url', None) or self._m3u8url)
+
         # Extract key info (store bytes + IV, not a cipher - cipher is NOT thread-safe)
         self._key_content = None
         self._key_method = None
@@ -804,7 +842,7 @@ class M3U8Crawler:
                 m3u8_key_uri = key.uri
                 if not m3u8_key_uri.startswith('http'):
                     m3u8_key_uri = downloadurl + m3u8_key_uri
-                resp = _http_get(m3u8_key_uri, self._m3u8_headers(), timeout=15)
+                resp = _http_get(m3u8_key_uri, self._segment_headers(), timeout=15)
                 blocked = _is_cf_block_resp(resp)
                 if resp.status_code != 200 or blocked:
                     if blocked:
@@ -835,6 +873,7 @@ class M3U8Crawler:
             self._segment_durations.append(duration)
         if not self._tsList:
             raise Exception("m3u8 無有效片段（可能被阻擋或改版）")
+        self._segment_seq_nums = list(range(len(self._tsList)))
         self._apply_segment_time_cut()
 
     def _apply_segment_time_cut(self):
@@ -845,13 +884,15 @@ class M3U8Crawler:
         if not self._tsList:
             return
         durations = getattr(self, '_segment_durations', None) or []
+        seq_nums = getattr(self, '_segment_seq_nums', None) or list(range(len(self._tsList)))
         if len(durations) != len(self._tsList):
             raise Exception('無法裁剪 HLS：缺少片段時間資訊')
 
         filtered_urls = []
         filtered_durations = []
+        filtered_seq_nums = []
         cursor = 0.0
-        for url, duration in zip(self._tsList, durations):
+        for url, duration, seq_num in zip(self._tsList, durations, seq_nums):
             seg_start = cursor
             seg_end = cursor + max(duration, 0.0)
             cursor = seg_end
@@ -861,11 +902,13 @@ class M3U8Crawler:
                 continue
             filtered_urls.append(url)
             filtered_durations.append(duration)
+            filtered_seq_nums.append(seq_num)
 
         if not filtered_urls:
             raise Exception('裁剪時間範圍內沒有可下載的 HLS 片段')
         self._tsList = filtered_urls
         self._segment_durations = filtered_durations
+        self._segment_seq_nums = filtered_seq_nums
         if not self.silence:
             end_label = f'{end}s' if end is not None else 'end'
             start_label = f'{start or 0}s'
@@ -895,9 +938,39 @@ class M3U8Crawler:
         corrupting the output. Index naming is unique and keeps resume correct."""
         return os.path.join(self._temp_folder, f"{index:06d}.mp4")
 
+    def _playlist_seq_num(self, local_index):
+        seq_nums = getattr(self, '_segment_seq_nums', None)
+        if seq_nums and 0 <= local_index < len(seq_nums):
+            return seq_nums[local_index]
+        return local_index
+
+    def _segment_file_valid(self, path):
+        try:
+            if os.path.getsize(path) < 188:
+                return False
+            with open(path, 'rb') as handle:
+                return handle.read(1) == b'\x47'
+        except OSError:
+            return False
+
+    def _effective_segment_workers(self):
+        workers = self._max_workers
+        cap = getattr(self, 'segment_worker_cap', None)
+        if cap is not None:
+            try:
+                workers = min(workers, max(1, int(cap)))
+            except (TypeError, ValueError):
+                pass
+        urls = self._tsList or []
+        if urls and all('googleusercontent.com' in url for url in urls):
+            return 1
+        if urls and any('googleusercontent.com' in url for url in urls):
+            return min(workers, 2)
+        return workers
+
     def _deleteMp4Chunks(self):
         for i in range(len(self._tsList)):
-            saveName = self._seg_savename(i)
+            saveName = self._seg_savename(self._playlist_seq_num(i))
             if os.path.exists(saveName):
                 try: os.remove(saveName)
                 except OSError: pass
@@ -952,7 +1025,7 @@ class M3U8Crawler:
                 for idx, ts_url in enumerate(self._tsList):
                     if self._stop_requested():
                         return 0
-                    seg = self._seg_savename(idx)
+                    seg = self._seg_savename(self._playlist_seq_num(idx))
                     if not os.path.exists(seg):
                         if not self._stop_requested():
                             print(f"\n片段 {idx} 遺失, 合成失敗!!!", flush=True)
@@ -979,8 +1052,8 @@ class M3U8Crawler:
                     except OSError: pass
                 return 0
             os.replace(part, saveName)
-            from jav_downloader.sites.audio_post import post_process_audio
-            post_process_audio(self, saveName, getattr(self, '_duration_sec', None))
+            from jav_downloader.sites.media_post import post_process_media
+            post_process_media(self, saveName, getattr(self, '_duration_sec', None))
             published = True
         finally:
             shutil.rmtree(workdir, ignore_errors=True)
@@ -1042,17 +1115,22 @@ class M3U8Crawler:
         return False
 
     def _scrape(self, task):
-        """Download and decrypt one segment. task=(seq_num, url)"""
+        """Download and decrypt one segment. task=(playlist_seq_num, url)"""
         seq_num, url = task
         saveName = self._seg_savename(seq_num)
         if os.path.exists(saveName):
-            # Segment already on disk (e.g. from a resumed job) — drop from pending
-            with self._speed_lock:
-                self._pending_set.discard((seq_num, url))
-            return True
+            if self._segment_file_valid(saveName):
+                # Segment already on disk (e.g. from a resumed job) — drop from pending
+                with self._speed_lock:
+                    self._pending_set.discard((seq_num, url))
+                return True
+            try:
+                os.remove(saveName)
+            except OSError:
+                pass
 
         try:
-            response = _http_get(url, self._m3u8_headers(), timeout=60)
+            response = _http_get(url, self._segment_headers(), timeout=60)
             if response.status_code != 200:
                 return False
             content_ts = response.content
@@ -1107,7 +1185,8 @@ class M3U8Crawler:
             if not self._pending_set or self._stop_requested():
                 break
             tasks = list(self._pending_set)
-            with concurrent.futures.ThreadPoolExecutor(max_workers=self._max_workers) as executor:
+            workers = self._effective_segment_workers()
+            with concurrent.futures.ThreadPoolExecutor(max_workers=workers) as executor:
                 self._t2_executor = executor
                 list(executor.map(self._scrape, tasks, timeout=None))
             self._t2_executor = None
@@ -1135,9 +1214,15 @@ class M3U8Crawler:
     def _prepareCrawl(self):
         self._pending_set = set()
         for i, url in enumerate(self._tsList):
-            saveName = self._seg_savename(i)
+            seq_num = self._playlist_seq_num(i)
+            saveName = self._seg_savename(seq_num)
+            if os.path.exists(saveName) and not self._segment_file_valid(saveName):
+                try:
+                    os.remove(saveName)
+                except OSError:
+                    pass
             if not os.path.exists(saveName):
-                self._pending_set.add((i, url))
+                self._pending_set.add((seq_num, url))
         if self._pending_set:
             self._startCrawl()
 
@@ -1199,12 +1284,19 @@ class M3U8Crawler:
         self._pause_job = False
         self._create_dest_folder()
         self.download_image()
-        from jav_downloader.sites.multi_cut import run_stream_multi_cut, site_is_multi_cut
+        from jav_downloader.sites.multi_cut import (
+            run_hls_multi_cut,
+            run_stream_multi_cut,
+            site_is_multi_cut,
+        )
         if site_is_multi_cut(self):
             if self.is_target_video_exist():
                 print('檔案已存在!!', flush=True)
                 return True
-            return run_stream_multi_cut(self)
+            if getattr(self, '_m3u8url', None):
+                return run_hls_multi_cut(self)
+            if getattr(self, '_direct_url', None):
+                return run_stream_multi_cut(self)
         if not self.is_target_video_exist():
             self._create_temp_folder()
             self._emit_job_log('Loading HLS playlist…')

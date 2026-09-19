@@ -58,6 +58,48 @@ def _optional_bool(value) -> bool:
     return text in ('1', 'true', 'yes', 'on')
 
 
+def _optional_int(value):
+    if value is None or value == '':
+        return None
+    try:
+        return int(value)
+    except (TypeError, ValueError):
+        return None
+
+
+def _encode_options(
+        encode=False,
+        encode_codec=None,
+        encode_crf=None,
+        encode_max_height=None,
+        encode_output_mode=None,
+        encode_preset=None,
+        encode_threads=None) -> dict:
+    return {
+        'encode': bool(encode),
+        'encode_codec': _optional_text(encode_codec),
+        'encode_crf': _optional_int(encode_crf),
+        'encode_max_height': _optional_int(encode_max_height),
+        'encode_output_mode': _optional_text(encode_output_mode),
+        'encode_preset': _optional_text(encode_preset),
+        'encode_threads': _optional_int(encode_threads),
+    }
+
+
+def _encode_options_from_mapping(payload: dict | None) -> dict:
+    if not payload:
+        return _encode_options()
+    return _encode_options(
+        encode=_optional_bool(payload.get('encode')),
+        encode_codec=payload.get('encode_codec'),
+        encode_crf=payload.get('encode_crf'),
+        encode_max_height=payload.get('encode_max_height'),
+        encode_output_mode=payload.get('encode_output_mode'),
+        encode_preset=payload.get('encode_preset'),
+        encode_threads=payload.get('encode_threads'),
+    )
+
+
 def _site_resolve_extras(site) -> dict:
     from jav_downloader.sites.output_meta import estimate_output_size, populate_hls_tiers
 
@@ -96,7 +138,8 @@ def resolve_url(
         audio_loudnorm: bool = False,
         stream_preference: str | None = None,
         resolution_pref: str | None = None,
-        hls_tier: str | None = None) -> dict:
+        hls_tier: str | None = None,
+        **encode_kwargs) -> dict:
     """Collect metadata for a supported URL without starting a download."""
     url = (url or '').strip()
     if not url:
@@ -125,6 +168,7 @@ def resolve_url(
             stream_preference=_optional_text(stream_preference),
             resolution_pref=_optional_text(resolution_pref),
             hls_tier=_optional_text(hls_tier),
+            **_encode_options(**encode_kwargs),
         )
     except Exception as exc:
         return {'ok': False, 'error': str(exc)}
@@ -173,7 +217,8 @@ def _run_download(
         audio_loudnorm: bool = False,
         stream_preference: str | None = None,
         resolution_pref: str | None = None,
-        hls_tier: str | None = None) -> None:
+        hls_tier: str | None = None,
+        **encode_kwargs) -> None:
     manager.update(job_id, status=JobStatus.DOWNLOADING, error='')
     try:
         site_cls = sites.validate_url(url)
@@ -189,6 +234,7 @@ def _run_download(
             stream_preference=stream_preference,
             resolution_pref=resolution_pref,
             hls_tier=hls_tier,
+            **_encode_options(**encode_kwargs),
         )
         if site is None or not site.is_url_vaildate():
             manager.update(
@@ -272,7 +318,10 @@ def _run_download(
                 )
                 return
 
-            output = site._get_video_savename()
+            output = (
+                getattr(site, '_encoded_output_path', None)
+                or site._get_video_savename()
+            )
             if os.path.isfile(output):
                 size = os.path.getsize(output)
                 _on_log(f'Complete: {output}')
@@ -313,7 +362,8 @@ def start_download(
         audio_loudnorm: bool = False,
         stream_preference: str | None = None,
         resolution_pref: str | None = None,
-        hls_tier: str | None = None) -> Job:
+        hls_tier: str | None = None,
+        **encode_kwargs) -> Job:
     """Queue a download and return its job record."""
     url = (url or '').strip()
     job = manager.create(url)
@@ -337,6 +387,7 @@ def start_download(
         'stream_preference': stream_preference,
         'resolution_pref': resolution_pref,
         'hls_tier': hls_tier,
+        **_encode_options(**encode_kwargs),
     }
 
     thread = threading.Thread(
@@ -346,6 +397,7 @@ def start_download(
             audio_fade, audio_loudnorm, stream_preference,
             resolution_pref, hls_tier,
         ),
+        kwargs=_encode_options(**encode_kwargs),
         name=f'jav-web-{job.id}',
         daemon=True,
     )
@@ -389,6 +441,7 @@ def resume_download(manager: JobManager, job_id: str) -> bool:
             params.get('resolution_pref'),
             params.get('hls_tier'),
         ),
+        kwargs=_encode_options_from_mapping(params),
         name=f'jav-web-{job_id}-resume',
         daemon=True,
     )

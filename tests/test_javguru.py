@@ -176,6 +176,14 @@ def test_probe_hls_playlist_accepts_master_m3u8_fallback(monkeypatch):
     ) == 'https://cdn.example/hls3/master.m3u8'
 
 
+def test_log_stream_resolve_emits_job_log():
+    crawler = SiteJavGuru.__new__(SiteJavGuru)
+    logs = []
+    crawler._emit_job_log = logs.append
+    crawler._log_stream_resolve('LU', 'blocked by Cloudflare')
+    assert logs == ['STREAM LU: blocked by Cloudflare']
+
+
 def test_get_url_infos_uses_first_working_server(monkeypatch):
     page_html = _sample_page_html()
 

@@ -88,10 +88,11 @@ def test_create_site_forwards_explicit_worker_limit(monkeypatch, tmp_path):
 
         def __init__(
                 self, url, savepath='', silence=False, max_workers=None,
-                cut_start=None, cut_end=None):
+                cut_start=None, cut_end=None, **kwargs):
             captured.update(
                 url=url, savepath=savepath, silence=silence,
-                max_workers=max_workers, cut_start=cut_start, cut_end=cut_end)
+                max_workers=max_workers, cut_start=cut_start, cut_end=cut_end,
+                **kwargs)
 
     monkeypatch.setattr(M3U8Sites, 'siteList', (_FakeSite,))
 

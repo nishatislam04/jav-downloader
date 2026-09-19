@@ -59,7 +59,10 @@ def create_site(
         url, savepath="", silence=False, max_workers=None,
         cut_start=None, cut_end=None, cuts=None,
         audio_fade=False, audio_loudnorm=False, stream_preference=None,
-        resolution_pref=None, hls_tier=None):
+        resolution_pref=None, hls_tier=None,
+        encode=None, encode_codec=None, encode_crf=None,
+        encode_max_height=None, encode_output_mode=None,
+        encode_preset=None, encode_threads=None):
     site = validate_url(url)
     if site is None:
         return None
@@ -74,6 +77,13 @@ def create_site(
         'stream_preference': stream_preference,
         'resolution_pref': resolution_pref,
         'hls_tier': hls_tier,
+        'encode': encode,
+        'encode_codec': encode_codec,
+        'encode_crf': encode_crf,
+        'encode_max_height': encode_max_height,
+        'encode_output_mode': encode_output_mode,
+        'encode_preset': encode_preset,
+        'encode_threads': encode_threads,
     }
     if max_workers is not None:
         kwargs['max_workers'] = max_workers
@@ -84,10 +94,15 @@ def CreateSite(  # noqa: N802
         url, savepath="", silence=False, max_workers=None,
         cut_start=None, cut_end=None, cuts=None,
         audio_fade=False, audio_loudnorm=False, stream_preference=None,
-        resolution_pref=None, hls_tier=None):
+        resolution_pref=None, hls_tier=None,
+        encode=None, encode_codec=None, encode_crf=None,
+        encode_max_height=None, encode_output_mode=None,
+        encode_preset=None, encode_threads=None):
     return create_site(
         url, savepath, silence, max_workers, cut_start, cut_end, cuts,
-        audio_fade, audio_loudnorm, stream_preference, resolution_pref, hls_tier)
+        audio_fade, audio_loudnorm, stream_preference, resolution_pref, hls_tier,
+        encode, encode_codec, encode_crf, encode_max_height,
+        encode_output_mode, encode_preset, encode_threads)
 
 
 def create_site_url_list(url, silence=False):

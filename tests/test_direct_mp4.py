@@ -57,7 +57,7 @@ def test_parse_ffmpeg_out_time_sec_accepts_us_ms_and_clock():
 def test_emit_cut_progress_uses_ffmpeg_time_before_file_bytes():
     calls = []
     site = M3U8Crawler.__new__(M3U8Crawler)
-    site._progress_callback = lambda d, t, s: calls.append((d, t, s))
+    site._progress_callback = lambda d, t, s, *args: calls.append((d, t, s))
     _emit_cut_progress(site, 0, 0.0, 30.0, 60.0, 0)
     assert calls == [(500, 1000, 0.0)]
 
