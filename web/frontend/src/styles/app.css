@@ -1328,8 +1328,14 @@ button.save-apply-btn:not(:disabled):hover {
     border-radius: 8px;
   }
 
-  .tool-sidebar-btn span {
+  .tool-sidebar-btn .tool-label {
     display: none;
+  }
+
+  .tool-sidebar-btn span.tool-badge {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
   }
 
   .edit-tools-panel {

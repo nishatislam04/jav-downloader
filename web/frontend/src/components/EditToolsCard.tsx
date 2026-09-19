@@ -231,7 +231,7 @@ export default function EditToolsCard(props: Props) {
 								onClick={() => props.onSelectTool(tool.id)}
 							>
 								<tool.Icon />
-								<span>{tool.label}</span>
+								<span class="tool-label">{tool.label}</span>
 								<Show when={(props.toolBadges?.[tool.id] ?? 0) > 0}>
 									<span class="tool-badge" aria-hidden="true">
 										{props.toolBadges?.[tool.id]}
