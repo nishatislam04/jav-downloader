@@ -1138,6 +1138,11 @@ button.tool-btn.subtle {
     margin-top: 10px;
   }
 
+  /* No "Title" label: pull the title right under the thumbnail */
+  .meta-title {
+    margin-top: 8px;
+  }
+
   /* Video tools: dense icon-only sidebar stays left, panel right */
   .edit-tools-layout {
     grid-template-columns: auto minmax(0, 1fr);

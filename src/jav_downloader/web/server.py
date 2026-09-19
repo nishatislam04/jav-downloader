@@ -288,7 +288,10 @@ def main(argv: list[str] | None = None) -> int:
     os.makedirs(download_dir, exist_ok=True)
 
     server = ThreadingHTTPServer((args.host, args.port), WebHandler)
-    print(f'JAV Downloader web UI at http://{args.host}:{args.port}/', flush=True)
+    # Always advertise localhost; 0.0.0.0 is a bind address, not a URL
+    # browsers can open (and it breaks Android WebView loading).
+    print(f'JAV Downloader web UI at http://localhost:{args.port}/', flush=True)
+    print(f'Listening on: {args.host}:{args.port}', flush=True)
     print(f'Downloads save to: {download_dir}', flush=True)
     try:
         server.serve_forever()

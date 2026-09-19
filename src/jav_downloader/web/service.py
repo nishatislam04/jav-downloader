@@ -20,6 +20,11 @@ _active_lock = threading.Lock()
 _job_params: dict[str, dict] = {}
 
 
+def _log_stamp() -> str:
+    """Local 12-hour timestamp like `2:05:09 PM` for progress log lines."""
+    return time.strftime('%I:%M:%S %p').lstrip('0')
+
+
 def _site_label(site_cls) -> str:
     return getattr(site_cls, 'direct_site_name', None) or site_cls.__name__
 
@@ -202,7 +207,7 @@ def _run_download(
         )
 
         def _on_log(message: str) -> None:
-            stamp = time.strftime('%H:%M:%S')
+            stamp = _log_stamp()
             manager.append_log(job_id, f'[{stamp}] {message}')
 
         site._job_log = _on_log
@@ -285,7 +290,7 @@ def _run_download(
         job = manager.get(job_id)
         if job is not None and job.status == JobStatus.PAUSED:
             return
-        manager.append_log(job_id, f'[{time.strftime("%H:%M:%S")}] Error: {exc}')
+        manager.append_log(job_id, f'[{_log_stamp()}] Error: {exc}')
         manager.update(job_id, status=JobStatus.FAILED, error=str(exc))
 
 

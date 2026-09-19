@@ -201,8 +201,26 @@ export function AudioIcon() {
 	return (
 		<svg viewBox="0 0 24 24" width="18" height="18" aria-hidden="true">
 			<path
-				d="M9 9v6l5-3-5-3zm8 3a4 4 0 0 1-2 3.464V8.536A4 4 0 0 1 17 12z"
-				fill="currentColor"
+				d="M11 5 6 9H3a1 1 0 0 0-1 1v4a1 1 0 0 0 1 1h3l5 4z"
+				fill="none"
+				stroke="currentColor"
+				stroke-width="1.75"
+				stroke-linecap="round"
+				stroke-linejoin="round"
+			/>
+			<path
+				d="M15.5 8.5a5 5 0 0 1 0 7"
+				fill="none"
+				stroke="currentColor"
+				stroke-width="1.75"
+				stroke-linecap="round"
+			/>
+			<path
+				d="M18.5 5.5a9.2 9.2 0 0 1 0 13"
+				fill="none"
+				stroke="currentColor"
+				stroke-width="1.75"
+				stroke-linecap="round"
 			/>
 		</svg>
 	);

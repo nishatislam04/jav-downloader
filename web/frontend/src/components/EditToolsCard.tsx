@@ -35,10 +35,22 @@ export type CutRange = {
 
 export function newCutRange(): CutRange {
 	return {
-		id: crypto.randomUUID(),
+		id: randomId(),
 		start: "",
 		end: "",
 	};
+}
+
+// crypto.randomUUID is unavailable on insecure origins (e.g. http://<lan-ip>)
+// in some browsers, which blanked the app on Android/Termux.
+function randomId(): string {
+	if (
+		typeof crypto !== "undefined" &&
+		typeof crypto.randomUUID === "function"
+	) {
+		return crypto.randomUUID();
+	}
+	return `id-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 10)}`;
 }
 
 type Props = {

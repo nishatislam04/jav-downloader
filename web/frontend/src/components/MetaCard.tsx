@@ -33,7 +33,6 @@ export default function MetaCard(props: Props) {
 					/>
 				</Show>
 				<div class="meta-info">
-					<p class="label">Title</p>
 					<p class="mono meta-title">{props.meta.title || "—"}</p>
 					<Show when={hasDuration()}>
 						<p class="label">Duration</p>
