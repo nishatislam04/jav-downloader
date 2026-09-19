@@ -1,4 +1,4 @@
-# Contributing to UAV Downloader
+# Contributing to JAV Downloader
 
 Thank you for improving the project. Bug reports that include a reproducible
 URL and precise application version are especially valuable because supported
@@ -23,7 +23,7 @@ is not bundled with Python.
 
 ## Pull requests
 
-- Keep site-specific parsing in `src/uav_downloader/sites`.
+- Keep site-specific parsing in `src/jav_downloader/sites`.
 - Put shared configuration, network, update, and migration behavior in `core`.
 - Add regression tests for crawler changes and user-visible bug fixes.
 - Preserve public CLI options, state migration, and v2 release aliases unless

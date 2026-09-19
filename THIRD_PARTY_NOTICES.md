@@ -2,9 +2,9 @@
 
 ## Optional local Japanese speech-recognition pack
 
-The optional `UAV_reazonspeech_asr_v1.zip` archive is a mixed-license,
+The optional `JAV_reazonspeech_asr_v1.zip` archive is a mixed-license,
 CPU-only Japanese speech-recognition pack. It contains only the pinned model
-and Windows runtime files used by UAV Downloader:
+and Windows runtime files used by JAV Downloader:
 
 | Component | Immutable source revision | License |
 | --- | --- | --- |
@@ -38,12 +38,12 @@ The complete notices are included inside the optional archive:
 
 The speech-recognition pack is an optional download and is not part of the
 source archive. Its components remain subject to their respective licenses and
-model-card terms. UAV Downloader fetches the fixed v3.1.0 component on demand;
+model-card terms. JAV Downloader fetches the fixed v3.1.0 component on demand;
 the same immutable pack is not duplicated in each application release.
 
 ## Optional local subtitle-translation model pack
 
-The optional `UAV_local_translation_v1.zip` archive contains converted,
+The optional `JAV_local_translation_v1.zip` archive contains converted,
 quantized copies of the following third-party model checkpoints:
 
 | Component | Immutable source revision | License |
@@ -83,7 +83,7 @@ the complete applicable notice and terms at
 release workflow disables UPX for all collected binaries. In particular,
 `libiomp5md.dll` is redistributed without UPX transformation.
 
-UAV Downloader fetches this fixed v3.1.0 translation component on demand. The
+JAV Downloader fetches this fixed v3.1.0 translation component on demand. The
 same immutable pack is not duplicated in each application release.
 
 Windows executables are packaged with PyInstaller 6.13.0. The release workflow

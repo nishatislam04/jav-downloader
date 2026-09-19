@@ -1,4 +1,4 @@
-<h1 align="center">UAV Downloader</h1>
+<h1 align="center">JAV Downloader</h1>
 
 <p align="center">
   Headless download engine for supported streaming sites.<br />
@@ -43,10 +43,10 @@ python -m pip install -r requirements.txt
 python -m pip install -e .
 
 # One URL
-DOWNLOAD_DIR=./download uav-downloader-cli "https://jable.tv/videos/example/"
+DOWNLOAD_DIR=./download jav-downloader-cli "https://jable.tv/videos/example/"
 
 # Multiple URLs
-DOWNLOAD_DIR=./download uav-downloader-cli \
+DOWNLOAD_DIR=./download jav-downloader-cli \
   "https://jable.tv/videos/a/" \
   "https://supjav.com/123456.html"
 ```
@@ -55,15 +55,15 @@ Installed console entry points:
 
 | Command | Purpose |
 |---|---|
-| `uav-downloader-cli` | Headless batch downloader (primary) |
-| `uav-downloader` / `uav` | Same entry point as `uav-downloader-cli` |
-| `uav-web` | Browser UI — paste a link, resolve metadata, download with progress |
+| `jav-downloader-cli` | Headless batch downloader (primary) |
+| `jav-downloader` / `jav` | Same entry point as `jav-downloader-cli` |
+| `jav-web` | Browser UI — paste a link, resolve metadata, download with progress |
 
 ## Web UI
 
 Paste a supported URL in the browser, resolve metadata, then start the download. Progress updates live in the page. Files are written to your default **Downloads** folder (or `DOWNLOAD_DIR` if set).
 
-Built with **Vite + SolidJS** (`web/frontend/`). Production assets are committed under `src/uav_downloader/web/static/`, so **Termux does not need Node.js** — `make start` skips the build when `npm` is missing and serves the bundled UI.
+Built with **Vite + SolidJS** (`web/frontend/`). Production assets are committed under `src/jav_downloader/web/static/`, so **Termux does not need Node.js** — `make start` skips the build when `npm` is missing and serves the bundled UI.
 
 ### Run (desktop or Termux — same command)
 
@@ -101,8 +101,8 @@ Optional env vars:
 
 | Variable | Purpose |
 |---|---|
-| `WEB_HOST` / `UAV_WEB_HOST` | Bind address (Make sets `0.0.0.0` on Termux) |
-| `WEB_PORT` / `UAV_WEB_PORT` | HTTP port (default `8765`) |
+| `WEB_HOST` / `JAV_WEB_HOST` | Bind address (Make sets `0.0.0.0` on Termux) |
+| `WEB_PORT` / `JAV_WEB_PORT` | HTTP port (default `8765`) |
 | `DOWNLOAD_DIR` | Override output folder |
 
 ## URL input
@@ -132,7 +132,7 @@ MissAV automatically caps per-video and total workers when downloading; SupJav a
 The same engine powers the CLI:
 
 ```python
-from uav_downloader import sites
+from jav_downloader import sites
 
 site = sites.CreateSite("https://jable.tv/videos/example/", "/path/to/output")
 if site and site.is_url_vaildate():
