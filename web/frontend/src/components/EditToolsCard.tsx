@@ -1,4 +1,4 @@
-import { createEffect, createMemo, createSignal, For, Show } from "solid-js";
+import { createEffect, createMemo, createSignal, Index, Show } from "solid-js";
 import type { ResolveResult } from "../api";
 import { validateFolder } from "../api";
 import {
@@ -147,12 +147,12 @@ export default function EditToolsCard(props: Props) {
 
 								<Show when={toolId() === "cut"}>
 									<div class="cut-list">
-										<For each={props.cuts}>
+										<Index each={props.cuts}>
 											{(cut, index) => {
 												const errors = () =>
-													rowFieldErrors(cut, props.durationSec, multiCut());
+													rowFieldErrors(cut(), props.durationSec, multiCut());
 												const durationLabel = () =>
-													rowDurationLabel(props.durationSec, cut);
+													rowDurationLabel(props.durationSec, cut());
 
 												return (
 													<div class="cut-range-row">
@@ -161,12 +161,12 @@ export default function EditToolsCard(props: Props) {
 														</Show>
 														<div class="cut-range-fields">
 															<TimeField
-																id={`cut-${cut.id}-start`}
+																id={`cut-${cut().id}-start`}
 																label="Start at"
-																value={cut.start}
+																value={cut().start}
 																error={errors().start}
 																onChange={(value) =>
-																	props.onCutChange(cut.id, "start", value)
+																	props.onCutChange(cut().id, "start", value)
 																}
 															/>
 															<div
@@ -180,12 +180,12 @@ export default function EditToolsCard(props: Props) {
 																</Show>
 															</div>
 															<TimeField
-																id={`cut-${cut.id}-end`}
+																id={`cut-${cut().id}-end`}
 																label="End at"
-																value={cut.end}
+																value={cut().end}
 																error={errors().end}
 																onChange={(value) =>
-																	props.onCutChange(cut.id, "end", value)
+																	props.onCutChange(cut().id, "end", value)
 																}
 															/>
 														</div>
@@ -194,7 +194,7 @@ export default function EditToolsCard(props: Props) {
 																type="button"
 																class="cut-remove-btn"
 																aria-label={`Remove cut ${index() + 1}`}
-																onClick={() => props.onRemoveCut(cut.id)}
+																onClick={() => props.onRemoveCut(cut().id)}
 															>
 																×
 															</button>
@@ -202,7 +202,7 @@ export default function EditToolsCard(props: Props) {
 													</div>
 												);
 											}}
-										</For>
+										</Index>
 									</div>
 									<div class="cut-actions">
 										<button

@@ -20,7 +20,11 @@ import {
 	startDownload,
 	validateFolder,
 } from "./api";
-import EditToolsCard, { type CutRange, newCutRange, type ToolId } from "./components/EditToolsCard";
+import EditToolsCard, {
+	type CutRange,
+	newCutRange,
+	type ToolId,
+} from "./components/EditToolsCard";
 import { DownloadIcon, SuccessIcon } from "./components/IconButton";
 import MetaCard from "./components/MetaCard";
 import ProgressCard from "./components/ProgressCard";
@@ -574,12 +578,12 @@ export default function App() {
 				</Show>
 			</section>
 
-			<Show when={resolvedMeta()} keyed>
+			<Show when={resolvedMeta()}>
 				{(meta) => (
 					<>
-						<MetaCard meta={meta} />
+						<MetaCard meta={meta()} />
 						<EditToolsCard
-							meta={meta}
+							meta={meta()}
 							durationSec={durationSec()}
 							cuts={cuts()}
 							customTitle={customTitle()}
