@@ -30,8 +30,8 @@ export default function MetaCard(props: Props) {
         <div>
           <p class="label">Title</p>
           <p class="mono meta-title">{props.meta.title || '—'}</p>
-          <p class="label">Duration</p>
-          <Show when={hasDuration()} fallback={<p class="mono not-found">not found</p>}>
+          <Show when={hasDuration()}>
+            <p class="label">Duration</p>
             <p class="mono meta-duration">{duration()}</p>
           </Show>
           {props.meta.quality ? (
