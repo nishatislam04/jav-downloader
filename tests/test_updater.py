@@ -1,7 +1,7 @@
 # coding: utf-8
 """Auto-updater tests: version compare (drives whether users are offered updates) and
 download_asset validation (size floor + MZ-header check + atomic replace)."""
-from uav_downloader.core import updater
+from jav_downloader.core import updater
 
 
 def test_parse_version():
@@ -23,10 +23,10 @@ def test_is_newer_is_numeric_not_lexical():
     assert updater.is_newer('v2.6.0', '2.5.99') is True
 
 
-def test_updater_prefers_uav_asset_and_accepts_transition_aliases():
+def test_updater_prefers_jav_asset_and_accepts_transition_aliases():
     canonical = {
         'assets': {
-            'UAV_Browser.exe': 'https://example.invalid/uav.exe',
+            'JAV_Browser.exe': 'https://example.invalid/jav.exe',
             'ALOS_Browse.exe': 'https://example.invalid/alos.exe',
             'JableTV_Modern.exe': 'https://example.invalid/jable.exe',
         },
@@ -43,7 +43,7 @@ def test_updater_prefers_uav_asset_and_accepts_transition_aliases():
         },
     }
 
-    assert updater.find_asset_url(canonical, 'browse').endswith('/uav.exe')
+    assert updater.find_asset_url(canonical, 'browse').endswith('/jav.exe')
     assert updater.find_asset_url(alos_only, 'browse').endswith('/alos.exe')
     assert updater.find_asset_url(jable_only, 'browse').endswith('/jable.exe')
 

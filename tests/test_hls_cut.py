@@ -12,7 +12,7 @@ def _stub(name, factory=None):
 _stub('cloudscraper')
 _stub('m3u8')
 
-from uav_downloader.sites.base import M3U8Crawler
+from jav_downloader.sites.base import M3U8Crawler
 
 
 def test_apply_segment_time_cut_keeps_overlapping_segments():

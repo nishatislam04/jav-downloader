@@ -3,8 +3,8 @@ import os
 import threading
 from http.client import HTTPConnection
 
-from uav_downloader.web.paths import default_download_dir
-from uav_downloader.web.server import WebHandler, ThreadingHTTPServer
+from jav_downloader.web.paths import default_download_dir
+from jav_downloader.web.server import WebHandler, ThreadingHTTPServer
 
 
 def test_default_download_dir_honors_env(tmp_path, monkeypatch):

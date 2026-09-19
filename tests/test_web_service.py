@@ -14,8 +14,8 @@ def _stub(name, factory=None):
 _stub('cloudscraper')
 _stub('m3u8')
 
-from uav_downloader.web.jobs import JobManager, JobStatus
-from uav_downloader.web import service
+from jav_downloader.web.jobs import JobManager, JobStatus
+from jav_downloader.web import service
 
 
 class FakeSite:

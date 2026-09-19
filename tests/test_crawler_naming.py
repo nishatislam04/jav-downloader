@@ -18,7 +18,7 @@ _stub('cloudscraper')
 _stub('customtkinter')
 
 from Crypto.Cipher import AES
-from uav_downloader.sites.base import M3U8Crawler
+from jav_downloader.sites.base import M3U8Crawler
 
 
 def test_seg_savename_unique_by_index():
@@ -110,7 +110,7 @@ def test_remux_workspace_uses_the_download_destination_volume(
         return True
 
     monkeypatch.setattr(
-        'uav_downloader.sites.base.tempfile.mkdtemp', fake_mkdtemp)
+        'jav_downloader.sites.base.tempfile.mkdtemp', fake_mkdtemp)
     crawler._remux_to_mp4 = fake_remux
 
     crawler._mergeMp4Chunks()

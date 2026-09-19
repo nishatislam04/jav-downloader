@@ -17,8 +17,8 @@ def _m3u8_stub():
 
 _stub_runtime_dependency('m3u8', _m3u8_stub)
 
-from uav_downloader.core import config
-from uav_downloader.sites.base import fetch_with_mirrors
+from jav_downloader.core import config
+from jav_downloader.sites.base import fetch_with_mirrors
 
 
 def _reset_cf():

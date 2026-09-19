@@ -33,8 +33,8 @@ def _m3u8_stub():
 _stub_runtime_dependency('cloudscraper', _cloudscraper_stub)
 _stub_runtime_dependency('m3u8', _m3u8_stub)
 
-from uav_downloader.sites import javguru as javguru_mod
-from uav_downloader.sites.javguru import (
+from jav_downloader.sites import javguru as javguru_mod
+from jav_downloader.sites.javguru import (
     SiteJavGuru,
     _format_resolve_errors,
     _gateway_url_from_config,

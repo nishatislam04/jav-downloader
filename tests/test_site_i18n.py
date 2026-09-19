@@ -30,9 +30,9 @@ def _m3u8_stub():
 _stub_runtime_dependency('cloudscraper', _cloudscraper_stub)
 _stub_runtime_dependency('m3u8', _m3u8_stub)
 
-from uav_downloader.i18n import locales
-from uav_downloader.i18n import sites as site_i18n
-from uav_downloader.sites.jabletv import JableTVBrowser
+from jav_downloader.i18n import locales
+from jav_downloader.i18n import sites as site_i18n
+from jav_downloader.sites.jabletv import JableTVBrowser
 
 
 @pytest.fixture(autouse=True)

@@ -19,8 +19,8 @@ def _m3u8_stub():
 
 _stub_runtime_dependency('m3u8', _m3u8_stub)
 
-from uav_downloader.core import config
-from uav_downloader.sites import base as crawler_mod
+from jav_downloader.core import config
+from jav_downloader.sites import base as crawler_mod
 
 
 def _variant(name, height=None, bandwidth=0, stream_info=True):

@@ -45,12 +45,12 @@ _stub_runtime_dependency('cloudscraper', _cloudscraper_stub)
 _stub_runtime_dependency('m3u8', _m3u8_stub)
 _stub_runtime_dependency('customtkinter', _customtkinter_stub)
 
-from uav_downloader.sites import base as crawler_mod
-from uav_downloader.sites import direct_mp4 as direct_mp4_mod
-from uav_downloader.sites import supjav as supjav_mod
+from jav_downloader.sites import base as crawler_mod
+from jav_downloader.sites import direct_mp4 as direct_mp4_mod
+from jav_downloader.sites import supjav as supjav_mod
 from bs4 import BeautifulSoup
-from uav_downloader.sites.base import M3U8Crawler
-from uav_downloader.sites.supjav import (
+from jav_downloader.sites.base import M3U8Crawler
+from jav_downloader.sites.supjav import (
     SiteSupJav,
     SupJavBrowser,
     _extract_m3u8,

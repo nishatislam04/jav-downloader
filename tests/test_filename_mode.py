@@ -1,7 +1,7 @@
 import json
 
-from uav_downloader.core import config
-from uav_downloader.sites.base import M3U8Crawler
+from jav_downloader.core import config
+from jav_downloader.sites.base import M3U8Crawler
 
 
 _TITLES = {}

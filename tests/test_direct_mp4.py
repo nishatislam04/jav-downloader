@@ -14,12 +14,12 @@ def _stub(name, factory=None):
 _stub('cloudscraper')
 _stub('m3u8')
 
-from uav_downloader.sites.base import (
+from jav_downloader.sites.base import (
     M3U8Crawler,
     parse_time_seconds,
     validate_cut_against_duration,
 )
-from uav_downloader.sites.direct_mp4 import (
+from jav_downloader.sites.direct_mp4 import (
     _cut_progress_total,
     _emit_cut_progress,
     _parse_ffmpeg_out_time_sec,
@@ -72,7 +72,7 @@ def test_estimate_cut_total_bytes_scales_by_duration(monkeypatch):
     site._direct_url = 'https://cdn.example/video.mp4'
     site._duration_sec = 100.0
     monkeypatch.setattr(
-        'uav_downloader.sites.direct_mp4.probe_source_length',
+        'jav_downloader.sites.direct_mp4.probe_source_length',
         lambda url, referer, extra_headers=None, session=None: 100_000_000,
     )
     assert estimate_cut_total_bytes(site, 0, 50, 50, 'https://example.test/') == 50_000_000

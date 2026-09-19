@@ -31,8 +31,8 @@ def _m3u8_stub():
 _stub_runtime_dependency('cloudscraper', _cloudscraper_stub)
 _stub_runtime_dependency('m3u8', _m3u8_stub)
 
-from uav_downloader.sites import spankbang as spankbang_mod
-from uav_downloader.sites.spankbang import (
+from jav_downloader.sites import spankbang as spankbang_mod
+from jav_downloader.sites.spankbang import (
     SiteSpankBang,
     _duration_from_page,
     _extract_stream_key,

@@ -20,9 +20,9 @@ _stub_runtime_dependency('m3u8', _m3u8_stub)
 
 from bs4 import BeautifulSoup
 
-from uav_downloader import sites as M3U8Sites
-from uav_downloader.sites import hanime1 as hanime_mod
-from uav_downloader.sites.hanime1 import (
+from jav_downloader import sites as M3U8Sites
+from jav_downloader.sites import hanime1 as hanime_mod
+from jav_downloader.sites.hanime1 import (
     HANIME1_FILTER_DATES,
     HANIME1_FILTER_DURATIONS,
     HANIME1_FILTER_TAGS,
@@ -34,7 +34,7 @@ from uav_downloader.sites.hanime1 import (
     _parse_videos,
     _select_source,
 )
-from uav_downloader.core.video_identity import site_from_url, trusted_chinese_subtitle_evidence
+from jav_downloader.core.video_identity import site_from_url, trusted_chinese_subtitle_evidence
 
 
 WATCH_HTML = '''
@@ -295,7 +295,7 @@ def test_hanime1_identity_and_chinese_subtitle_listing_evidence_are_fail_closed(
 
 
 def test_hanime1_all_browse_categories_have_four_language_labels():
-    from uav_downloader.i18n import sites as site_i18n
+    from jav_downloader.i18n import sites as site_i18n
 
     assert len(Hanime1Browser.CATEGORIES) == 24
     for _name, url in Hanime1Browser.CATEGORIES:

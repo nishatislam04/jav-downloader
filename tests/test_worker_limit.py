@@ -2,10 +2,10 @@ import concurrent.futures
 import threading
 import time
 
-from uav_downloader import sites as M3U8Sites
-from uav_downloader.core import config
-from uav_downloader.sites import base as crawler_mod
-from uav_downloader.sites.missav import SiteMissAV
+from jav_downloader import sites as M3U8Sites
+from jav_downloader.core import config
+from jav_downloader.sites import base as crawler_mod
+from jav_downloader.sites.missav import SiteMissAV
 
 
 class _DummyCrawler(crawler_mod.M3U8Crawler):
