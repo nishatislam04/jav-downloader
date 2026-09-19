@@ -1,11 +1,13 @@
 import { createEffect, createSignal, For, onCleanup, Show } from "solid-js";
 import {
+	clearHistory,
 	cropHistoryTitle,
+	deleteHistory,
 	formatHistoryWhen,
 	type HistoryEntry,
 	loadHistory,
 } from "../lib/history";
-import { HistoryIcon } from "./IconButton";
+import { HistoryIcon, TrashIcon } from "./IconButton";
 import { thumbnailSrc } from "./ThumbnailPreview";
 
 type Props = {
@@ -37,18 +39,39 @@ export default function HistoryMenu(props: Props) {
 		}
 	}
 
+	function onDocKeyDown(event: KeyboardEvent) {
+		if (event.key === "Escape") {
+			event.preventDefault();
+			close();
+		}
+	}
+
 	createEffect(() => {
 		if (!open()) return;
 		document.addEventListener("click", onDocClick);
-		onCleanup(() => document.removeEventListener("click", onDocClick));
+		document.addEventListener("keydown", onDocKeyDown);
+		onCleanup(() => {
+			document.removeEventListener("click", onDocClick);
+			document.removeEventListener("keydown", onDocKeyDown);
+		});
 	});
+
+	function removeEntry(id: string) {
+		setEntries(deleteHistory(id));
+	}
+
+	function onClearAll() {
+		setEntries(clearHistory());
+	}
 
 	return (
 		<div id="history-menu-root" class="history-menu">
 			<button
 				type="button"
 				class="history-menu-btn"
+				classList={{ active: open() }}
 				aria-label="History"
+				aria-expanded={open()}
 				title="History"
 				onClick={toggle}
 			>
@@ -63,34 +86,57 @@ export default function HistoryMenu(props: Props) {
 					>
 						<For each={entries()}>
 							{(entry) => (
-								<button
-									type="button"
-									class="history-item"
-									role="menuitem"
-									onClick={() => {
-										props.onSelect(entry);
-										close();
-									}}
-								>
-									<Show when={entry.thumbnail}>
-										<img
-											src={thumbnailSrc(entry.thumbnail)}
-											alt=""
-											class="history-item-thumb"
-											loading="lazy"
-										/>
-									</Show>
-									<span class="history-item-body">
-										<span class="history-item-title">
-											{cropHistoryTitle(entry.title)}
+								<div class="history-item">
+									<button
+										type="button"
+										class="history-item-main"
+										role="menuitem"
+										onClick={() => {
+											props.onSelect(entry);
+											close();
+										}}
+									>
+										<Show when={entry.thumbnail}>
+											<img
+												src={thumbnailSrc(entry.thumbnail)}
+												alt=""
+												class="history-item-thumb"
+												loading="lazy"
+											/>
+										</Show>
+										<span class="history-item-body">
+											<span class="history-item-title">
+												{cropHistoryTitle(entry.title)}
+											</span>
+											<span class="history-item-when">
+												{formatHistoryWhen(entry.downloadedAt)}
+											</span>
 										</span>
-										<span class="history-item-when">
-											{formatHistoryWhen(entry.downloadedAt)}
-										</span>
-									</span>
-								</button>
+									</button>
+									<button
+										type="button"
+										class="history-item-del"
+										aria-label="Delete entry"
+										title="Delete"
+										onClick={() => removeEntry(entry.id)}
+									>
+										<TrashIcon />
+									</button>
+								</div>
 							)}
 						</For>
+					</Show>
+					<Show when={entries().length}>
+						<div class="history-footer">
+							<button
+								type="button"
+								class="history-clear-btn"
+								onClick={onClearAll}
+							>
+								<TrashIcon />
+								Clear all
+							</button>
+						</div>
 					</Show>
 				</div>
 			</Show>

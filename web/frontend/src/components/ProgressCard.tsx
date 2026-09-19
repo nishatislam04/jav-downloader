@@ -199,7 +199,6 @@ export default function ProgressCard(props: Props) {
 				<Show when={logLines().length > 0}>
 					<div class="log-block" classList={{ "log-block-full": logFull() }}>
 						<div class="log-block-head">
-							<span class="log-block-title">Log</span>
 							<span class="log-block-actions">
 								<Show when={logIdle()}>
 									<button

@@ -783,17 +783,9 @@ button.tool-sidebar-btn {
 .log-block-head {
   display: flex;
   align-items: center;
-  justify-content: space-between;
+  justify-content: flex-end;
   min-height: 26px;
   margin-bottom: 2px;
-}
-
-.log-block-title {
-  color: var(--muted);
-  font-size: 0.78rem;
-  font-weight: 600;
-  letter-spacing: 0.04em;
-  text-transform: uppercase;
 }
 
 .log-block-actions {
@@ -1048,8 +1040,13 @@ button.save-apply-btn:not(:disabled):hover {
   cursor: pointer;
 }
 
-.history-menu-btn:hover {
+.history-menu-btn:hover,
+.history-menu-btn.active {
   border-color: var(--accent-2);
+}
+
+.history-menu-btn.active {
+  color: var(--accent-2);
 }
 
 /* Icon is a mobile-only affordance; desktop keeps the text label */
@@ -1081,8 +1078,15 @@ button.save-apply-btn:not(:disabled):hover {
 .history-item {
   display: flex;
   align-items: center;
+  gap: 4px;
+}
+
+.history-item-main {
+  display: flex;
+  align-items: center;
   gap: 12px;
-  width: 100%;
+  flex: 1;
+  min-width: 0;
   padding: 10px;
   border: none;
   border-radius: 10px;
@@ -1094,6 +1098,30 @@ button.save-apply-btn:not(:disabled):hover {
 
 .history-item:hover {
   background: rgba(255, 255, 255, 0.04);
+}
+
+.history-item-main:hover {
+  background: rgba(255, 255, 255, 0.04);
+}
+
+.history-item-del {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 30px;
+  height: 30px;
+  padding: 0;
+  border: 1px solid transparent;
+  border-radius: 8px;
+  background: transparent;
+  color: var(--muted);
+  cursor: pointer;
+  flex-shrink: 0;
+}
+
+.history-item-del:hover {
+  border-color: #ff8a8a;
+  color: #ff8a8a;
 }
 
 .history-item-thumb {
@@ -1124,6 +1152,30 @@ button.save-apply-btn:not(:disabled):hover {
 .history-item-when {
   font-size: 0.78rem;
   color: var(--muted);
+}
+
+.history-footer {
+  display: flex;
+  justify-content: flex-end;
+  padding: 6px 4px 2px;
+  border-top: 1px solid var(--border);
+}
+
+.history-clear-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 12px;
+  border: 1px solid #ff8a8a;
+  border-radius: 8px;
+  background: transparent;
+  color: #ff8a8a;
+  font-size: 0.8rem;
+  cursor: pointer;
+}
+
+.history-clear-btn:hover {
+  background: rgba(255, 82, 99, 0.14);
 }
 
 .toggle-row {
@@ -1387,7 +1439,8 @@ button.save-apply-btn:not(:disabled):hover {
   }
 
   /* History items: thumbnail row, then title/timestamp row */
-  .history-item {
+  .history-item-main {
+    display: flex;
     flex-direction: column;
     align-items: stretch;
     gap: 6px;

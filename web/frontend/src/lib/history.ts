@@ -37,6 +37,17 @@ export function appendHistory(entry: Omit<HistoryEntry, "id">): HistoryEntry[] {
 	return merged;
 }
 
+export function deleteHistory(id: string): HistoryEntry[] {
+	const merged = loadHistory().filter((item) => item.id !== id);
+	saveHistory(merged);
+	return merged;
+}
+
+export function clearHistory(): HistoryEntry[] {
+	saveHistory([]);
+	return [];
+}
+
 export function formatHistoryWhen(ms: number): string {
 	return new Date(ms).toLocaleString(undefined, {
 		year: "numeric",
