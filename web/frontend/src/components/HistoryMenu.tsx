@@ -7,6 +7,7 @@ import {
 	type HistoryEntry,
 	loadHistory,
 } from "../lib/history";
+import ConfirmDialog from "./ConfirmDialog";
 import { HistoryIcon, TrashIcon } from "./IconButton";
 import { thumbnailSrc } from "./ThumbnailPreview";
 
@@ -14,9 +15,12 @@ type Props = {
 	onSelect: (entry: HistoryEntry) => void;
 };
 
+type PendingDelete = { type: "entry"; id: string } | { type: "all" };
+
 export default function HistoryMenu(props: Props) {
 	const [open, setOpen] = createSignal(false);
 	const [entries, setEntries] = createSignal<HistoryEntry[]>(loadHistory());
+	const [pending, setPending] = createSignal<PendingDelete | null>(null);
 
 	function refresh() {
 		setEntries(loadHistory());
@@ -57,11 +61,27 @@ export default function HistoryMenu(props: Props) {
 	});
 
 	function removeEntry(id: string) {
-		setEntries(deleteHistory(id));
+		setPending({ type: "entry", id });
 	}
 
 	function onClearAll() {
-		setEntries(clearHistory());
+		setPending({ type: "all" });
+	}
+
+	function confirmPending() {
+		const action = pending();
+		if (!action) return;
+		if (action.type === "entry") {
+			setEntries(deleteHistory(action.id));
+		} else {
+			setEntries(clearHistory());
+		}
+		setPending(null);
+		close();
+	}
+
+	function cancelPending() {
+		setPending(null);
 	}
 
 	return (
@@ -138,6 +158,23 @@ export default function HistoryMenu(props: Props) {
 						</div>
 					</Show>
 				</div>
+			</Show>
+			<Show when={pending()}>
+				{(action) => (
+					<ConfirmDialog
+						title={
+							action().type === "all" ? "Clear all history?" : "Delete entry?"
+						}
+						message={
+							action().type === "all"
+								? "All download entries will be removed."
+								: "This download will be removed from your history."
+						}
+						confirmLabel="Delete"
+						onConfirm={confirmPending}
+						onCancel={cancelPending}
+					/>
+				)}
 			</Show>
 		</div>
 	);
