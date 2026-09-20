@@ -452,11 +452,7 @@ def start_download(
 
     thread = threading.Thread(
         target=_run_download,
-        args=(
-            manager, job.id, url, dest, cut_start, cut_end, output_title, cuts,
-            audio_fade, audio_loudnorm, stream_preference,
-            resolution_pref, hls_tier,
-        ),
+        args=(manager, job.id, url, dest, cut_start, cut_end, output_title, cuts),
         kwargs={
             **_audio_options(
                 audio_fade=audio_fade,
@@ -465,6 +461,9 @@ def start_download(
                 audio_bitrate=audio_bitrate,
                 audio_volume=audio_volume,
             ),
+            'stream_preference': stream_preference,
+            'resolution_pref': resolution_pref,
+            'hls_tier': hls_tier,
             **_encode_options(**encode_kwargs),
         },
         name=f'jav-web-{job.id}',
@@ -504,14 +503,12 @@ def resume_download(manager: JobManager, job_id: str) -> bool:
             params.get('cut_end'),
             params.get('output_title'),
             params.get('cuts'),
-            bool(params.get('audio_fade')),
-            bool(params.get('audio_loudnorm')),
-            params.get('stream_preference'),
-            params.get('resolution_pref'),
-            params.get('hls_tier'),
         ),
         kwargs={
             **_audio_options_from_mapping(params),
+            'stream_preference': params.get('stream_preference'),
+            'resolution_pref': params.get('resolution_pref'),
+            'hls_tier': params.get('hls_tier'),
             **_encode_options_from_mapping(params),
         },
         name=f'jav-web-{job_id}-resume',
