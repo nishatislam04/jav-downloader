@@ -20,9 +20,10 @@ import {
   startDownload,
   validateFolder,
 } from "./api";
+import ConfirmDialog from "./components/ConfirmDialog";
 import EditToolsCard, { type CutRange, newCutRange, type ToolId } from "./components/EditToolsCard";
 import HistoryMenu from "./components/HistoryMenu";
-import { CloseIcon, DownloadIcon, PlayIcon, SuccessIcon } from "./components/IconButton";
+import { BrushIcon, CloseIcon, DownloadIcon, PlayIcon, SuccessIcon } from "./components/IconButton";
 import MetaCard from "./components/MetaCard";
 import ProgressCard from "./components/ProgressCard";
 import ProgressRing from "./components/ProgressRing";
@@ -88,6 +89,7 @@ export default function App() {
   const [hasResolvedOnce, setHasResolvedOnce] = createSignal(false);
   const [downloadComplete, setDownloadComplete] = createSignal(false);
   const [serverCutError, setServerCutError] = createSignal("");
+  const [pendingClear, setPendingClear] = createSignal(false);
 
   let urlInput: HTMLInputElement | undefined;
   let pollTimer: ReturnType<typeof setInterval> | undefined;
@@ -332,6 +334,12 @@ export default function App() {
     if (resolveTimer) clearTimeout(resolveTimer);
     if (editResolveTimer) clearTimeout(editResolveTimer);
     void runResolve("url");
+  }
+
+  function confirmClear() {
+    setPendingClear(false);
+    setUrl("");
+    urlInput?.focus();
   }
 
   function scheduleResolve(trigger: "url" | "cut" | "edit" = "url") {
@@ -679,16 +687,6 @@ export default function App() {
       <section class="card url-dashboard sticky-dashboard">
         <label for="url" class="url-label">
           <span>Video URL</span>
-          <Show when={resolvedSite()}>
-            {(site) => (
-              <img
-                class="url-site-logo"
-                src={siteFaviconSrc(site().domain)}
-                alt={site().name}
-                title={site().name}
-              />
-            )}
-          </Show>
           <Show when={urlUnsupported()}>
             <span class="badge-unsupported">Unsupported</span>
           </Show>
@@ -729,19 +727,43 @@ export default function App() {
           </Show>
         </label>
         <div class="url-input-row">
-          <input
-            ref={urlInput}
-            id="url"
-            type="url"
-            placeholder="Provide supported link to download video"
-            autocomplete="off"
-            spellcheck={false}
-            value={url()}
-            onInput={(event) => setUrl(event.currentTarget.value)}
-            onFocus={(event) => {
-              if (event.currentTarget.value) event.currentTarget.select();
-            }}
-          />
+          <div class="url-input-wrap">
+            <Show when={resolvedSite()}>
+              {(site) => (
+                <img
+                  class="url-input-logo"
+                  src={siteFaviconSrc(site().domain)}
+                  alt={site().name}
+                  title={site().name}
+                />
+              )}
+            </Show>
+            <input
+              ref={urlInput}
+              id="url"
+              type="url"
+              classList={{ "has-site-logo": !!resolvedSite() }}
+              placeholder="Provide supported link to download video"
+              autocomplete="off"
+              spellcheck={false}
+              value={url()}
+              onInput={(event) => setUrl(event.currentTarget.value)}
+              onFocus={(event) => {
+                if (event.currentTarget.value) event.currentTarget.select();
+              }}
+            />
+            <Show when={resolvedMeta()}>
+              <button
+                type="button"
+                class="url-clear-btn"
+                aria-label="Clear video URL"
+                title="Clear URL"
+                onClick={() => setPendingClear(true)}
+              >
+                <BrushIcon />
+              </button>
+            </Show>
+          </div>
           <Show
             when={downloadComplete()}
             fallback={
@@ -830,6 +852,16 @@ export default function App() {
             actionBusy={actionBusy()}
           />
         )}
+      </Show>
+
+      <Show when={pendingClear()}>
+        <ConfirmDialog
+          title="Clear video URL?"
+          message="The link will be removed from the form."
+          confirmLabel="Clear"
+          onConfirm={confirmClear}
+          onCancel={() => setPendingClear(false)}
+        />
       </Show>
     </main>
   );

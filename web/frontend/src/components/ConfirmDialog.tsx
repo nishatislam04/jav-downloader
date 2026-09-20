@@ -5,6 +5,7 @@ type Props = {
   message: string;
   confirmLabel?: string;
   cancelLabel?: string;
+  confirmClass?: string;
   onConfirm: () => void;
   onCancel: () => void;
 };
@@ -48,7 +49,7 @@ export default function ConfirmDialog(props: Props) {
           </button>
           <button
             type="button"
-            class="confirm-danger"
+            class={props.confirmClass ?? "confirm-danger"}
             ref={confirmButton}
             onClick={() => props.onConfirm()}
           >

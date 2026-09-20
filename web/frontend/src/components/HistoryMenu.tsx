@@ -21,6 +21,7 @@ export default function HistoryMenu(props: Props) {
   const [open, setOpen] = createSignal(false);
   const [entries, setEntries] = createSignal<HistoryEntry[]>(loadHistory());
   const [pending, setPending] = createSignal<PendingDelete | null>(null);
+  const [pendingLoad, setPendingLoad] = createSignal<HistoryEntry | null>(null);
 
   function refresh() {
     setEntries(loadHistory());
@@ -84,6 +85,14 @@ export default function HistoryMenu(props: Props) {
     setPending(null);
   }
 
+  function confirmLoad() {
+    const entry = pendingLoad();
+    setPendingLoad(null);
+    if (!entry) return;
+    props.onSelect(entry);
+    close();
+  }
+
   return (
     <div id="history-menu-root" class="history-menu">
       <button
@@ -107,10 +116,7 @@ export default function HistoryMenu(props: Props) {
                     type="button"
                     class="history-item-main"
                     role="menuitem"
-                    onClick={() => {
-                      props.onSelect(entry);
-                      close();
-                    }}
+                    onClick={() => setPendingLoad(entry)}
                   >
                     <Show when={entry.thumbnail}>
                       <img
@@ -147,6 +153,17 @@ export default function HistoryMenu(props: Props) {
             </div>
           </Show>
         </div>
+      </Show>
+      <Show when={pendingLoad()}>
+        {(entry) => (
+          <ConfirmDialog
+            title="Load this video?"
+            message={`"${cropHistoryTitle(entry().title)}" will be filled into the URL field.`}
+            confirmLabel="Load"
+            onConfirm={confirmLoad}
+            onCancel={() => setPendingLoad(null)}
+          />
+        )}
       </Show>
       <Show when={pending()}>
         {(action) => (
