@@ -11,11 +11,11 @@ def _stub(name, factory=None):
         sys.modules[name] = factory() if factory else types.ModuleType(name)
 
 
-_stub('cloudscraper')
-_stub('m3u8')
+_stub("cloudscraper")
+_stub("m3u8")
 
-from jav_downloader.web.jobs import JobManager, JobStatus
-from jav_downloader.web import service
+from jav_downloader.web import service  # noqa: E402
+from jav_downloader.web.jobs import Job, JobManager, JobStatus  # noqa: E402
 
 
 class FakeSite:
@@ -36,7 +36,7 @@ class FakeSite:
 
 def test_pause_download_marks_job_paused():
     manager = JobManager()
-    job = manager.create('https://example.test/video')
+    job = manager.create("https://example.test/video")
     manager.update(job.id, status=JobStatus.DOWNLOADING)
     fake = FakeSite()
     service._active_downloads[job.id] = fake
@@ -48,12 +48,12 @@ def test_pause_download_marks_job_paused():
 
 def test_resume_download_requires_paused_job():
     manager = JobManager()
-    job = manager.create('https://example.test/video')
+    job = manager.create("https://example.test/video")
     service._job_params[job.id] = {
-        'url': job.url,
-        'dest': '/tmp',
-        'cut_start': None,
-        'cut_end': None,
+        "url": job.url,
+        "dest": "/tmp",
+        "cut_start": None,
+        "cut_end": None,
     }
 
     assert service.resume_download(manager, job.id) is False
@@ -64,15 +64,41 @@ def test_resume_download_requires_paused_job():
 
 def test_cancel_download_clears_saved_params():
     manager = JobManager()
-    job = manager.create('https://example.test/video')
+    job = manager.create("https://example.test/video")
     manager.update(job.id, status=JobStatus.PAUSED)
     service._job_params[job.id] = {
-        'url': job.url,
-        'dest': '/tmp',
-        'cut_start': None,
-        'cut_end': None,
+        "url": job.url,
+        "dest": "/tmp",
+        "cut_start": None,
+        "cut_end": None,
     }
 
     assert service.cancel_download(manager, job.id) is True
     assert job.id not in service._job_params
     assert manager.get(job.id).status == JobStatus.FAILED
+
+
+def test_job_elapsed_sec_zero_until_completed():
+    manager = JobManager()
+    job = manager.create("https://example.test/video")
+
+    assert job.elapsed_sec == 0.0
+    assert job.to_dict()["elapsed_sec"] == 0.0
+
+
+def test_job_elapsed_sec_uses_started_at_when_present():
+    job = Job(id="x", url="https://example.test/video")
+    job.created_at = 100.0
+    job.started_at = 110.0
+    job.completed_at = 150.0
+
+    assert job.elapsed_sec == pytest.approx(40.0)
+    assert job.to_dict()["elapsed_sec"] == pytest.approx(40.0)
+
+
+def test_job_elapsed_sec_falls_back_to_created_at():
+    job = Job(id="x", url="https://example.test/video")
+    job.created_at = 100.0
+    job.completed_at = 130.5
+
+    assert job.elapsed_sec == pytest.approx(30.5)

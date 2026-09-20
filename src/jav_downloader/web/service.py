@@ -357,7 +357,11 @@ def _run_download(
             )
 
         site._progress_callback = _on_progress
-        manager.update(job_id, progress_unit=progress_unit)
+        # Keep the first start across pauses so the total includes
+        # everything before a resume.
+        current = manager.get(job_id)
+        started = current.started_at if current and current.started_at > 0 else time.time()
+        manager.update(job_id, progress_unit=progress_unit, started_at=started)
 
         with _active_lock:
             _active_downloads[job_id] = site
@@ -371,6 +375,7 @@ def _run_download(
                     progress_pct=100.0,
                     downloaded=1,
                     total=1,
+                    completed_at=time.time(),
                 )
                 return
 
@@ -399,6 +404,7 @@ def _run_download(
                     progress_pct=100.0,
                     downloaded=size,
                     total=size,
+                    completed_at=time.time(),
                 )
             elif not getattr(site, '_cancel_job', False):
                 manager.update(

@@ -1,6 +1,11 @@
 import { createEffect, createSignal, For, onCleanup, Show } from "solid-js";
 import type { Job } from "../api";
-import { formatProgress, formatProgressPhase, formatProgressStats } from "../lib/format";
+import {
+  formatDuration,
+  formatProgress,
+  formatProgressPhase,
+  formatProgressStats,
+} from "../lib/format";
 import IconButton, {
   CloseIcon,
   CollapseIcon,
@@ -24,7 +29,10 @@ type Props = {
 
 function progressText(job: Job): string {
   if (job.status === "completed") {
-    return job.output_file ? `Done: ${job.output_file}` : "Download completed";
+    const total = formatDuration(job.elapsed_sec);
+    const suffix = total ? ` · Total ${total}` : "";
+    const label = job.output_file ? `Done: ${job.output_file}` : "Download completed";
+    return `${label}${suffix}`;
   }
   if (job.status === "failed") {
     return job.error || "Download failed";

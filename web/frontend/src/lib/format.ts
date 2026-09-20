@@ -14,6 +14,22 @@ export function formatSpeed(bps: number): string {
   return `${formatBytes(bps)}/s`;
 }
 
+/** "1h 5m 3s" style duration for whole seconds. */
+export function formatDuration(seconds: number | null | undefined): string {
+  if (seconds == null || !Number.isFinite(seconds) || seconds <= 0) {
+    return "";
+  }
+  const total = Math.round(seconds);
+  const hours = Math.floor(total / 3600);
+  const minutes = Math.floor((total % 3600) / 60);
+  const secs = total % 60;
+  const parts: string[] = [];
+  if (hours > 0) parts.push(`${hours} hr`);
+  if (minutes > 0) parts.push(`${minutes} min`);
+  if (secs > 0 || parts.length === 0) parts.push(`${secs} sec`);
+  return parts.join(" ");
+}
+
 export function formatEta(seconds: number | null | undefined): string {
   if (seconds == null || !Number.isFinite(seconds) || seconds <= 0) {
     return "";

@@ -42,6 +42,9 @@ export type Job = {
   error?: string;
   log?: string[];
   created_at?: number;
+  started_at?: number;
+  completed_at?: number;
+  elapsed_sec?: number;
   updated_at?: number;
 };
 
