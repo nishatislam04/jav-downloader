@@ -298,6 +298,14 @@ def main(argv: list[str] | None = None) -> int:
     download_dir = default_download_dir()
     os.makedirs(download_dir, exist_ok=True)
 
+    # Persist resumable jobs beside the downloads and restore any paused
+    # jobs from the previous run so Resume survives server restarts.
+    service.set_job_store_dest(download_dir)
+    MANAGER.set_persistence(service.persist_job_snapshot)
+    restored = service.restore_saved_jobs(MANAGER)
+    if restored:
+        print(f'Restored {restored} paused job(s) from last run.', flush=True)
+
     server = ThreadingHTTPServer((args.host, args.port), WebHandler)
     # Always advertise localhost; 0.0.0.0 is a bind address, not a URL
     # browsers can open (and it breaks Android WebView loading).

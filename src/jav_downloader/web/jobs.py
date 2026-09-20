@@ -77,14 +77,30 @@ class Job:
 
 
 class JobManager:
-    def __init__(self) -> None:
+    def __init__(self, on_change=None) -> None:
         self._jobs: dict[str, Job] = {}
         self._lock = threading.Lock()
+        # Optional persistence hook: called with the full job list after each
+        # mutation. Used to keep resumable jobs on disk across restarts.
+        self._on_change = on_change
+
+    def set_persistence(self, on_change) -> None:
+        """Attach the persistence hook after construction."""
+        self._on_change = on_change
+
+    def _notify(self) -> None:
+        if self._on_change is None:
+            return
+        try:
+            self._on_change(list(self._jobs.values()))
+        except Exception:
+            pass
 
     def create(self, url: str) -> Job:
         job = Job(id=uuid.uuid4().hex, url=url)
         with self._lock:
             self._jobs[job.id] = job
+        self._notify()
         return job
 
     def get(self, job_id: str) -> Job | None:
@@ -107,7 +123,38 @@ class JobManager:
             for key, value in fields.items():
                 setattr(job, key, value)
             job.updated_at = time.time()
-            return job
+            snapshot = list(self._jobs.values())
+        self._notify_with(snapshot)
+        return job
+
+    def restore_jobs(self, jobs: list[Job]) -> int:
+        """Insert persisted jobs at startup; skips existing ids."""
+        restored = 0
+        with self._lock:
+            for job in jobs:
+                if job.id in self._jobs:
+                    continue
+                self._jobs[job.id] = job
+                restored += 1
+        if restored:
+            self.notify_change()
+        return restored
+
+    def notify_change(self) -> None:
+        """Re-emit the persistence hook after out-of-band mutations."""
+        with self._lock:
+            snapshot = list(self._jobs.values())
+        self._notify_with(snapshot)
+
+    # Persistence hook may itself call back into the manager (it must not
+    # while the lock is held), so notifications run outside the lock.
+    def _notify_with(self, jobs: list[Job]) -> None:
+        if self._on_change is None:
+            return
+        try:
+            self._on_change(jobs)
+        except Exception:
+            pass
 
     def append_log(self, job_id: str, message: str) -> None:
         text = str(message or "").strip()
@@ -121,6 +168,8 @@ class JobManager:
             if len(job.log) > 250:
                 job.log = job.log[-250:]
             job.updated_at = time.time()
+            snapshot = list(self._jobs.values())
+        self._notify_with(snapshot)
 
     def set_progress(
         self,

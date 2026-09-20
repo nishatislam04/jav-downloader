@@ -12,6 +12,7 @@ from jav_downloader.sites.base import (
     _sanitize_filename,
     _truncate_target_name,
 )
+from jav_downloader.web.job_store import JobStore
 from jav_downloader.web.jobs import Job, JobManager, JobStatus
 from jav_downloader.web.paths import default_download_dir, validate_dest_folder
 from jav_downloader.web.progress_phase import phase_from_log
@@ -19,6 +20,7 @@ from jav_downloader.web.progress_phase import phase_from_log
 _active_downloads: dict[str, object] = {}
 _active_lock = threading.Lock()
 _job_params: dict[str, dict] = {}
+_job_store_instance: JobStore | None = None
 
 
 def _log_stamp() -> str:
@@ -179,6 +181,44 @@ def _site_resolve_extras(site) -> dict:
         'output_size_bytes': size_bytes,
         'output_size_exact': bool(size_exact) if size_bytes else False,
     }
+
+
+def set_job_store_dest(dest_folder: str) -> None:
+    """Point the job store at the server's download dir (startup)."""
+    global _job_store_instance
+    _job_store_instance = JobStore(dest_folder)
+
+
+def _job_store() -> JobStore:
+    """Job store rooted at the default download dir (lazy fallback)."""
+    if _job_store_instance is None:
+        set_job_store_dest(default_download_dir())
+    return _job_store_instance
+
+
+def restore_saved_jobs(manager: JobManager) -> int:
+    """Load persisted jobs at startup; returns the count restored.
+
+    Restored paused jobs keep their original id, so /resume keeps
+    working across restarts. Their dest folder travels with them.
+    """
+    jobs, params_by_id = _job_store().load()
+    restored = 0
+    for job in jobs:
+        if manager.get(job.id) is not None:
+            continue
+        params = params_by_id.get(job.id)
+        if job.status == JobStatus.PAUSED and params:
+            _job_params[job.id] = params
+        restored += 1
+    if restored:
+        manager.restore_jobs(jobs)
+    return restored
+
+
+def persist_job_snapshot(jobs) -> None:
+    """JobManager persistence hook: snapshot resumable jobs + params."""
+    _job_store().save(jobs, _job_params)
 
 
 def _apply_output_title(site, output_title: str | None) -> None:
@@ -517,7 +557,14 @@ def start_download(
 
 
 def pause_download(manager: JobManager, job_id: str) -> bool:
-    """Pause an active download without deleting partial files."""
+    """Pause an active download without deleting partial files.
+
+    Pausing an already-paused job succeeds without touching a crawler:
+    the pause may arrive after the worker unwound and deregistered.
+    """
+    job = manager.get(job_id)
+    if job is None or job.status == JobStatus.PAUSED:
+        return job is not None
     with _active_lock:
         site = _active_downloads.get(job_id)
     if site is None:
