@@ -76,7 +76,6 @@ export default function HistoryMenu(props: Props) {
 				onClick={toggle}
 			>
 				<HistoryIcon />
-				<span class="history-menu-btn-text">History</span>
 			</button>
 			<Show when={open()}>
 				<div class="history-dropdown" role="menu">
