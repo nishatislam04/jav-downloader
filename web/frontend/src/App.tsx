@@ -23,7 +23,14 @@ import {
 import ConfirmDialog from "./components/ConfirmDialog";
 import EditToolsCard, { type CutRange, newCutRange, type ToolId } from "./components/EditToolsCard";
 import HistoryMenu from "./components/HistoryMenu";
-import { BrushIcon, CloseIcon, DownloadIcon, PlayIcon, SuccessIcon } from "./components/IconButton";
+import {
+  AppLogoIcon,
+  BrushIcon,
+  CloseIcon,
+  DownloadIcon,
+  PlayIcon,
+  SuccessIcon,
+} from "./components/IconButton";
 import MetaCard from "./components/MetaCard";
 import ProgressCard from "./components/ProgressCard";
 import ProgressRing from "./components/ProgressRing";
@@ -677,7 +684,19 @@ export default function App() {
   return (
     <main class="shell">
       <header class="app-header">
-        <h1>JAV Downloader</h1>
+        <div class="app-title">
+          <Show when={resolvedSite()} fallback={<AppLogoIcon />}>
+            {(site) => (
+              <img
+                class="app-logo"
+                src={siteFaviconSrc(site().domain)}
+                alt={site().name}
+                title={site().name}
+              />
+            )}
+          </Show>
+          <h1>JAV Downloader</h1>
+        </div>
         <div class="header-actions">
           <SupportedSites />
           <HistoryMenu onSelect={(entry) => setUrl(entry.url)} />
@@ -725,45 +744,38 @@ export default function App() {
               Parse metadata
             </button>
           </Show>
-        </label>
-        <div class="url-input-row">
-          <div class="url-input-wrap">
-            <Show when={resolvedSite()}>
-              {(site) => (
-                <img
-                  class="url-input-logo"
-                  src={siteFaviconSrc(site().domain)}
-                  alt={site().name}
-                  title={site().name}
-                />
-              )}
-            </Show>
-            <input
-              ref={urlInput}
-              id="url"
-              type="url"
-              classList={{ "has-site-logo": !!resolvedSite() }}
-              placeholder="Provide supported link to download video"
-              autocomplete="off"
-              spellcheck={false}
-              value={url()}
-              onInput={(event) => setUrl(event.currentTarget.value)}
-              onFocus={(event) => {
-                if (event.currentTarget.value) event.currentTarget.select();
-              }}
-            />
-            <Show when={resolvedMeta()}>
+          <Show when={resolvedMeta()}>
+            <div class="url-actions">
               <button
                 type="button"
-                class="url-clear-btn"
+                class="url-action-btn"
                 aria-label="Clear video URL"
                 title="Clear URL"
-                onClick={() => setPendingClear(true)}
+                onClick={(event) => {
+                  event.preventDefault();
+                  event.stopPropagation();
+                  setPendingClear(true);
+                }}
               >
                 <BrushIcon />
               </button>
-            </Show>
-          </div>
+            </div>
+          </Show>
+        </label>
+        <div class="url-input-row">
+          <input
+            ref={urlInput}
+            id="url"
+            type="url"
+            placeholder="Provide supported link to download video"
+            autocomplete="off"
+            spellcheck={false}
+            value={url()}
+            onInput={(event) => setUrl(event.currentTarget.value)}
+            onFocus={(event) => {
+              if (event.currentTarget.value) event.currentTarget.select();
+            }}
+          />
           <Show
             when={downloadComplete()}
             fallback={

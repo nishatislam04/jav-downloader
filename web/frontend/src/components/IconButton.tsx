@@ -437,6 +437,22 @@ export function ExternalLinkIcon() {
   );
 }
 
+export function AppLogoIcon() {
+  return (
+    <svg viewBox="0 0 24 24" width="36" height="36" class="app-logo" aria-hidden="true">
+      <rect x="1.5" y="1.5" width="21" height="21" rx="6" fill="var(--accent)" />
+      <path
+        d="M12 5.5v8m0 0-3.5-3.5m3.5 3.5 3.5-3.5M6.5 17.5h11"
+        fill="none"
+        stroke="#fff"
+        stroke-width="2"
+        stroke-linecap="round"
+        stroke-linejoin="round"
+      />
+    </svg>
+  );
+}
+
 export function BrushIcon() {
   return (
     <svg viewBox="0 0 24 24" width="14" height="14" aria-hidden="true">
