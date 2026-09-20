@@ -28,6 +28,27 @@ def test_validate_dest_folder_rejects_missing_path(tmp_path, monkeypatch):
         validate_dest_folder(str(tmp_path / 'missing'))
 
 
+def test_encoding_capabilities_endpoint(tmp_path, monkeypatch):
+    monkeypatch.setenv('DOWNLOAD_DIR', str(tmp_path))
+    server = ThreadingHTTPServer(('127.0.0.1', 0), WebHandler)
+    host, port = server.server_address
+    thread = threading.Thread(target=server.serve_forever, daemon=True)
+    thread.start()
+    try:
+        conn = HTTPConnection(host, port, timeout=5)
+        conn.request('GET', '/api/encoding/capabilities')
+        resp = conn.getresponse()
+        body = json.loads(resp.read().decode('utf-8'))
+        assert resp.status == 200
+        assert body['ok'] is True
+        assert 'platform' in body
+        assert 'hardware_codecs' in body
+        assert 'h264' in body['hardware_codecs']
+    finally:
+        server.shutdown()
+        server.server_close()
+
+
 def test_health_endpoint(tmp_path, monkeypatch):
     monkeypatch.setenv('DOWNLOAD_DIR', str(tmp_path))
     server = ThreadingHTTPServer(('127.0.0.1', 0), WebHandler)

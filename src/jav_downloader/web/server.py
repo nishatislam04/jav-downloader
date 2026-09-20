@@ -78,6 +78,10 @@ class WebHandler(BaseHTTPRequestHandler):
             })
             return
 
+        if path == '/api/encoding/capabilities':
+            _json_response(self, HTTPStatus.OK, service.encoding_capabilities_payload())
+            return
+
         if path == '/api/jobs':
             jobs = [job.to_dict() for job in MANAGER.list_jobs()]
             _json_response(self, HTTPStatus.OK, {'ok': True, 'jobs': jobs})

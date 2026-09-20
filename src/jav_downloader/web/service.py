@@ -111,7 +111,11 @@ def _encode_options(
         encode_max_height=None,
         encode_output_mode=None,
         encode_preset=None,
-        encode_threads=None) -> dict:
+        encode_threads=None,
+        encode_engine=None,
+        encode_hardware_bitrate_kbps=None,
+        encode_hardware_gop=None,
+        encode_hardware_bitrate_mode=None) -> dict:
     return {
         'encode': bool(encode),
         'encode_codec': _optional_text(encode_codec),
@@ -120,6 +124,10 @@ def _encode_options(
         'encode_output_mode': _optional_text(encode_output_mode),
         'encode_preset': _optional_text(encode_preset),
         'encode_threads': _optional_int(encode_threads),
+        'encode_engine': _optional_text(encode_engine),
+        'encode_hardware_bitrate_kbps': _optional_int(encode_hardware_bitrate_kbps),
+        'encode_hardware_gop': _optional_int(encode_hardware_gop),
+        'encode_hardware_bitrate_mode': _optional_text(encode_hardware_bitrate_mode),
     }
 
 
@@ -134,7 +142,35 @@ def _encode_options_from_mapping(payload: dict | None) -> dict:
         encode_output_mode=payload.get('encode_output_mode'),
         encode_preset=payload.get('encode_preset'),
         encode_threads=payload.get('encode_threads'),
+        encode_engine=payload.get('encode_engine'),
+        encode_hardware_bitrate_kbps=payload.get('encode_hardware_bitrate_kbps'),
+        encode_hardware_gop=payload.get('encode_hardware_gop'),
+        encode_hardware_bitrate_mode=payload.get('encode_hardware_bitrate_mode'),
     )
+
+
+def encoding_capabilities_payload() -> dict:
+    from jav_downloader.sites.encoding_capabilities import (
+        hardware_encoder_available,
+        is_android_like,
+        mediacodec_encoder_name,
+    )
+
+    platform = 'android' if is_android_like() else 'desktop'
+    codecs = {}
+    for codec in ('h264', 'hevc'):
+        available, encoder, reason = hardware_encoder_available(codec)
+        codecs[codec] = {
+            'available': available,
+            'encoder': encoder or mediacodec_encoder_name(codec),
+            'reason': reason,
+        }
+    return {
+        'ok': True,
+        'platform': platform,
+        'hardware_codecs': codecs,
+        'hardware_bitrate_modes': ['vbr', 'cbr'],
+    }
 
 
 def _site_resolve_extras(site) -> dict:
