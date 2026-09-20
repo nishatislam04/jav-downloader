@@ -1,9 +1,9 @@
 import {
 	createEffect,
 	createSignal,
+	type JSX,
 	onCleanup,
 	Show,
-	type JSX,
 } from "solid-js";
 import { InfoIcon } from "./IconButton";
 
@@ -22,6 +22,8 @@ function supportsHover() {
 export default function FieldHint(props: Props) {
 	const [open, setOpen] = createSignal(false);
 	let root: HTMLDivElement | undefined;
+	let trigger: HTMLButtonElement | undefined;
+	let popover: HTMLDivElement | undefined;
 
 	function close() {
 		setOpen(false);
@@ -35,7 +37,17 @@ export default function FieldHint(props: Props) {
 		if (!open()) return;
 
 		function onPointerDown(event: PointerEvent) {
-			if (!root?.contains(event.target as Node)) close();
+			const target = event.target as Node;
+			if (!root?.contains(target)) {
+				close();
+				return;
+			}
+			// On mobile the full-screen backdrop sits inside root, and touch
+			// taps can cancel click events — so key dismissal off pointerdown
+			// for any tap that is neither the popover nor the trigger.
+			if (!popover?.contains(target) && !trigger?.contains(target)) {
+				close();
+			}
 		}
 
 		function onKeyDown(event: KeyboardEvent) {
@@ -65,6 +77,7 @@ export default function FieldHint(props: Props) {
 			<button
 				type="button"
 				class="field-hint-trigger"
+				ref={trigger}
 				aria-label={`About ${props.label}`}
 				aria-expanded={open()}
 				onClick={(event) => {
@@ -78,6 +91,7 @@ export default function FieldHint(props: Props) {
 				<div class="field-hint-backdrop" aria-hidden="true" onClick={close} />
 				<div
 					class="field-hint-popover"
+					ref={popover}
 					role="tooltip"
 					id={`field-hint-${props.label.replace(/\s+/g, "-").toLowerCase()}`}
 				>

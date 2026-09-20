@@ -1278,6 +1278,8 @@ button.save-apply-btn:not(:disabled):hover {
 
 .field-hint-backdrop {
   display: none;
+  /* Dismissal taps must not turn into page scrolls behind the sheet */
+  touch-action: none;
 }
 
 .field-hint-popover {
