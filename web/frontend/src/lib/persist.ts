@@ -17,6 +17,8 @@ export type EncodePreset =
   | "fast"
   | "medium"
   | "slow";
+export type EncodeEngine = "auto" | "direct" | "hardware" | "software";
+export type HardwareBitrateMode = "auto" | "vbr" | "cbr";
 
 export type EncodeSettings = {
   enabled: boolean;
@@ -26,6 +28,11 @@ export type EncodeSettings = {
   outputMode: EncodeOutputMode;
   preset: EncodePreset;
   threads: number;
+  advancedEnabled: boolean;
+  engine: EncodeEngine;
+  hardwareBitrateMode: HardwareBitrateMode;
+  hardwareBitrateKbps: number;
+  hardwareGop: number;
 };
 
 export type AudioBitrate = 96 | 128 | 192;
@@ -54,6 +61,11 @@ export const DEFAULT_ENCODE_SETTINGS: EncodeSettings = {
   outputMode: "replace",
   preset: "auto",
   threads: 0,
+  advancedEnabled: false,
+  engine: "auto",
+  hardwareBitrateMode: "auto",
+  hardwareBitrateKbps: 0,
+  hardwareGop: 0,
 };
 
 function normalizeEncodeSettings(raw: Partial<EncodeSettings> | null): EncodeSettings {
@@ -87,6 +99,20 @@ function normalizeEncodeSettings(raw: Partial<EncodeSettings> | null): EncodeSet
   let threads = Number(raw.threads);
   if (!Number.isFinite(threads) || threads < 0) threads = 0;
   threads = Math.round(threads);
+  const engines: EncodeEngine[] = ["auto", "direct", "hardware", "software"];
+  const engine = engines.includes(raw.engine as EncodeEngine)
+    ? (raw.engine as EncodeEngine)
+    : "auto";
+  const hwModes: HardwareBitrateMode[] = ["auto", "vbr", "cbr"];
+  const hardwareBitrateMode = hwModes.includes(raw.hardwareBitrateMode as HardwareBitrateMode)
+    ? (raw.hardwareBitrateMode as HardwareBitrateMode)
+    : "auto";
+  let hardwareBitrateKbps = Number(raw.hardwareBitrateKbps);
+  if (!Number.isFinite(hardwareBitrateKbps) || hardwareBitrateKbps < 0) hardwareBitrateKbps = 0;
+  hardwareBitrateKbps = Math.round(hardwareBitrateKbps);
+  let hardwareGop = Number(raw.hardwareGop);
+  if (!Number.isFinite(hardwareGop) || hardwareGop < 0) hardwareGop = 0;
+  hardwareGop = Math.round(hardwareGop);
   return {
     enabled: Boolean(raw.enabled),
     codec,
@@ -95,6 +121,11 @@ function normalizeEncodeSettings(raw: Partial<EncodeSettings> | null): EncodeSet
     outputMode,
     preset,
     threads,
+    advancedEnabled: Boolean(raw.advancedEnabled),
+    engine,
+    hardwareBitrateMode,
+    hardwareBitrateKbps,
+    hardwareGop,
   };
 }
 

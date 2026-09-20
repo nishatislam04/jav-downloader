@@ -10,8 +10,10 @@ import {
 import {
   cancelJob,
   cleanupJob,
+  fetchEncodingCapabilities,
   fetchHealth,
   fetchJob,
+  type EncodingCapabilities,
   type Job,
   pauseJob,
   type ResolveResult,
@@ -77,6 +79,8 @@ export default function App() {
     loadRememberEncode() ? loadEncodeSettings() : { ...DEFAULT_ENCODE_SETTINGS },
   );
   const [rememberEncode, setRememberEncode] = createSignal(loadRememberEncode());
+  const [encodingCapabilities, setEncodingCapabilities] =
+    createSignal<EncodingCapabilities | null>(null);
   const [activeTool, setActiveTool] = createSignal<ToolId | null>(null);
   const [status, setStatus] = createSignal("");
   const [statusKind, setStatusKind] = createSignal<"ok" | "error" | "">("");
@@ -108,7 +112,11 @@ export default function App() {
 
   onMount(async () => {
     urlInput?.focus();
-    const health = await fetchHealth();
+    const [health, caps] = await Promise.all([
+      fetchHealth(),
+      fetchEncodingCapabilities().catch(() => null),
+    ]);
+    if (caps?.ok) setEncodingCapabilities(caps);
     const downloadDir = health.download_dir || "";
     setDefaultDownloadDir(downloadDir);
 
@@ -202,6 +210,10 @@ export default function App() {
       encode_output_mode?: string;
       encode_preset?: string;
       encode_threads?: number;
+      encode_engine?: string;
+      encode_hardware_bitrate_kbps?: number;
+      encode_hardware_gop?: number;
+      encode_hardware_bitrate_mode?: string;
     } = {};
 
     if (includeCuts && !validateCutRanges(durationSec(), cuts())) {
@@ -225,11 +237,23 @@ export default function App() {
     if (encode.enabled) {
       payload.encode = true;
       payload.encode_codec = encode.codec;
-      payload.encode_crf = encode.crf;
       payload.encode_max_height = encode.maxHeight;
       payload.encode_output_mode = encode.outputMode;
-      payload.encode_preset = encode.preset;
-      payload.encode_threads = encode.threads;
+      if (encode.advancedEnabled) {
+        payload.encode_crf = encode.crf;
+        payload.encode_preset = encode.preset;
+        payload.encode_threads = encode.threads;
+        payload.encode_engine = encode.engine;
+        if (encode.hardwareBitrateKbps > 0) {
+          payload.encode_hardware_bitrate_kbps = encode.hardwareBitrateKbps;
+        }
+        if (encode.hardwareGop > 0) {
+          payload.encode_hardware_gop = encode.hardwareGop;
+        }
+        if (encode.hardwareBitrateMode !== "auto") {
+          payload.encode_hardware_bitrate_mode = encode.hardwareBitrateMode;
+        }
+      }
     }
 
     return payload;
@@ -869,6 +893,7 @@ export default function App() {
               rememberAudio={rememberAudio()}
               encodeSettings={encodeSettings()}
               rememberEncode={rememberEncode()}
+              encodingCapabilities={encodingCapabilities()}
               onCutChange={handleCutChange}
               onAddCut={handleAddCut}
               onRemoveCut={handleRemoveCut}

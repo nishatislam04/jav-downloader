@@ -70,6 +70,10 @@ export function fetchHealth() {
   return request<{ ok: boolean; download_dir?: string }>("/api/health");
 }
 
+export function fetchEncodingCapabilities() {
+  return request<EncodingCapabilities>("/api/encoding/capabilities");
+}
+
 export type DownloadOptions = {
   cut_start?: string;
   cut_end?: string;
@@ -88,6 +92,23 @@ export type DownloadOptions = {
   encode_output_mode?: string;
   encode_preset?: string;
   encode_threads?: number;
+  encode_engine?: string;
+  encode_hardware_bitrate_kbps?: number;
+  encode_hardware_gop?: number;
+  encode_hardware_bitrate_mode?: string;
+};
+
+export type HardwareCodecCapability = {
+  available: boolean;
+  encoder?: string | null;
+  reason?: string | null;
+};
+
+export type EncodingCapabilities = {
+  ok: boolean;
+  platform?: string;
+  hardware_codecs?: Record<string, HardwareCodecCapability>;
+  hardware_bitrate_modes?: string[];
 };
 
 export function resolveUrl(url: string, options: DownloadOptions = {}, signal?: AbortSignal) {

@@ -1,14 +1,16 @@
 import { createEffect, createMemo, createSignal, Index, Show } from "solid-js";
-import type { ResolveResult } from "../api";
+import type { EncodingCapabilities, ResolveResult } from "../api";
 import { validateFolder } from "../api";
 import type {
   AudioBitrate,
   AudioSettings,
   EncodeCodec,
   EncodeMaxHeight,
+  EncodeEngine,
   EncodeOutputMode,
   EncodePreset,
   EncodeSettings,
+  HardwareBitrateMode,
 } from "../lib/persist";
 import {
   cutClipDurationSec,
@@ -66,6 +68,7 @@ type Props = {
   rememberAudio: boolean;
   encodeSettings: EncodeSettings;
   rememberEncode: boolean;
+  encodingCapabilities?: EncodingCapabilities | null;
   onCutChange: (id: string, field: "start" | "end", value: string) => void;
   onAddCut: () => void;
   onRemoveCut: (id: string) => void;
@@ -450,45 +453,18 @@ export default function EditToolsCard(props: Props) {
                       </label>
                       <label class="encode-field">
                         <div class="encode-field-head">
-                          <span>CRF {props.encodeSettings.crf}</span>
-                          <FieldHint label="CRF (quality)">
+                          <span>Max height</span>
+                          <FieldHint label="Max height">
                             <p>
-                              Constant Rate Factor controls quality vs file size. Lower number =
-                              higher quality and larger file.
+                              Limits output resolution to save space. The downloader skips scaling
+                              when the source is already at or below this height.
                             </p>
-                            <ul class="field-hint-list">
-                              <li>
-                                <strong>18–20</strong> — Very high quality, large files. Use for
-                                archival or when you notice banding at 23.
-                              </li>
-                              <li>
-                                <strong>23</strong> — Default sweet spot. Good balance for most
-                                clips.
-                              </li>
-                              <li>
-                                <strong>26–28</strong> — Smaller files with visible compression. Use
-                                when size matters more than perfection.
-                              </li>
-                            </ul>
+                            <p>
+                              <strong>Default:</strong> Original — keep source resolution unless you
+                              need a smaller file.
+                            </p>
                           </FieldHint>
                         </div>
-                        <input
-                          type="range"
-                          min={18}
-                          max={28}
-                          step={1}
-                          disabled={!props.encodeSettings.enabled}
-                          value={props.encodeSettings.crf}
-                          onInput={(event) =>
-                            props.onEncodeSettingsChange({
-                              ...props.encodeSettings,
-                              crf: Number(event.currentTarget.value),
-                            })
-                          }
-                        />
-                      </label>
-                      <label class="encode-field">
-                        <span>Max height</span>
                         <select
                           value={String(props.encodeSettings.maxHeight)}
                           disabled={!props.encodeSettings.enabled}
@@ -503,63 +479,6 @@ export default function EditToolsCard(props: Props) {
                           <option value="480">480p</option>
                           <option value="720">720p</option>
                           <option value="1080">1080p</option>
-                        </select>
-                      </label>
-                      <label class="encode-field encode-field-wide">
-                        <div class="encode-field-head">
-                          <span>Preset</span>
-                          <FieldHint label="Encoding preset">
-                            <p>
-                              Controls encoder speed vs compression efficiency. Does not change
-                              quality target (CRF does that) — it changes how hard ffmpeg works to
-                              hit that quality.
-                            </p>
-                            <ul class="field-hint-list">
-                              <li>
-                                <strong>Auto</strong> — Veryfast on Termux / Android, medium on
-                                desktop.
-                              </li>
-                              <li>
-                                <strong>Ultrafast</strong> — Fastest encode, largest output. Good
-                                for quick tests.
-                              </li>
-                              <li>
-                                <strong>Superfast / Veryfast</strong> — Fast encodes when you are in
-                                a hurry.
-                              </li>
-                              <li>
-                                <strong>Faster / Fast</strong> — Reasonable speed with better
-                                compression than the fastest presets.
-                              </li>
-                              <li>
-                                <strong>Medium</strong> — Balanced default on desktop; good everyday
-                                choice.
-                              </li>
-                              <li>
-                                <strong>Slow</strong> — Best compression for a given CRF, but much
-                                longer encode time.
-                              </li>
-                            </ul>
-                          </FieldHint>
-                        </div>
-                        <select
-                          value={props.encodeSettings.preset}
-                          disabled={!props.encodeSettings.enabled}
-                          onChange={(event) =>
-                            props.onEncodeSettingsChange({
-                              ...props.encodeSettings,
-                              preset: event.currentTarget.value as EncodePreset,
-                            })
-                          }
-                        >
-                          <option value="auto">Auto</option>
-                          <option value="ultrafast">Ultrafast</option>
-                          <option value="superfast">Superfast</option>
-                          <option value="veryfast">Veryfast</option>
-                          <option value="faster">Faster</option>
-                          <option value="fast">Fast</option>
-                          <option value="medium">Medium</option>
-                          <option value="slow">Slow</option>
                         </select>
                       </label>
                       <label class="encode-field">
@@ -579,26 +498,265 @@ export default function EditToolsCard(props: Props) {
                           <option value="suffix">Tagged file only</option>
                         </select>
                       </label>
-                      <label class="encode-field">
-                        <span>Threads (0 = all cores)</span>
-                        <input
-                          type="number"
-                          min={0}
-                          max={128}
-                          step={1}
-                          class="mono"
-                          disabled={!props.encodeSettings.enabled}
-                          value={props.encodeSettings.threads}
-                          onInput={(event) =>
-                            props.onEncodeSettingsChange({
-                              ...props.encodeSettings,
-                              threads: Math.max(0, Number(event.currentTarget.value) || 0),
-                            })
-                          }
-                        />
-                      </label>
                     </div>
-                    <p class="hint encode-hint">Software x264/x265 only — no hardware encode.</p>
+                    <label class="toggle-row">
+                      <input
+                        type="checkbox"
+                        checked={props.encodeSettings.advancedEnabled}
+                        disabled={!props.encodeSettings.enabled}
+                        onChange={(event) =>
+                          props.onEncodeSettingsChange({
+                            ...props.encodeSettings,
+                            advancedEnabled: event.currentTarget.checked,
+                          })
+                        }
+                      />
+                      <span>Enable advanced encoding settings</span>
+                    </label>
+                    <Show when={props.encodeSettings.advancedEnabled && props.encodeSettings.enabled}>
+                      <div class="encode-grid encode-grid-advanced">
+                        <label class="encode-field encode-field-wide">
+                          <div class="encode-field-head">
+                            <span>Encoding engine</span>
+                            <FieldHint label="Encoding engine">
+                              <p>
+                                Chooses how video is processed after download. Auto picks hardware
+                                on supported Android devices when re-encoding is needed, otherwise
+                                software.
+                              </p>
+                              <p>
+                                <strong>Direct / Remux</strong> — Stream copy when possible; fastest
+                                but no resolution or codec change.
+                              </p>
+                              <p>
+                                <strong>Default:</strong> Auto — recommended for most users.
+                              </p>
+                            </FieldHint>
+                          </div>
+                          <select
+                            value={props.encodeSettings.engine}
+                            onChange={(event) =>
+                              props.onEncodeSettingsChange({
+                                ...props.encodeSettings,
+                                engine: event.currentTarget.value as EncodeEngine,
+                              })
+                            }
+                          >
+                            <option value="auto">Auto</option>
+                            <option value="direct">Direct / Remux</option>
+                            <option value="hardware">Hardware</option>
+                            <option value="software">Software</option>
+                          </select>
+                        </label>
+                        <label class="encode-field">
+                          <div class="encode-field-head">
+                            <span>Hardware codec</span>
+                            <FieldHint label="Hardware codec">
+                              <p>
+                                Uses the same H.264 / HEVC choice as above, but via Android
+                                MediaCodec when hardware encoding is selected.
+                              </p>
+                              <p>
+                                HEVC can produce smaller files but compatibility varies by device.
+                              </p>
+                            </FieldHint>
+                          </div>
+                          <select value={props.encodeSettings.codec} disabled>
+                            <option value="h264">
+                              H.264
+                              {props.encodingCapabilities?.hardware_codecs?.h264?.available
+                                ? ""
+                                : " (unavailable)"}
+                            </option>
+                            <option value="hevc">
+                              HEVC
+                              {props.encodingCapabilities?.hardware_codecs?.hevc?.available
+                                ? ""
+                                : " (unavailable)"}
+                            </option>
+                          </select>
+                        </label>
+                        <label class="encode-field">
+                          <div class="encode-field-head">
+                            <span>Hardware bitrate mode</span>
+                            <FieldHint label="Bitrate mode">
+                              <p>
+                                VBR varies bitrate for better quality; CBR holds a steadier rate.
+                                Hardware encoders use bitrate instead of CRF.
+                              </p>
+                              <p>
+                                <strong>Default:</strong> Auto (VBR).
+                              </p>
+                            </FieldHint>
+                          </div>
+                          <select
+                            value={props.encodeSettings.hardwareBitrateMode}
+                            onChange={(event) =>
+                              props.onEncodeSettingsChange({
+                                ...props.encodeSettings,
+                                hardwareBitrateMode: event.currentTarget
+                                  .value as HardwareBitrateMode,
+                              })
+                            }
+                          >
+                            <option value="auto">Auto (VBR)</option>
+                            <option value="vbr">VBR</option>
+                            <option value="cbr">CBR</option>
+                          </select>
+                        </label>
+                        <label class="encode-field">
+                          <div class="encode-field-head">
+                            <span>Hardware bitrate (kbps)</span>
+                            <FieldHint label="Bitrate">
+                              <p>
+                                Target video bitrate for hardware encoding. Higher values improve
+                                quality but increase file size.
+                              </p>
+                              <p>
+                                <strong>Default:</strong> 0 (Auto) — chosen from resolution.
+                              </p>
+                            </FieldHint>
+                          </div>
+                          <input
+                            type="number"
+                            min={0}
+                            max={50000}
+                            step={100}
+                            class="mono"
+                            value={props.encodeSettings.hardwareBitrateKbps}
+                            onInput={(event) =>
+                              props.onEncodeSettingsChange({
+                                ...props.encodeSettings,
+                                hardwareBitrateKbps: Math.max(
+                                  0,
+                                  Number(event.currentTarget.value) || 0,
+                                ),
+                              })
+                            }
+                          />
+                        </label>
+                        <label class="encode-field">
+                          <div class="encode-field-head">
+                            <span>GOP / keyframe interval</span>
+                            <FieldHint label="GOP / Keyframe interval">
+                              <p>
+                                How often full keyframes are inserted. Affects seeking smoothness
+                                and compression. Auto uses about 2 seconds at 30 fps (GOP 60).
+                              </p>
+                              <p>
+                                <strong>Default:</strong> Auto — leave alone unless you have a
+                                specific reason to change it.
+                              </p>
+                            </FieldHint>
+                          </div>
+                          <input
+                            type="number"
+                            min={0}
+                            max={600}
+                            step={1}
+                            class="mono"
+                            value={props.encodeSettings.hardwareGop}
+                            onInput={(event) =>
+                              props.onEncodeSettingsChange({
+                                ...props.encodeSettings,
+                                hardwareGop: Math.max(0, Number(event.currentTarget.value) || 0),
+                              })
+                            }
+                          />
+                        </label>
+                        <label class="encode-field">
+                          <div class="encode-field-head">
+                            <span>CRF {props.encodeSettings.crf}</span>
+                            <FieldHint label="CRF (software quality)">
+                              <p>
+                                Software-only quality control. Lower CRF means higher quality and
+                                larger files. Not used for hardware encoding.
+                              </p>
+                              <p>
+                                <strong>Default:</strong> 23.
+                              </p>
+                            </FieldHint>
+                          </div>
+                          <input
+                            type="range"
+                            min={18}
+                            max={28}
+                            step={1}
+                            value={props.encodeSettings.crf}
+                            onInput={(event) =>
+                              props.onEncodeSettingsChange({
+                                ...props.encodeSettings,
+                                crf: Number(event.currentTarget.value),
+                              })
+                            }
+                          />
+                        </label>
+                        <label class="encode-field encode-field-wide">
+                          <div class="encode-field-head">
+                            <span>Software preset</span>
+                            <FieldHint label="Software preset">
+                              <p>
+                                Faster presets encode quicker but compress less efficiently at the
+                                same CRF. Slower presets take more CPU time.
+                              </p>
+                              <p>
+                                <strong>Default:</strong> Auto.
+                              </p>
+                            </FieldHint>
+                          </div>
+                          <select
+                            value={props.encodeSettings.preset}
+                            onChange={(event) =>
+                              props.onEncodeSettingsChange({
+                                ...props.encodeSettings,
+                                preset: event.currentTarget.value as EncodePreset,
+                              })
+                            }
+                          >
+                            <option value="auto">Auto</option>
+                            <option value="ultrafast">Ultrafast</option>
+                            <option value="superfast">Superfast</option>
+                            <option value="veryfast">Veryfast</option>
+                            <option value="faster">Faster</option>
+                            <option value="fast">Fast</option>
+                            <option value="medium">Medium</option>
+                            <option value="slow">Slow</option>
+                          </select>
+                        </label>
+                        <label class="encode-field">
+                          <div class="encode-field-head">
+                            <span>Threads</span>
+                            <FieldHint label="Threads">
+                              <p>
+                                CPU threads for software encoding and decoding. 0 uses all cores.
+                                Does not apply to hardware encoders.
+                              </p>
+                              <p>
+                                <strong>Default:</strong> 0 (Auto).
+                              </p>
+                            </FieldHint>
+                          </div>
+                          <input
+                            type="number"
+                            min={0}
+                            max={128}
+                            step={1}
+                            class="mono"
+                            value={props.encodeSettings.threads}
+                            onInput={(event) =>
+                              props.onEncodeSettingsChange({
+                                ...props.encodeSettings,
+                                threads: Math.max(0, Number(event.currentTarget.value) || 0),
+                              })
+                            }
+                          />
+                        </label>
+                      </div>
+                    </Show>
+                    <p class="hint encode-hint">
+                      Auto skips re-encoding when the source already matches your settings. Enable
+                      advanced options for hardware, CRF, and preset control.
+                    </p>
                     <label class="remember-path">
                       <input
                         type="checkbox"
