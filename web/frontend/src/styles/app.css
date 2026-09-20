@@ -674,6 +674,19 @@ button:disabled {
   margin: 0;
 }
 
+.progress-head-left {
+  display: flex;
+  align-items: baseline;
+  gap: 10px;
+  min-width: 0;
+}
+
+.total-time {
+  color: var(--ok);
+  font-size: 0.78rem;
+  white-space: nowrap;
+}
+
 .progress-body {
   display: flex;
   flex-direction: column;

@@ -30,10 +30,7 @@ type Props = {
 
 function progressText(job: Job): string {
   if (job.status === "completed") {
-    const total = formatDuration(job.elapsed_sec);
-    const suffix = total ? ` · Total ${total}` : "";
-    const label = job.output_file ? `Done: ${job.output_file}` : "Download completed";
-    return `${label}${suffix}`;
+    return job.output_file ? `Done: ${job.output_file}` : "Download completed";
   }
   if (job.status === "failed") {
     return job.error || "Download failed";
@@ -133,6 +130,7 @@ export default function ProgressCard(props: Props) {
   const showControls = () => isDownloading() || isPaused() || canRetry();
   const outputFile = () => props.job.output_file || "";
   const phaseText = () => formatProgressPhase(props.job);
+  const totalTime = () => formatDuration(props.job.elapsed_sec);
 
   createEffect(() => {
     logLines();
@@ -144,7 +142,12 @@ export default function ProgressCard(props: Props) {
   return (
     <section class="card progress-card">
       <div class="progress-head">
-        <p class="label">Progress</p>
+        <div class="progress-head-left">
+          <p class="label">Progress</p>
+          <Show when={isCompleted() && totalTime()}>
+            <span class="total-time mono">Total {totalTime()}</span>
+          </Show>
+        </div>
         <Show when={showControls() || (isCompleted() && outputFile() && props.onReveal)}>
           <div class="progress-actions">
             <Show when={isCompleted() && outputFile() && props.onReveal}>
