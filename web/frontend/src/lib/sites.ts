@@ -2,13 +2,12 @@ export type SiteInfo = {
   name: string;
   domain: string;
   url: string;
-  /** Pinned sites are ours — always shown at the top of the list. */
-  pinned?: boolean;
 };
 
+// Sites are listed in display order — the first entries appear at the top.
 export const SITES: SiteInfo[] = [
-  { name: "jav.guru", domain: "jav.guru", url: "https://jav.guru", pinned: true },
-  { name: "SpankBang", domain: "spankbang.com", url: "https://spankbang.com", pinned: true },
+  { name: "jav.guru", domain: "jav.guru", url: "https://jav.guru" },
+  { name: "SpankBang", domain: "spankbang.com", url: "https://spankbang.com" },
   { name: "MissAV", domain: "missav.ai", url: "https://missav.ai" },
   { name: "SupJav", domain: "supjav.com", url: "https://supjav.com" },
   { name: "JableTV", domain: "jable.tv", url: "https://jable.tv" },

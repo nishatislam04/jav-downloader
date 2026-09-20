@@ -88,19 +88,13 @@ export default function SupportedSites() {
                 <button
                   type="button"
                   class="site-row"
-                  classList={{ pinned: site.pinned }}
                   role="menuitem"
                   aria-label={`Open ${site.name} in a new tab`}
                   onClick={() => openSite(site)}
                 >
                   <SiteFavicon site={site} />
                   <span class="site-info">
-                    <span class="site-name">
-                      {site.name}
-                      <Show when={site.pinned}>
-                        <span class="site-chip">Ours</span>
-                      </Show>
-                    </span>
+                    <span class="site-name">{site.name}</span>
                     <span class="site-domain">{site.domain}</span>
                   </span>
                   <span class="site-open">

@@ -22,7 +22,7 @@ import {
 } from "./api";
 import EditToolsCard, { type CutRange, newCutRange, type ToolId } from "./components/EditToolsCard";
 import HistoryMenu from "./components/HistoryMenu";
-import { DownloadIcon, SuccessIcon } from "./components/IconButton";
+import { CloseIcon, DownloadIcon, SuccessIcon } from "./components/IconButton";
 import MetaCard from "./components/MetaCard";
 import ProgressCard from "./components/ProgressCard";
 import ProgressRing from "./components/ProgressRing";
@@ -92,6 +92,7 @@ export default function App() {
   let resolveTimer: ReturnType<typeof setTimeout> | undefined;
   let editResolveTimer: ReturnType<typeof setTimeout> | undefined;
   let resolveRequest = 0;
+  let resolveAbort: AbortController | undefined;
 
   onCleanup(() => {
     if (pollTimer) clearInterval(pollTimer);
@@ -251,11 +252,21 @@ export default function App() {
     const includeCuts = trigger === "cut" && !localCutError;
     const silent = trigger !== "url" && hasResolvedOnce();
     const requestId = ++resolveRequest;
+    resolveAbort?.abort();
+    const abort = new AbortController();
+    resolveAbort = abort;
     if (!silent) {
       setResolving(true);
       setResolvePhase("metadata");
     }
-    const data = await resolveUrl(value, resolvePayload(includeCuts));
+    let data: ResolveResult;
+    try {
+      data = await resolveUrl(value, resolvePayload(includeCuts), abort.signal);
+    } catch (error) {
+      if (requestId !== resolveRequest) return;
+      if (error instanceof DOMException && error.name === "AbortError") return;
+      throw error;
+    }
     if (requestId !== resolveRequest) return;
     if (!silent) {
       setResolving(false);
@@ -301,6 +312,15 @@ export default function App() {
     } else {
       setStatusMessage("", "");
     }
+  }
+
+  function cancelResolve() {
+    if (resolveTimer) clearTimeout(resolveTimer);
+    if (editResolveTimer) clearTimeout(editResolveTimer);
+    resolveRequest += 1;
+    resolveAbort?.abort();
+    setResolving(false);
+    setResolvePhase("");
   }
 
   function scheduleResolve(trigger: "url" | "cut" | "edit" = "url") {
@@ -641,6 +661,19 @@ export default function App() {
             <span class="badge-loading">
               <span class="spinner" aria-hidden="true" />
               {resolveBadgeLabel()}
+              <button
+                type="button"
+                class="badge-cancel"
+                aria-label="Cancel metadata parse"
+                title="Cancel"
+                onClick={(event) => {
+                  event.preventDefault();
+                  event.stopPropagation();
+                  cancelResolve();
+                }}
+              >
+                <CloseIcon />
+              </button>
             </span>
           </Show>
         </label>

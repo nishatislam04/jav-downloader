@@ -87,10 +87,11 @@ export type DownloadOptions = {
   encode_threads?: number;
 };
 
-export function resolveUrl(url: string, options: DownloadOptions = {}) {
+export function resolveUrl(url: string, options: DownloadOptions = {}, signal?: AbortSignal) {
   return request<ResolveResult>("/api/resolve", {
     method: "POST",
     body: JSON.stringify({ url, ...options }),
+    signal,
   });
 }
 

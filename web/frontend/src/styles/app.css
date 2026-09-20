@@ -113,6 +113,29 @@ label {
   border-width: 2px;
 }
 
+.badge-cancel {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 16px;
+  height: 16px;
+  padding: 0;
+  border: none;
+  border-radius: 50%;
+  background: rgba(245, 185, 66, 0.28);
+  color: inherit;
+  cursor: pointer;
+}
+
+.badge-cancel svg {
+  width: 10px;
+  height: 10px;
+}
+
+.badge-cancel:hover {
+  background: rgba(245, 185, 66, 0.45);
+}
+
 @keyframes spin {
   to {
     transform: rotate(360deg);
@@ -1097,7 +1120,7 @@ button.save-apply-btn:not(:disabled):hover {
 .sites-header {
   display: flex;
   align-items: center;
-  justify-content: space-between;
+  gap: 10px;
   padding: 14px 16px;
   border-bottom: 1px solid var(--border);
 }
@@ -1183,17 +1206,6 @@ button.save-apply-btn:not(:disabled):hover {
 .site-domain {
   color: var(--muted);
   font-size: 0.8rem;
-}
-
-.site-chip {
-  padding: 1px 7px;
-  border-radius: 999px;
-  background: var(--accent);
-  color: #fff;
-  font-size: 0.66rem;
-  font-weight: 700;
-  text-transform: uppercase;
-  letter-spacing: 0.04em;
 }
 
 .site-open {
