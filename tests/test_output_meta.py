@@ -75,6 +75,19 @@ def test_estimate_output_size_hls_prefers_segment_probe(monkeypatch):
     assert size == 18_000_000
 
 
+def test_estimate_output_size_skipped_when_site_opted_out():
+    site = SimpleNamespace(
+        skip_output_size_estimate=True,
+        _direct_url=None,
+        _m3u8url='https://cdn.example/stream.m3u8',
+        _selected_variant_bandwidth=8_000_000,
+        _duration_sec=240.0,
+    )
+    size, exact = meta_mod.estimate_output_size(site)
+    assert size is None
+    assert exact is False
+
+
 def test_media_playlist_duration_sec_sums_segments():
     segments = [
         SimpleNamespace(duration=6.0),

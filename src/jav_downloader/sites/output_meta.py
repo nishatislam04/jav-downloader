@@ -328,6 +328,9 @@ def pick_hls_playlist(playlists, site):
 
 def estimate_output_size(site) -> tuple[int | None, bool]:
     """Return (byte size, exact?) for the current site selection and cut ranges."""
+    if getattr(site, 'skip_output_size_estimate', False):
+        return None, False
+
     clip_duration = effective_output_duration_sec(site)
     full_duration = getattr(site, '_duration_sec', None)
     try:

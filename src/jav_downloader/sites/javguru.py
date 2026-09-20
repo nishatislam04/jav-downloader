@@ -683,6 +683,7 @@ class SiteJavGuru(M3U8Crawler):
     website_dirname_pattern = r'https://(?:www\.)?jav\.guru/(\d+)/.+/?$'
     direct_site_name = 'JavGuru'
     direct_default_referer = 'https://jav.guru/'
+    skip_output_size_estimate = True
 
     def _transform_segment(self, data):
         if data[:1] == b'\x47':
