@@ -9,6 +9,7 @@ import {
 } from "solid-js";
 import {
   cancelJob,
+  cleanupJob,
   fetchHealth,
   fetchJob,
   type Job,
@@ -90,6 +91,7 @@ export default function App() {
   const [downloadComplete, setDownloadComplete] = createSignal(false);
   const [serverCutError, setServerCutError] = createSignal("");
   const [pendingClear, setPendingClear] = createSignal(false);
+  const [cleanupJobId, setCleanupJobId] = createSignal<string | null>(null);
 
   let urlInput: HTMLInputElement | undefined;
   let pollTimer: ReturnType<typeof setInterval> | undefined;
@@ -509,17 +511,35 @@ export default function App() {
   }
 
   async function handleCancel(jobId: string) {
+    setCleanupJobId(jobId);
+  }
+
+  async function confirmCancelCleanup() {
+    const jobId = cleanupJobId();
+    setCleanupJobId(null);
+    if (!jobId) return;
     setActionBusy(true);
     const data = await cancelJob(jobId);
-    setActionBusy(false);
-    if (!data.ok || !data.job) {
-      setStatusMessage(data.error || "Could not cancel download", "error");
-      return;
+    if (data.ok && data.job) {
+      setJob(data.job);
     }
-    setJob(data.job);
+    const sweep = await cleanupJob(jobId);
+    setActionBusy(false);
     setBusy(false);
     setDownloadComplete(false);
-    setStatusMessage("Download cancelled.", "error");
+    if (!sweep.ok) {
+      setStatusMessage(sweep.error || "Download cancelled. Cleanup failed.", "error");
+      return;
+    }
+    const parts: string[] = [];
+    if (sweep.removed_files) parts.push(`${sweep.removed_files} files`);
+    if (sweep.removed_dirs) parts.push(`${sweep.removed_dirs} folders`);
+    setStatusMessage(
+      parts.length
+        ? `Download cancelled. Removed ${parts.join(" and ")}.`
+        : "Download cancelled. Nothing to clean up.",
+      "",
+    );
   }
 
   async function startDownloadJob() {
@@ -882,6 +902,16 @@ export default function App() {
           confirmLabel="Clear"
           onConfirm={confirmClear}
           onCancel={() => setPendingClear(false)}
+        />
+      </Show>
+
+      <Show when={cleanupJobId()}>
+        <ConfirmDialog
+          title="Cancel download?"
+          message="Partial files from this download will be removed from the save folder."
+          confirmLabel="Cancel & clean up"
+          onConfirm={confirmCancelCleanup}
+          onCancel={() => setCleanupJobId(null)}
         />
       </Show>
     </main>

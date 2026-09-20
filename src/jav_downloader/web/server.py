@@ -16,7 +16,7 @@ from jav_downloader.web.jobs import JobManager
 from jav_downloader.web.paths import default_download_dir, validate_dest_folder
 from jav_downloader.web.reveal import reveal_in_file_manager
 from jav_downloader.web.thumbnail import fetch_thumbnail
-from jav_downloader.web import service
+from jav_downloader.web import cleanup, service
 
 STATIC_DIR = Path(__file__).resolve().parent / 'static'
 MANAGER = JobManager()
@@ -169,6 +169,19 @@ class WebHandler(BaseHTTPRequestHandler):
                 **service._encode_options_from_mapping(payload),
             )
             status = HTTPStatus.OK if result.get('ok') else HTTPStatus.UNPROCESSABLE_ENTITY
+            _json_response(self, status, result)
+            return
+
+        if path == '/api/jobs/cleanup':
+            job_id = str(payload.get('job_id') or '').strip()
+            if not job_id:
+                _json_response(self, HTTPStatus.BAD_REQUEST, {
+                    'ok': False,
+                    'error': 'Job id is required',
+                })
+                return
+            result = cleanup.cleanup_job(MANAGER, job_id)
+            status = HTTPStatus.OK if result.get('ok') else HTTPStatus.BAD_REQUEST
             _json_response(self, status, result)
             return
 

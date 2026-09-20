@@ -143,3 +143,19 @@ export function cancelJob(jobId: string) {
     body: "{}",
   });
 }
+
+export type CleanupResult = {
+  ok: boolean;
+  removed_files: number;
+  removed_dirs: number;
+  freed_bytes: number;
+  skipped: number;
+  error?: string;
+};
+
+export function cleanupJob(jobId: string) {
+  return request<CleanupResult>("/api/jobs/cleanup", {
+    method: "POST",
+    body: JSON.stringify({ job_id: jobId }),
+  });
+}
