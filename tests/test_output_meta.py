@@ -36,7 +36,50 @@ def test_estimate_output_size_hls_uses_bandwidth(monkeypatch):
         _duration_sec=100.0,
         _cut_ranges=[],
         _selected_variant_bandwidth=8_000_000,
+        _selected_variant_height=720,
     )
+    monkeypatch.setattr(meta_mod, '_estimate_hls_size_from_segments', lambda _site: None)
     size, exact = meta_mod.estimate_output_size(site)
     assert exact is False
     assert size == 100_000_000
+
+
+def test_estimate_output_size_hls_hides_implausible_bandwidth(monkeypatch):
+    site = SimpleNamespace(
+        _direct_url=None,
+        _m3u8url='https://cdn.example/stream.m3u8',
+        _duration_sec=100.0,
+        _cut_ranges=[(0.0, 300.0)],
+        _selected_variant_bandwidth=31_000,
+        _selected_variant_height=480,
+    )
+    monkeypatch.setattr(meta_mod, '_estimate_hls_size_from_segments', lambda _site: None)
+    size, exact = meta_mod.estimate_output_size(site)
+    assert size is None
+    assert exact is False
+
+
+def test_estimate_output_size_hls_prefers_segment_probe(monkeypatch):
+    site = SimpleNamespace(
+        _direct_url=None,
+        _m3u8url='https://cdn.example/stream.m3u8',
+        _duration_sec=3600.0,
+        _cut_ranges=[(0.0, 300.0)],
+        _selected_variant_bandwidth=31_000,
+        _selected_variant_height=480,
+        _hls_media_duration_sec=3600.0,
+    )
+    monkeypatch.setattr(meta_mod, '_estimate_hls_size_from_segments', lambda _site: 18_000_000)
+    size, exact = meta_mod.estimate_output_size(site)
+    assert exact is False
+    assert size == 18_000_000
+
+
+def test_media_playlist_duration_sec_sums_segments():
+    segments = [
+        SimpleNamespace(duration=6.0),
+        SimpleNamespace(duration=6.0),
+        SimpleNamespace(duration=4.5),
+    ]
+    m3u8 = SimpleNamespace(segments=segments)
+    assert meta_mod._media_playlist_duration_sec(m3u8) == 16.5
