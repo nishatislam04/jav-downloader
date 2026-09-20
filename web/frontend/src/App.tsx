@@ -1,30 +1,26 @@
 import {
-	createEffect,
-	createMemo,
-	createSignal,
-	onCleanup,
-	onMount,
-	Show,
-	untrack,
+  createEffect,
+  createMemo,
+  createSignal,
+  onCleanup,
+  onMount,
+  Show,
+  untrack,
 } from "solid-js";
 import {
-	cancelJob,
-	fetchHealth,
-	fetchJob,
-	type Job,
-	pauseJob,
-	type ResolveResult,
-	resolveUrl,
-	resumeJob,
-	revealFile,
-	startDownload,
-	validateFolder,
+  cancelJob,
+  fetchHealth,
+  fetchJob,
+  type Job,
+  pauseJob,
+  type ResolveResult,
+  resolveUrl,
+  resumeJob,
+  revealFile,
+  startDownload,
+  validateFolder,
 } from "./api";
-import EditToolsCard, {
-	type CutRange,
-	newCutRange,
-	type ToolId,
-} from "./components/EditToolsCard";
+import EditToolsCard, { type CutRange, newCutRange, type ToolId } from "./components/EditToolsCard";
 import HistoryMenu from "./components/HistoryMenu";
 import { DownloadIcon, SuccessIcon } from "./components/IconButton";
 import MetaCard from "./components/MetaCard";
@@ -32,735 +28,721 @@ import ProgressCard from "./components/ProgressCard";
 import ProgressRing from "./components/ProgressRing";
 import { appendHistory } from "./lib/history";
 import {
-	DEFAULT_AUDIO_SETTINGS,
-	DEFAULT_ENCODE_SETTINGS,
-	type AudioSettings,
-	type EncodeSettings,
-	loadAudioSettings,
-	loadEncodeSettings,
-	loadRememberAudio,
-	loadRememberEncode,
-	loadRememberSavePath,
-	loadSavedPath,
-	persistAudioSettings,
-	persistEncodeSettings,
-	persistSavePath,
+  type AudioSettings,
+  DEFAULT_AUDIO_SETTINGS,
+  DEFAULT_ENCODE_SETTINGS,
+  type EncodeSettings,
+  loadAudioSettings,
+  loadEncodeSettings,
+  loadRememberAudio,
+  loadRememberEncode,
+  loadRememberSavePath,
+  loadSavedPath,
+  persistAudioSettings,
+  persistEncodeSettings,
+  persistSavePath,
 } from "./lib/persist";
-import {
-	hasActiveCut,
-	looksLikeSupportedUrl,
-	validateCutRanges,
-} from "./lib/time";
+import { hasActiveCut, looksLikeSupportedUrl, validateCutRanges } from "./lib/time";
 
 type ResolvePhase = "" | "metadata" | "updating";
 
 function isCutRelatedError(message: string): boolean {
-	const text = message.toLowerCase();
-	return (
-		text.includes("cut ") ||
-		text.includes("time format") ||
-		text.includes("invalid start") ||
-		text.includes("invalid end") ||
-		text.includes("exceeds video length")
-	);
+  const text = message.toLowerCase();
+  return (
+    text.includes("cut ") ||
+    text.includes("time format") ||
+    text.includes("invalid start") ||
+    text.includes("invalid end") ||
+    text.includes("exceeds video length")
+  );
 }
 
 export default function App() {
-	const [url, setUrl] = createSignal("");
-	const [cuts, setCuts] = createSignal<CutRange[]>([newCutRange()]);
-	const [defaultDownloadDir, setDefaultDownloadDir] = createSignal("");
-	const [savePath, setSavePath] = createSignal("");
-	const [savePathCustom, setSavePathCustom] = createSignal(false);
-	const [rememberSavePath, setRememberSavePath] = createSignal(
-		loadRememberSavePath(),
-	);
-	const [customTitle, setCustomTitle] = createSignal("");
-	const [audioSettings, setAudioSettings] = createSignal<AudioSettings>(
-		loadRememberAudio() ? loadAudioSettings() : { ...DEFAULT_AUDIO_SETTINGS },
-	);
-	const [rememberAudio, setRememberAudio] = createSignal(loadRememberAudio());
-	const [encodeSettings, setEncodeSettings] = createSignal<EncodeSettings>(
-		loadRememberEncode() ? loadEncodeSettings() : { ...DEFAULT_ENCODE_SETTINGS },
-	);
-	const [rememberEncode, setRememberEncode] = createSignal(loadRememberEncode());
-	const [activeTool, setActiveTool] = createSignal<ToolId | null>(null);
-	const [status, setStatus] = createSignal("");
-	const [statusKind, setStatusKind] = createSignal<"ok" | "error" | "">("");
-	const [resolvePhase, setResolvePhase] = createSignal<ResolvePhase>("");
-	const [resolved, setResolved] = createSignal<ResolveResult | null>(null);
-	const [job, setJob] = createSignal<Job | null>(null);
-	const [busy, setBusy] = createSignal(false);
-	const [resolving, setResolving] = createSignal(false);
-	const [actionBusy, setActionBusy] = createSignal(false);
-	const [hasResolvedOnce, setHasResolvedOnce] = createSignal(false);
-	const [downloadComplete, setDownloadComplete] = createSignal(false);
-	const [serverCutError, setServerCutError] = createSignal("");
+  const [url, setUrl] = createSignal("");
+  const [cuts, setCuts] = createSignal<CutRange[]>([newCutRange()]);
+  const [defaultDownloadDir, setDefaultDownloadDir] = createSignal("");
+  const [savePath, setSavePath] = createSignal("");
+  const [savePathCustom, setSavePathCustom] = createSignal(false);
+  const [rememberSavePath, setRememberSavePath] = createSignal(loadRememberSavePath());
+  const [customTitle, setCustomTitle] = createSignal("");
+  const [audioSettings, setAudioSettings] = createSignal<AudioSettings>(
+    loadRememberAudio() ? loadAudioSettings() : { ...DEFAULT_AUDIO_SETTINGS },
+  );
+  const [rememberAudio, setRememberAudio] = createSignal(loadRememberAudio());
+  const [encodeSettings, setEncodeSettings] = createSignal<EncodeSettings>(
+    loadRememberEncode() ? loadEncodeSettings() : { ...DEFAULT_ENCODE_SETTINGS },
+  );
+  const [rememberEncode, setRememberEncode] = createSignal(loadRememberEncode());
+  const [activeTool, setActiveTool] = createSignal<ToolId | null>(null);
+  const [status, setStatus] = createSignal("");
+  const [statusKind, setStatusKind] = createSignal<"ok" | "error" | "">("");
+  const [resolvePhase, setResolvePhase] = createSignal<ResolvePhase>("");
+  const [resolved, setResolved] = createSignal<ResolveResult | null>(null);
+  const [job, setJob] = createSignal<Job | null>(null);
+  const [busy, setBusy] = createSignal(false);
+  const [resolving, setResolving] = createSignal(false);
+  const [actionBusy, setActionBusy] = createSignal(false);
+  const [hasResolvedOnce, setHasResolvedOnce] = createSignal(false);
+  const [downloadComplete, setDownloadComplete] = createSignal(false);
+  const [serverCutError, setServerCutError] = createSignal("");
 
-	let urlInput: HTMLInputElement | undefined;
-	let pollTimer: ReturnType<typeof setInterval> | undefined;
-	let resolveTimer: ReturnType<typeof setTimeout> | undefined;
-	let editResolveTimer: ReturnType<typeof setTimeout> | undefined;
-	let resolveRequest = 0;
+  let urlInput: HTMLInputElement | undefined;
+  let pollTimer: ReturnType<typeof setInterval> | undefined;
+  let resolveTimer: ReturnType<typeof setTimeout> | undefined;
+  let editResolveTimer: ReturnType<typeof setTimeout> | undefined;
+  let resolveRequest = 0;
 
-	onCleanup(() => {
-		if (pollTimer) clearInterval(pollTimer);
-		if (resolveTimer) clearTimeout(resolveTimer);
-		if (editResolveTimer) clearTimeout(editResolveTimer);
-	});
+  onCleanup(() => {
+    if (pollTimer) clearInterval(pollTimer);
+    if (resolveTimer) clearTimeout(resolveTimer);
+    if (editResolveTimer) clearTimeout(editResolveTimer);
+  });
 
-	onMount(async () => {
-		urlInput?.focus();
-		const health = await fetchHealth();
-		const downloadDir = health.download_dir || "";
-		setDefaultDownloadDir(downloadDir);
+  onMount(async () => {
+    urlInput?.focus();
+    const health = await fetchHealth();
+    const downloadDir = health.download_dir || "";
+    setDefaultDownloadDir(downloadDir);
 
-		if (rememberSavePath()) {
-			const stored = loadSavedPath().trim();
-			if (stored) {
-				const result = await validateFolder(stored);
-				if (result.ok && result.path) {
-					setSavePath(result.path);
-					setSavePathCustom(true);
-					return;
-				}
-				persistSavePath("", false);
-				setRememberSavePath(false);
-			}
-		}
+    if (rememberSavePath()) {
+      const stored = loadSavedPath().trim();
+      if (stored) {
+        const result = await validateFolder(stored);
+        if (result.ok && result.path) {
+          setSavePath(result.path);
+          setSavePathCustom(true);
+          return;
+        }
+        persistSavePath("", false);
+        setRememberSavePath(false);
+      }
+    }
 
-		if (!savePathCustom()) {
-			setSavePath(downloadDir);
-		}
-	});
+    if (!savePathCustom()) {
+      setSavePath(downloadDir);
+    }
+  });
 
-	function resetEditTools() {
-		setActiveTool(null);
-		setCustomTitle("");
-		setCuts([newCutRange()]);
-		if (!rememberAudio()) {
-			setAudioSettings({ ...DEFAULT_AUDIO_SETTINGS });
-		}
-		if (!rememberEncode()) {
-			setEncodeSettings({ ...DEFAULT_ENCODE_SETTINGS });
-		}
-		if (!rememberSavePath()) {
-			setSavePathCustom(false);
-			setSavePath(defaultDownloadDir());
-		}
-		setHasResolvedOnce(false);
-		setServerCutError("");
-	}
+  function resetEditTools() {
+    setActiveTool(null);
+    setCustomTitle("");
+    setCuts([newCutRange()]);
+    if (!rememberAudio()) {
+      setAudioSettings({ ...DEFAULT_AUDIO_SETTINGS });
+    }
+    if (!rememberEncode()) {
+      setEncodeSettings({ ...DEFAULT_ENCODE_SETTINGS });
+    }
+    if (!rememberSavePath()) {
+      setSavePathCustom(false);
+      setSavePath(defaultDownloadDir());
+    }
+    setHasResolvedOnce(false);
+    setServerCutError("");
+  }
 
-	function clearTransientState() {
-		setCuts([newCutRange()]);
-		if (!rememberAudio()) {
-			setAudioSettings({ ...DEFAULT_AUDIO_SETTINGS });
-		}
-		if (!rememberEncode()) {
-			setEncodeSettings({ ...DEFAULT_ENCODE_SETTINGS });
-		}
-		setServerCutError("");
-		setJob(null);
-		setDownloadComplete(false);
-		setBusy(false);
-		setStatusMessage("", "");
-	}
+  function clearTransientState() {
+    setCuts([newCutRange()]);
+    if (!rememberAudio()) {
+      setAudioSettings({ ...DEFAULT_AUDIO_SETTINGS });
+    }
+    if (!rememberEncode()) {
+      setEncodeSettings({ ...DEFAULT_ENCODE_SETTINGS });
+    }
+    setServerCutError("");
+    setJob(null);
+    setDownloadComplete(false);
+    setBusy(false);
+    setStatusMessage("", "");
+  }
 
-	function setStatusMessage(text: string, kind: "ok" | "error" | "" = "") {
-		setStatus(text);
-		setStatusKind(kind);
-	}
+  function setStatusMessage(text: string, kind: "ok" | "error" | "" = "") {
+    setStatus(text);
+    setStatusKind(kind);
+  }
 
-	const durationSec = () => resolved()?.duration_sec ?? null;
+  const durationSec = () => resolved()?.duration_sec ?? null;
 
-	const cutValidation = createMemo(() => {
-		const local = validateCutRanges(durationSec(), cuts());
-		return local || serverCutError();
-	});
+  const cutValidation = createMemo(() => {
+    const local = validateCutRanges(durationSec(), cuts());
+    return local || serverCutError();
+  });
 
-	function activeCutsPayload() {
-		return cuts()
-			.filter(hasActiveCut)
-			.map((cut) => ({
-				start: cut.start.trim() || undefined,
-				end: cut.end.trim() || undefined,
-			}));
-	}
+  function activeCutsPayload() {
+    return cuts()
+      .filter(hasActiveCut)
+      .map((cut) => ({
+        start: cut.start.trim() || undefined,
+        end: cut.end.trim() || undefined,
+      }));
+  }
 
-	function resolvePayload(includeCuts = true) {
-		const payload: {
-			cuts?: Array<{ start?: string; end?: string }>;
-			dest_folder?: string;
-			output_title?: string;
-			audio_fade?: boolean;
-			audio_loudnorm?: boolean;
-			audio_mute?: boolean;
-			audio_bitrate?: number;
-			audio_volume?: number;
-			encode?: boolean;
-			encode_codec?: string;
-			encode_crf?: number;
-			encode_max_height?: number;
-			encode_output_mode?: string;
-			encode_preset?: string;
-			encode_threads?: number;
-		} = {};
+  function resolvePayload(includeCuts = true) {
+    const payload: {
+      cuts?: Array<{ start?: string; end?: string }>;
+      dest_folder?: string;
+      output_title?: string;
+      audio_fade?: boolean;
+      audio_loudnorm?: boolean;
+      audio_mute?: boolean;
+      audio_bitrate?: number;
+      audio_volume?: number;
+      encode?: boolean;
+      encode_codec?: string;
+      encode_crf?: number;
+      encode_max_height?: number;
+      encode_output_mode?: string;
+      encode_preset?: string;
+      encode_threads?: number;
+    } = {};
 
-		if (includeCuts && !validateCutRanges(durationSec(), cuts())) {
-			const active = activeCutsPayload();
-			if (active.length) payload.cuts = active;
-		}
+    if (includeCuts && !validateCutRanges(durationSec(), cuts())) {
+      const active = activeCutsPayload();
+      if (active.length) payload.cuts = active;
+    }
 
-		const dest = savePath().trim();
-		if (dest) payload.dest_folder = dest;
+    const dest = savePath().trim();
+    if (dest) payload.dest_folder = dest;
 
-		const title = customTitle().trim();
-		if (title) payload.output_title = title;
+    const title = customTitle().trim();
+    if (title) payload.output_title = title;
 
-		const audio = audioSettings();
-		if (audio.fade) payload.audio_fade = true;
-		if (audio.loudnorm) payload.audio_loudnorm = true;
-		if (audio.mute) payload.audio_mute = true;
-		if (audio.bitrate !== 128) payload.audio_bitrate = audio.bitrate;
-		if (audio.volume > 1) payload.audio_volume = audio.volume;
-		const encode = encodeSettings();
-		if (encode.enabled) {
-			payload.encode = true;
-			payload.encode_codec = encode.codec;
-			payload.encode_crf = encode.crf;
-			payload.encode_max_height = encode.maxHeight;
-			payload.encode_output_mode = encode.outputMode;
-			payload.encode_preset = encode.preset;
-			payload.encode_threads = encode.threads;
-		}
+    const audio = audioSettings();
+    if (audio.fade) payload.audio_fade = true;
+    if (audio.loudnorm) payload.audio_loudnorm = true;
+    if (audio.mute) payload.audio_mute = true;
+    if (audio.bitrate !== 128) payload.audio_bitrate = audio.bitrate;
+    if (audio.volume > 1) payload.audio_volume = audio.volume;
+    const encode = encodeSettings();
+    if (encode.enabled) {
+      payload.encode = true;
+      payload.encode_codec = encode.codec;
+      payload.encode_crf = encode.crf;
+      payload.encode_max_height = encode.maxHeight;
+      payload.encode_output_mode = encode.outputMode;
+      payload.encode_preset = encode.preset;
+      payload.encode_threads = encode.threads;
+    }
 
-		return payload;
-	}
+    return payload;
+  }
 
-	async function runResolve(trigger: "url" | "cut" | "edit" = "url") {
-		const value = url().trim();
-		if (!looksLikeSupportedUrl(value)) {
-			setResolved(null);
-			setResolvePhase("");
-			setResolving(false);
-			if (!value) {
-				resetEditTools();
-				setStatusMessage("");
-			}
-			return;
-		}
+  async function runResolve(trigger: "url" | "cut" | "edit" = "url") {
+    const value = url().trim();
+    if (!looksLikeSupportedUrl(value)) {
+      setResolved(null);
+      setResolvePhase("");
+      setResolving(false);
+      if (!value) {
+        resetEditTools();
+        setStatusMessage("");
+      }
+      return;
+    }
 
-		const localCutError = validateCutRanges(durationSec(), cuts());
-		if (localCutError && trigger === "cut") {
-			setServerCutError("");
-			setStatusMessage("", "");
-			return;
-		}
+    const localCutError = validateCutRanges(durationSec(), cuts());
+    if (localCutError && trigger === "cut") {
+      setServerCutError("");
+      setStatusMessage("", "");
+      return;
+    }
 
-		const includeCuts = trigger === "cut" && !localCutError;
-		const silent = trigger !== "url" && hasResolvedOnce();
-		const requestId = ++resolveRequest;
-		if (!silent) {
-			setResolving(true);
-			setResolvePhase("metadata");
-		}
-		const data = await resolveUrl(value, resolvePayload(includeCuts));
-		if (requestId !== resolveRequest) return;
-		if (!silent) {
-			setResolving(false);
-			setResolvePhase("");
-		}
+    const includeCuts = trigger === "cut" && !localCutError;
+    const silent = trigger !== "url" && hasResolvedOnce();
+    const requestId = ++resolveRequest;
+    if (!silent) {
+      setResolving(true);
+      setResolvePhase("metadata");
+    }
+    const data = await resolveUrl(value, resolvePayload(includeCuts));
+    if (requestId !== resolveRequest) return;
+    if (!silent) {
+      setResolving(false);
+      setResolvePhase("");
+    }
 
-		if (!data.ok) {
-			const message = data.error || "Resolve failed";
-			if (hasResolvedOnce() && isCutRelatedError(message)) {
-				setServerCutError(message);
-				setStatusMessage("", "");
-				return;
-			}
-			setResolved(null);
-			setHasResolvedOnce(false);
-			setStatusMessage(message, "error");
-			return;
-		}
+    if (!data.ok) {
+      const message = data.error || "Resolve failed";
+      if (hasResolvedOnce() && isCutRelatedError(message)) {
+        setServerCutError(message);
+        setStatusMessage("", "");
+        return;
+      }
+      setResolved(null);
+      setHasResolvedOnce(false);
+      setStatusMessage(message, "error");
+      return;
+    }
 
-		setResolved(data);
-		setHasResolvedOnce(true);
-		setServerCutError("");
+    setResolved(data);
+    setHasResolvedOnce(true);
+    setServerCutError("");
 
-		if (trigger === "url") {
-			setActiveTool(null);
-			setCustomTitle("");
-			setCuts([newCutRange()]);
-			if (!rememberAudio()) {
-				setAudioSettings({ ...DEFAULT_AUDIO_SETTINGS });
-			}
-			if (!rememberEncode()) {
-				setEncodeSettings({ ...DEFAULT_ENCODE_SETTINGS });
-			}
-			if (!rememberSavePath() && !savePathCustom()) {
-				if (data.dest_folder) {
-					setSavePath(data.dest_folder);
-				}
-			}
-		}
+    if (trigger === "url") {
+      setActiveTool(null);
+      setCustomTitle("");
+      setCuts([newCutRange()]);
+      if (!rememberAudio()) {
+        setAudioSettings({ ...DEFAULT_AUDIO_SETTINGS });
+      }
+      if (!rememberEncode()) {
+        setEncodeSettings({ ...DEFAULT_ENCODE_SETTINGS });
+      }
+      if (!rememberSavePath() && !savePathCustom()) {
+        if (data.dest_folder) {
+          setSavePath(data.dest_folder);
+        }
+      }
+    }
 
-		if (data.exists) {
-			setStatusMessage("File already exists in the download folder.", "ok");
-		} else {
-			setStatusMessage("", "");
-		}
-	}
+    if (data.exists) {
+      setStatusMessage("File already exists in the download folder.", "ok");
+    } else {
+      setStatusMessage("", "");
+    }
+  }
 
-	function scheduleResolve(trigger: "url" | "cut" | "edit" = "url") {
-		if (resolveTimer) clearTimeout(resolveTimer);
-		const delay = trigger === "url" ? 650 : 450;
-		resolveTimer = setTimeout(() => {
-			void runResolve(trigger);
-		}, delay);
-	}
+  function scheduleResolve(trigger: "url" | "cut" | "edit" = "url") {
+    if (resolveTimer) clearTimeout(resolveTimer);
+    const delay = trigger === "url" ? 650 : 450;
+    resolveTimer = setTimeout(() => {
+      void runResolve(trigger);
+    }, delay);
+  }
 
-	function scheduleEditResolve() {
-		if (!hasResolvedOnce()) return;
-		if (editResolveTimer) clearTimeout(editResolveTimer);
-		editResolveTimer = setTimeout(() => {
-			void runResolve("edit");
-		}, 450);
-	}
+  function scheduleEditResolve() {
+    if (!hasResolvedOnce()) return;
+    if (editResolveTimer) clearTimeout(editResolveTimer);
+    editResolveTimer = setTimeout(() => {
+      void runResolve("edit");
+    }, 450);
+  }
 
-	createEffect(() => {
-		const value = url();
-		if (!value.trim()) {
-			setResolved(null);
-			setResolving(false);
-			setResolvePhase("");
-			resetEditTools();
-			return;
-		}
-		if (looksLikeSupportedUrl(value)) {
-			setResolved(null);
-			setResolving(true);
-			setResolvePhase("metadata");
-		}
-		clearTransientState();
-		setHasResolvedOnce(false);
-		scheduleResolve("url");
-	});
+  createEffect(() => {
+    const value = url();
+    if (!value.trim()) {
+      setResolved(null);
+      setResolving(false);
+      setResolvePhase("");
+      resetEditTools();
+      return;
+    }
+    if (looksLikeSupportedUrl(value)) {
+      setResolved(null);
+      setResolving(true);
+      setResolvePhase("metadata");
+    }
+    clearTransientState();
+    setHasResolvedOnce(false);
+    scheduleResolve("url");
+  });
 
-	createEffect(() => {
-		const rows = cuts();
-		untrack(() => {
-			setServerCutError("");
-			if (rows.some(hasActiveCut)) {
-				setDownloadComplete(false);
-			}
-			if (!rows.some(hasActiveCut)) return;
-			if (validateCutRanges(durationSec(), rows)) return;
-			if (!looksLikeSupportedUrl(url()) || !hasResolvedOnce()) return;
-			scheduleResolve("cut");
-		});
-	});
+  createEffect(() => {
+    const rows = cuts();
+    untrack(() => {
+      setServerCutError("");
+      if (rows.some(hasActiveCut)) {
+        setDownloadComplete(false);
+      }
+      if (!rows.some(hasActiveCut)) return;
+      if (validateCutRanges(durationSec(), rows)) return;
+      if (!looksLikeSupportedUrl(url()) || !hasResolvedOnce()) return;
+      scheduleResolve("cut");
+    });
+  });
 
-	function handleCutChange(id: string, field: "start" | "end", value: string) {
-		setCuts((prev) =>
-			prev.map((cut) => (cut.id === id ? { ...cut, [field]: value } : cut)),
-		);
-	}
+  function handleCutChange(id: string, field: "start" | "end", value: string) {
+    setCuts((prev) => prev.map((cut) => (cut.id === id ? { ...cut, [field]: value } : cut)));
+  }
 
-	function handleAddCut() {
-		setCuts((prev) => [...prev, newCutRange()]);
-	}
+  function handleAddCut() {
+    setCuts((prev) => [...prev, newCutRange()]);
+  }
 
-	function handleRemoveCut(id: string) {
-		setCuts((prev) => {
-			const next = prev.filter((cut) => cut.id !== id);
-			return next.length ? next : [newCutRange()];
-		});
-	}
+  function handleRemoveCut(id: string) {
+    setCuts((prev) => {
+      const next = prev.filter((cut) => cut.id !== id);
+      return next.length ? next : [newCutRange()];
+    });
+  }
 
-	function handleAudioSettingsChange(value: AudioSettings) {
-		setAudioSettings(value);
-		if (rememberAudio()) {
-			persistAudioSettings(value, true);
-		}
-	}
+  function handleAudioSettingsChange(value: AudioSettings) {
+    setAudioSettings(value);
+    if (rememberAudio()) {
+      persistAudioSettings(value, true);
+    }
+  }
 
-	function handleRememberAudioChange(checked: boolean) {
-		setRememberAudio(checked);
-		if (checked) {
-			persistAudioSettings(audioSettings(), true);
-		} else {
-			persistAudioSettings(audioSettings(), false);
-		}
-	}
+  function handleRememberAudioChange(checked: boolean) {
+    setRememberAudio(checked);
+    if (checked) {
+      persistAudioSettings(audioSettings(), true);
+    } else {
+      persistAudioSettings(audioSettings(), false);
+    }
+  }
 
-	function handleEncodeSettingsChange(value: EncodeSettings) {
-		setEncodeSettings(value);
-		if (rememberEncode()) {
-			persistEncodeSettings(value, true);
-		}
-	}
+  function handleEncodeSettingsChange(value: EncodeSettings) {
+    setEncodeSettings(value);
+    if (rememberEncode()) {
+      persistEncodeSettings(value, true);
+    }
+  }
 
-	function handleRememberEncodeChange(checked: boolean) {
-		setRememberEncode(checked);
-		if (checked) {
-			persistEncodeSettings(encodeSettings(), true);
-		} else {
-			persistEncodeSettings(encodeSettings(), false);
-		}
-	}
+  function handleRememberEncodeChange(checked: boolean) {
+    setRememberEncode(checked);
+    if (checked) {
+      persistEncodeSettings(encodeSettings(), true);
+    } else {
+      persistEncodeSettings(encodeSettings(), false);
+    }
+  }
 
-	async function pollJob(jobId: string) {
-		if (pollTimer) clearInterval(pollTimer);
+  async function pollJob(jobId: string) {
+    if (pollTimer) clearInterval(pollTimer);
 
-		const tick = async () => {
-			const data = await fetchJob(jobId);
-			if (!data.ok || !data.job) return;
-			setJob(data.job);
-			if (data.job.status === "completed") {
-				const meta = resolved();
-				appendHistory({
-					url: meta?.url || url().trim(),
-					title: meta?.title || data.job.title || "",
-					thumbnail: meta?.thumbnail || data.job.thumbnail || "",
-					downloadedAt: Date.now(),
-				});
-				setDownloadComplete(true);
-				setStatusMessage("", "");
-				setBusy(false);
-				if (pollTimer) clearInterval(pollTimer);
-			} else if (data.job.status === "failed") {
-				setStatusMessage(data.job.error || "Download failed", "error");
-				setBusy(false);
-				setDownloadComplete(false);
-				if (pollTimer) clearInterval(pollTimer);
-			} else if (data.job.status === "paused") {
-				setBusy(false);
-				setStatusMessage("Download paused.", "");
-				if (pollTimer) clearInterval(pollTimer);
-			}
-		};
+    const tick = async () => {
+      const data = await fetchJob(jobId);
+      if (!data.ok || !data.job) return;
+      setJob(data.job);
+      if (data.job.status === "completed") {
+        const meta = resolved();
+        appendHistory({
+          url: meta?.url || url().trim(),
+          title: meta?.title || data.job.title || "",
+          thumbnail: meta?.thumbnail || data.job.thumbnail || "",
+          downloadedAt: Date.now(),
+        });
+        setDownloadComplete(true);
+        setStatusMessage("", "");
+        setBusy(false);
+        if (pollTimer) clearInterval(pollTimer);
+      } else if (data.job.status === "failed") {
+        setStatusMessage(data.job.error || "Download failed", "error");
+        setBusy(false);
+        setDownloadComplete(false);
+        if (pollTimer) clearInterval(pollTimer);
+      } else if (data.job.status === "paused") {
+        setBusy(false);
+        setStatusMessage("Download paused.", "");
+        if (pollTimer) clearInterval(pollTimer);
+      }
+    };
 
-		await tick();
-		pollTimer = setInterval(tick, 800);
-	}
+    await tick();
+    pollTimer = setInterval(tick, 800);
+  }
 
-	async function handlePause(jobId: string) {
-		setActionBusy(true);
-		const data = await pauseJob(jobId);
-		setActionBusy(false);
-		if (!data.ok || !data.job) {
-			setStatusMessage(data.error || "Could not pause download", "error");
-			return;
-		}
-		setJob(data.job);
-		setBusy(false);
-		setStatusMessage("Download paused.", "");
-	}
+  async function handlePause(jobId: string) {
+    setActionBusy(true);
+    const data = await pauseJob(jobId);
+    setActionBusy(false);
+    if (!data.ok || !data.job) {
+      setStatusMessage(data.error || "Could not pause download", "error");
+      return;
+    }
+    setJob(data.job);
+    setBusy(false);
+    setStatusMessage("Download paused.", "");
+  }
 
-	async function handleResume(jobId: string) {
-		setActionBusy(true);
-		const data = await resumeJob(jobId);
-		setActionBusy(false);
-		if (!data.ok || !data.job) {
-			setStatusMessage(data.error || "Could not resume download", "error");
-			return;
-		}
-		setJob(data.job);
-		setBusy(true);
-		setDownloadComplete(false);
-		setStatusMessage("Resuming download…");
-		await pollJob(jobId);
-	}
+  async function handleResume(jobId: string) {
+    setActionBusy(true);
+    const data = await resumeJob(jobId);
+    setActionBusy(false);
+    if (!data.ok || !data.job) {
+      setStatusMessage(data.error || "Could not resume download", "error");
+      return;
+    }
+    setJob(data.job);
+    setBusy(true);
+    setDownloadComplete(false);
+    setStatusMessage("Resuming download…");
+    await pollJob(jobId);
+  }
 
-	async function handleCancel(jobId: string) {
-		setActionBusy(true);
-		const data = await cancelJob(jobId);
-		setActionBusy(false);
-		if (!data.ok || !data.job) {
-			setStatusMessage(data.error || "Could not cancel download", "error");
-			return;
-		}
-		setJob(data.job);
-		setBusy(false);
-		setDownloadComplete(false);
-		setStatusMessage("Download cancelled.", "error");
-	}
+  async function handleCancel(jobId: string) {
+    setActionBusy(true);
+    const data = await cancelJob(jobId);
+    setActionBusy(false);
+    if (!data.ok || !data.job) {
+      setStatusMessage(data.error || "Could not cancel download", "error");
+      return;
+    }
+    setJob(data.job);
+    setBusy(false);
+    setDownloadComplete(false);
+    setStatusMessage("Download cancelled.", "error");
+  }
 
-	async function startDownloadJob() {
-		const meta = resolved();
-		const value = meta?.url || url().trim();
-		if (!value) {
-			setStatusMessage("Paste a supported URL first.", "error");
-			return;
-		}
-		if (cutValidation()) {
-			setActiveTool("cut");
-			return;
-		}
-		if (!meta?.ok) {
-			setStatusMessage("Waiting for metadata…", "error");
-			return;
-		}
+  async function startDownloadJob() {
+    const meta = resolved();
+    const value = meta?.url || url().trim();
+    if (!value) {
+      setStatusMessage("Paste a supported URL first.", "error");
+      return;
+    }
+    if (cutValidation()) {
+      setActiveTool("cut");
+      return;
+    }
+    if (!meta?.ok) {
+      setStatusMessage("Waiting for metadata…", "error");
+      return;
+    }
 
-		setBusy(true);
-		setDownloadComplete(false);
-		setStatusMessage("", "");
-		const data = await startDownload(value, resolvePayload(true));
-		if (!data.ok || !data.job) {
-			const message = data.error || "Could not start download";
-			if (isCutRelatedError(message)) {
-				setServerCutError(message);
-				setActiveTool("cut");
-				setStatusMessage("", "");
-			} else {
-				setStatusMessage(message, "error");
-			}
-			setBusy(false);
-			return;
-		}
+    setBusy(true);
+    setDownloadComplete(false);
+    setStatusMessage("", "");
+    const data = await startDownload(value, resolvePayload(true));
+    if (!data.ok || !data.job) {
+      const message = data.error || "Could not start download";
+      if (isCutRelatedError(message)) {
+        setServerCutError(message);
+        setActiveTool("cut");
+        setStatusMessage("", "");
+      } else {
+        setStatusMessage(message, "error");
+      }
+      setBusy(false);
+      return;
+    }
 
-		setJob(data.job);
-		await pollJob(data.job.id);
-	}
+    setJob(data.job);
+    await pollJob(data.job.id);
+  }
 
-	async function handleDownload() {
-		await startDownloadJob();
-	}
+  async function handleDownload() {
+    await startDownloadJob();
+  }
 
-	async function handleRetry() {
-		await startDownloadJob();
-	}
+  async function handleRetry() {
+    await startDownloadJob();
+  }
 
-	async function handleReveal(path: string) {
-		const result = await revealFile(path);
-		if (!result.ok) {
-			setStatusMessage(result.error || "Could not open file location", "error");
-		}
-	}
+  async function handleReveal(path: string) {
+    const result = await revealFile(path);
+    if (!result.ok) {
+      setStatusMessage(result.error || "Could not open file location", "error");
+    }
+  }
 
-	function selectTool(tool: ToolId) {
-		setActiveTool(tool);
-		if (tool === "rename" && !customTitle().trim()) {
-			setCustomTitle(resolved()?.title || "");
-		}
-	}
+  function selectTool(tool: ToolId) {
+    setActiveTool(tool);
+    if (tool === "rename" && !customTitle().trim()) {
+      setCustomTitle(resolved()?.title || "");
+    }
+  }
 
-	function handleCustomTitleChange(value: string) {
-		setCustomTitle(value);
-		setResolved((prev) => {
-			if (!prev?.ok) return prev;
-			return { ...prev, title: value };
-		});
-		scheduleEditResolve();
-	}
+  function handleCustomTitleChange(value: string) {
+    setCustomTitle(value);
+    setResolved((prev) => {
+      if (!prev?.ok) return prev;
+      return { ...prev, title: value };
+    });
+    scheduleEditResolve();
+  }
 
-	function handleSavePathChange(path: string) {
-		setSavePathCustom(true);
-		setSavePath(path);
-		if (rememberSavePath()) {
-			persistSavePath(path, true);
-		}
-		scheduleEditResolve();
-	}
+  function handleSavePathChange(path: string) {
+    setSavePathCustom(true);
+    setSavePath(path);
+    if (rememberSavePath()) {
+      persistSavePath(path, true);
+    }
+    scheduleEditResolve();
+  }
 
-	function handleRememberSavePathChange(checked: boolean) {
-		setRememberSavePath(checked);
-		if (checked) {
-			const path = savePath().trim();
-			if (path) {
-				setSavePathCustom(true);
-				persistSavePath(path, true);
-			}
-		} else {
-			persistSavePath("", false);
-		}
-	}
+  function handleRememberSavePathChange(checked: boolean) {
+    setRememberSavePath(checked);
+    if (checked) {
+      const path = savePath().trim();
+      if (path) {
+        setSavePathCustom(true);
+        persistSavePath(path, true);
+      }
+    } else {
+      persistSavePath("", false);
+    }
+  }
 
-	const urlUnsupported = createMemo(() => {
-		const value = url().trim();
-		return value.length > 0 && !looksLikeSupportedUrl(value);
-	});
+  const urlUnsupported = createMemo(() => {
+    const value = url().trim();
+    return value.length > 0 && !looksLikeSupportedUrl(value);
+  });
 
-	const canDownload = createMemo(
-		() => !!resolved()?.ok && !cutValidation() && !busy() && !resolving(),
-	);
+  const canDownload = createMemo(
+    () => !!resolved()?.ok && !cutValidation() && !busy() && !resolving(),
+  );
 
-	const progressPct = createMemo(() => {
-		const current = job();
-		if (!busy() || !current) return 0;
-		return Math.max(0, Math.min(100, current.progress_pct ?? 0));
-	});
+  const progressPct = createMemo(() => {
+    const current = job();
+    if (!busy() || !current) return 0;
+    return Math.max(0, Math.min(100, current.progress_pct ?? 0));
+  });
 
-	const progressTitle = createMemo(() => {
-		const current = job();
-		if (!current?.progress_phase) {
-			return `Downloading ${progressPct().toFixed(0)}%`;
-		}
-		const detail = current.progress_detail?.trim();
-		return detail
-			? `${current.progress_phase} · ${detail}`
-			: current.progress_phase;
-	});
+  const progressTitle = createMemo(() => {
+    const current = job();
+    if (!current?.progress_phase) {
+      return `Downloading ${progressPct().toFixed(0)}%`;
+    }
+    const detail = current.progress_detail?.trim();
+    return detail ? `${current.progress_phase} · ${detail}` : current.progress_phase;
+  });
 
-	const resolveBadgeLabel = createMemo(() => {
-		if (resolvePhase() === "metadata") return "Parse metadata";
-		if (resolvePhase() === "updating") return "Update metadata";
-		return "";
-	});
+  const resolveBadgeLabel = createMemo(() => {
+    if (resolvePhase() === "metadata") return "Parse metadata";
+    if (resolvePhase() === "updating") return "Update metadata";
+    return "";
+  });
 
-	// Modification count per tool, shown as a badge on its sidebar icon.
-	const toolBadges = createMemo(() => {
-		const badges: Partial<Record<ToolId, number>> = {};
-		const activeCuts = cuts().filter(hasActiveCut).length;
-		if (activeCuts) badges.cut = activeCuts;
-		const audio = audioSettings();
-		const audioCount =
-			(audio.fade ? 1 : 0) +
-			(audio.loudnorm ? 1 : 0) +
-			(audio.mute ? 1 : 0) +
-			(audio.bitrate !== 128 ? 1 : 0) +
-			(audio.volume > 1 ? 1 : 0);
-		if (audioCount) badges.audio = audioCount;
-		if (customTitle().trim()) badges.rename = 1;
-		if (savePathCustom()) badges.save = 1;
-		if (encodeSettings().enabled) badges.encode = 1;
-		return badges;
-	});
+  // Modification count per tool, shown as a badge on its sidebar icon.
+  const toolBadges = createMemo(() => {
+    const badges: Partial<Record<ToolId, number>> = {};
+    const activeCuts = cuts().filter(hasActiveCut).length;
+    if (activeCuts) badges.cut = activeCuts;
+    const audio = audioSettings();
+    const audioCount =
+      (audio.fade ? 1 : 0) +
+      (audio.loudnorm ? 1 : 0) +
+      (audio.mute ? 1 : 0) +
+      (audio.bitrate !== 128 ? 1 : 0) +
+      (audio.volume > 1 ? 1 : 0);
+    if (audioCount) badges.audio = audioCount;
+    if (customTitle().trim()) badges.rename = 1;
+    if (savePathCustom()) badges.save = 1;
+    if (encodeSettings().enabled) badges.encode = 1;
+    return badges;
+  });
 
-	const resolvedMeta = createMemo(() => {
-		if (resolving()) return undefined;
-		const meta = resolved();
-		return meta?.ok ? meta : undefined;
-	});
+  const resolvedMeta = createMemo(() => {
+    if (resolving()) return undefined;
+    const meta = resolved();
+    return meta?.ok ? meta : undefined;
+  });
 
-	return (
-		<main class="shell">
-			<header class="app-header">
-				<h1>JAV Downloader</h1>
-				<HistoryMenu onSelect={(entry) => setUrl(entry.url)} />
-			</header>
+  return (
+    <main class="shell">
+      <header class="app-header">
+        <h1>JAV Downloader</h1>
+        <HistoryMenu onSelect={(entry) => setUrl(entry.url)} />
+      </header>
 
-			<section class="card url-dashboard sticky-dashboard">
-				<label for="url" class="url-label">
-					<span>Video URL</span>
-					<Show when={urlUnsupported()}>
-						<span class="badge-unsupported">Unsupported</span>
-					</Show>
-					<Show when={resolving() && resolveBadgeLabel()}>
-						<span class="badge-loading">
-							<span class="spinner" aria-hidden="true" />
-							{resolveBadgeLabel()}
-						</span>
-					</Show>
-				</label>
-				<div class="url-input-row">
-					<input
-						ref={urlInput}
-						id="url"
-						type="url"
-						placeholder="Provide supported link to download video"
-						autocomplete="off"
-						spellcheck={false}
-						value={url()}
-						onInput={(event) => setUrl(event.currentTarget.value)}
-						onFocus={(event) => {
-							if (event.currentTarget.value) event.currentTarget.select();
-						}}
-					/>
-					<Show
-						when={downloadComplete()}
-						fallback={
-							<Show
-								when={busy()}
-								fallback={
-									<Show when={canDownload()}>
-										<button
-											type="button"
-											class="download-circle"
-											aria-label="Download"
-											title="Download"
-											onClick={handleDownload}
-										>
-											<DownloadIcon />
-										</button>
-									</Show>
-								}
-							>
-								<ProgressRing
-									progress={progressPct()}
-									title={progressTitle()}
-								>
-									<span class="progress-ring-label">
-										{progressPct().toFixed(0)}%
-									</span>
-								</ProgressRing>
-							</Show>
-						}
-					>
-						<div
-							class="success-circle"
-							aria-label="Download complete"
-							title="Download complete"
-						>
-							<SuccessIcon />
-						</div>
-					</Show>
-				</div>
+      <section class="card url-dashboard sticky-dashboard">
+        <label for="url" class="url-label">
+          <span>Video URL</span>
+          <Show when={urlUnsupported()}>
+            <span class="badge-unsupported">Unsupported</span>
+          </Show>
+          <Show when={resolving() && resolveBadgeLabel()}>
+            <span class="badge-loading">
+              <span class="spinner" aria-hidden="true" />
+              {resolveBadgeLabel()}
+            </span>
+          </Show>
+        </label>
+        <div class="url-input-row">
+          <input
+            ref={urlInput}
+            id="url"
+            type="url"
+            placeholder="Provide supported link to download video"
+            autocomplete="off"
+            spellcheck={false}
+            value={url()}
+            onInput={(event) => setUrl(event.currentTarget.value)}
+            onFocus={(event) => {
+              if (event.currentTarget.value) event.currentTarget.select();
+            }}
+          />
+          <Show
+            when={downloadComplete()}
+            fallback={
+              <Show
+                when={busy()}
+                fallback={
+                  <Show when={canDownload()}>
+                    <button
+                      type="button"
+                      class="download-circle"
+                      aria-label="Download"
+                      title="Download"
+                      onClick={handleDownload}
+                    >
+                      <DownloadIcon />
+                    </button>
+                  </Show>
+                }
+              >
+                <ProgressRing progress={progressPct()} title={progressTitle()}>
+                  <span class="progress-ring-label">{progressPct().toFixed(0)}%</span>
+                </ProgressRing>
+              </Show>
+            }
+          >
+            <div
+              class="success-circle"
+              role="img"
+              aria-label="Download complete"
+              title="Download complete"
+            >
+              <SuccessIcon />
+            </div>
+          </Show>
+        </div>
 
-				<Show when={status() && !cutValidation()}>
-					<p class={`status ${statusKind()}`} aria-live="polite">
-						{status()}
-					</p>
-				</Show>
-			</section>
+        <Show when={status() && !cutValidation()}>
+          <p class={`status ${statusKind()}`} aria-live="polite">
+            {status()}
+          </p>
+        </Show>
+      </section>
 
-			<Show when={resolvedMeta()}>
-				{(meta) => (
-					<>
-						<MetaCard meta={meta()} />
-						<EditToolsCard
-							meta={meta()}
-							durationSec={durationSec()}
-							cuts={cuts()}
-							customTitle={customTitle()}
-							savePath={savePath()}
-							rememberSavePath={rememberSavePath()}
-							activeTool={activeTool()}
-							audioSettings={audioSettings()}
-							rememberAudio={rememberAudio()}
-							encodeSettings={encodeSettings()}
-							rememberEncode={rememberEncode()}
-							onCutChange={handleCutChange}
-							onAddCut={handleAddCut}
-							onRemoveCut={handleRemoveCut}
-							onAudioSettingsChange={handleAudioSettingsChange}
-							onRememberAudioChange={handleRememberAudioChange}
-							onEncodeSettingsChange={handleEncodeSettingsChange}
-							onRememberEncodeChange={handleRememberEncodeChange}
-							onCustomTitleChange={handleCustomTitleChange}
-							onSavePathChange={handleSavePathChange}
-							onRememberSavePathChange={handleRememberSavePathChange}
-							onSelectTool={selectTool}
-							toolBadges={toolBadges()}
-						/>
-					</>
-				)}
-			</Show>
+      <Show when={resolvedMeta()}>
+        {(meta) => (
+          <>
+            <MetaCard meta={meta()} />
+            <EditToolsCard
+              meta={meta()}
+              durationSec={durationSec()}
+              cuts={cuts()}
+              customTitle={customTitle()}
+              savePath={savePath()}
+              rememberSavePath={rememberSavePath()}
+              activeTool={activeTool()}
+              audioSettings={audioSettings()}
+              rememberAudio={rememberAudio()}
+              encodeSettings={encodeSettings()}
+              rememberEncode={rememberEncode()}
+              onCutChange={handleCutChange}
+              onAddCut={handleAddCut}
+              onRemoveCut={handleRemoveCut}
+              onAudioSettingsChange={handleAudioSettingsChange}
+              onRememberAudioChange={handleRememberAudioChange}
+              onEncodeSettingsChange={handleEncodeSettingsChange}
+              onRememberEncodeChange={handleRememberEncodeChange}
+              onCustomTitleChange={handleCustomTitleChange}
+              onSavePathChange={handleSavePathChange}
+              onRememberSavePathChange={handleRememberSavePathChange}
+              onSelectTool={selectTool}
+              toolBadges={toolBadges()}
+            />
+          </>
+        )}
+      </Show>
 
-			<Show when={job()}>
-				{(current) => (
-					<ProgressCard
-						job={current()}
-						onPause={handlePause}
-						onResume={handleResume}
-						onCancel={handleCancel}
-						onRetry={handleRetry}
-						onReveal={handleReveal}
-						actionBusy={actionBusy()}
-					/>
-				)}
-			</Show>
-		</main>
-	);
+      <Show when={job()}>
+        {(current) => (
+          <ProgressCard
+            job={current()}
+            onPause={handlePause}
+            onResume={handleResume}
+            onCancel={handleCancel}
+            onRetry={handleRetry}
+            onReveal={handleReveal}
+            actionBusy={actionBusy()}
+          />
+        )}
+      </Show>
+    </main>
+  );
 }

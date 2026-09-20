@@ -1,4 +1,4 @@
-import { createEffect, createSignal, onCleanup, Show } from 'solid-js';
+import { createEffect, createSignal, onCleanup, Show } from "solid-js";
 
 type Props = {
   src: string;
@@ -83,22 +83,22 @@ export default function ThumbnailPreview(props: Props) {
 
   function onKeyDown(event: KeyboardEvent) {
     if (!open()) return;
-    if (event.key === 'Escape') {
+    if (event.key === "Escape") {
       event.preventDefault();
       closePreview();
       return;
     }
-    if (event.key === '+' || event.key === '=') {
+    if (event.key === "+" || event.key === "=") {
       event.preventDefault();
       zoomBy(ZOOM_STEP);
       return;
     }
-    if (event.key === '-' || event.key === '_') {
+    if (event.key === "-" || event.key === "_") {
       event.preventDefault();
       zoomBy(-ZOOM_STEP);
       return;
     }
-    if (event.key === '0' || event.key === 'f' || event.key === 'F') {
+    if (event.key === "0" || event.key === "f" || event.key === "F") {
       event.preventDefault();
       zoomToFit();
     }
@@ -106,16 +106,16 @@ export default function ThumbnailPreview(props: Props) {
 
   createEffect(() => {
     if (!open()) return;
-    document.body.style.overflow = 'hidden';
+    document.body.style.overflow = "hidden";
     onCleanup(() => {
-      document.body.style.overflow = '';
+      document.body.style.overflow = "";
     });
   });
 
   createEffect(() => {
     if (!open()) return;
-    window.addEventListener('keydown', onKeyDown);
-    onCleanup(() => window.removeEventListener('keydown', onKeyDown));
+    window.addEventListener("keydown", onKeyDown);
+    onCleanup(() => window.removeEventListener("keydown", onKeyDown));
   });
 
   return (
@@ -126,7 +126,7 @@ export default function ThumbnailPreview(props: Props) {
         aria-label="Open thumbnail preview"
         onClick={openPreview}
       >
-        <img src={props.src} alt={props.alt || ''} class="thumb" loading="lazy" />
+        <img src={props.src} alt={props.alt || ""} class="thumb" loading="lazy" />
       </button>
 
       <Show when={open()}>
@@ -135,6 +135,7 @@ export default function ThumbnailPreview(props: Props) {
           role="dialog"
           aria-modal="true"
           aria-label="Thumbnail preview"
+          onKeyDown={onKeyDown}
           onClick={(event) => {
             if (event.target === event.currentTarget) closePreview();
           }}
@@ -178,7 +179,7 @@ export default function ThumbnailPreview(props: Props) {
           <div class="thumb-lightbox-viewport" onWheel={onWheel}>
             <img
               src={props.src}
-              alt={props.alt || ''}
+              alt={props.alt || ""}
               class="thumb-lightbox-image"
               classList={{ dragging: dragging() }}
               style={{
@@ -192,11 +193,12 @@ export default function ThumbnailPreview(props: Props) {
               onPointerMove={onPointerMove}
               onPointerUp={onPointerUp}
               onPointerCancel={onPointerUp}
-              onClick={(event) => event.stopPropagation()}
             />
           </div>
 
-          <p class="thumb-lightbox-hint">Esc close · scroll zoom · drag when zoomed · double-click toggle</p>
+          <p class="thumb-lightbox-hint">
+            Esc close · scroll zoom · drag when zoomed · double-click toggle
+          </p>
         </div>
       </Show>
     </>
@@ -204,7 +206,7 @@ export default function ThumbnailPreview(props: Props) {
 }
 
 export function thumbnailSrc(url: string): string {
-  if (!url) return '';
-  if (url.startsWith('/')) return url;
+  if (!url) return "";
+  if (url.startsWith("/")) return url;
   return `/api/thumbnail?url=${encodeURIComponent(url)}`;
 }

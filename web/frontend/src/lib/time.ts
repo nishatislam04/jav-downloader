@@ -1,5 +1,5 @@
 export function pad2(n: number): string {
-  return String(Math.floor(n)).padStart(2, '0');
+  return String(Math.floor(n)).padStart(2, "0");
 }
 
 /** Parse canonical or colon-separated time string to total seconds. */
@@ -10,14 +10,14 @@ export function parseHmsToSec(raw: string): number | null {
 /** Parse user time input into canonical m:ss or h:mm:ss. */
 export function normalizeTimeInput(raw: string): string {
   const text = raw.trim();
-  if (!text) return '';
+  if (!text) return "";
 
   if (/^\d+$/.test(text)) {
     return formatDurationSec(Number(text));
   }
 
-  const parts = text.split(':').map((part) => part.trim());
-  if (parts.some((part) => part === '' || Number.isNaN(Number(part)))) {
+  const parts = text.split(":").map((part) => part.trim());
+  if (parts.some((part) => part === "" || Number.isNaN(Number(part)))) {
     return text;
   }
 
@@ -37,7 +37,7 @@ export function normalizeTimeInput(raw: string): string {
 export function parseTimeInputSec(raw: string): number | null {
   const normalized = normalizeTimeInput(raw);
   if (!normalized) return null;
-  const parts = normalized.split(':').map(Number);
+  const parts = normalized.split(":").map(Number);
   if (parts.some((part) => Number.isNaN(part))) return null;
   if (parts.length === 2) {
     return parts[0] * 60 + parts[1];
@@ -59,7 +59,7 @@ export function validateCutRange(
   if (!startText && !endText) return null;
   const start = startText ? parseTimeInputSec(startText) : 0;
   if (startText && start === null) {
-    return 'Invalid start time';
+    return "Invalid start time";
   }
   if (duration > 0 && (start ?? 0) >= duration) {
     return `Start exceeds video length (${formatDurationSec(duration)})`;
@@ -70,13 +70,13 @@ export function validateCutRange(
   }
   const end = parseTimeInputSec(endText);
   if (end === null) {
-    return 'Invalid end time';
+    return "Invalid end time";
   }
   if (duration > 0 && end > duration) {
     return `End exceeds video length (${formatDurationSec(duration)})`;
   }
   if (end <= (start ?? 0)) {
-    return 'End must be after start';
+    return "End must be after start";
   }
   return null;
 }
@@ -91,11 +91,9 @@ export function validateCutRanges(
   durationSec: number | null | undefined,
   cuts: CutRangeInput[],
 ): string | null {
-  let active = 0;
   for (let i = 0; i < cuts.length; i += 1) {
     const cut = cuts[i]!;
     if (!hasActiveCut(cut)) continue;
-    active += 1;
     const err = validateCutRange(durationSec, cut.start, cut.end);
     if (err) {
       return cuts.length > 1 ? `Cut ${i + 1}: ${err}` : err;
@@ -105,24 +103,24 @@ export function validateCutRanges(
 }
 
 export function splitCutFieldError(error: string): { start: string; end: string } {
-  if (!error) return { start: '', end: '' };
+  if (!error) return { start: "", end: "" };
   if (
-    error.startsWith('Start') ||
-    error === 'Invalid start time' ||
-    error.toLowerCase().includes('invalid time format')
+    error.startsWith("Start") ||
+    error === "Invalid start time" ||
+    error.toLowerCase().includes("invalid time format")
   ) {
-    return { start: error, end: '' };
+    return { start: error, end: "" };
   }
-  if (error.startsWith('End') || error === 'Invalid end time') {
-    return { start: '', end: error };
+  if (error.startsWith("End") || error === "Invalid end time") {
+    return { start: "", end: error };
   }
-  if (error === 'End must be after start') {
+  if (error === "End must be after start") {
     return { start: error, end: error };
   }
-  if (error.toLowerCase().includes('cut end must be after')) {
+  if (error.toLowerCase().includes("cut end must be after")) {
     return { start: error, end: error };
   }
-  return { start: '', end: '' };
+  return { start: "", end: "" };
 }
 
 export function clampTimeInput(raw: string, maxSec: number | null | undefined): string {
@@ -141,9 +139,9 @@ export function formatDurationSec(totalSec: number | null | undefined): string {
   const minutes = Math.floor((sec % 3600) / 60);
   const seconds = sec % 60;
   if (hours > 0) {
-    return `${hours}:${String(minutes).padStart(2, '0')}:${String(seconds).padStart(2, '0')}`;
+    return `${hours}:${String(minutes).padStart(2, "0")}:${String(seconds).padStart(2, "0")}`;
   }
-  return `${minutes}:${String(seconds).padStart(2, '0')}`;
+  return `${minutes}:${String(seconds).padStart(2, "0")}`;
 }
 
 /** Human-readable duration; omits zero-valued units (e.g. 90 → "1 min 30 sec"). */
@@ -156,7 +154,7 @@ export function formatDurationHuman(totalSec: number | null | undefined): string
   if (hours > 0) parts.push(`${hours} hr`);
   if (minutes > 0) parts.push(`${minutes} min`);
   if (seconds > 0 || parts.length === 0) parts.push(`${seconds} sec`);
-  return parts.join(' ');
+  return parts.join(" ");
 }
 
 /** Clip length from cut range; null when unset, invalid, or not computable. */
@@ -190,12 +188,12 @@ export function looksLikeSupportedUrl(value: string): boolean {
   try {
     const host = new URL(text).hostname.toLowerCase();
     return (
-      host.includes('jable') ||
-      host.includes('missav') ||
-      host.includes('supjav') ||
-      host.includes('hanime1') ||
-      host.includes('jav.guru') ||
-      host.includes('spankbang.com')
+      host.includes("jable") ||
+      host.includes("missav") ||
+      host.includes("supjav") ||
+      host.includes("hanime1") ||
+      host.includes("jav.guru") ||
+      host.includes("spankbang.com")
     );
   } catch {
     return false;

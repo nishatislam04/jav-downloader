@@ -1,7 +1,7 @@
-import { createEffect, createSignal, untrack } from 'solid-js';
-import { formatDurationSec, pad2, parseHmsToSec } from '../lib/time';
+import { createEffect, createSignal, untrack } from "solid-js";
+import { formatDurationSec, pad2, parseHmsToSec } from "../lib/time";
 
-type Segment = 'h' | 'm' | 's';
+type Segment = "h" | "m" | "s";
 
 type Props = {
   id: string;
@@ -13,10 +13,10 @@ type Props = {
 
 function parsePaste(text: string): { h: number; m: number; s: number } | null {
   const trimmed = text.trim();
-  if (!trimmed || /^\d+$/.test(trimmed) || !trimmed.includes(':')) return null;
+  if (!trimmed || /^\d+$/.test(trimmed) || !trimmed.includes(":")) return null;
 
-  const parts = trimmed.split(':').map((part) => part.trim());
-  if (parts.some((part) => part === '' || Number.isNaN(Number(part)))) return null;
+  const parts = trimmed.split(":").map((part) => part.trim());
+  if (parts.some((part) => part === "" || Number.isNaN(Number(part)))) return null;
 
   let totalSec: number;
   if (parts.length === 2) {
@@ -39,12 +39,12 @@ function parsePaste(text: string): { h: number; m: number; s: number } | null {
 }
 
 function clampSegmentMax(seg: Segment, n: number): number {
-  if (seg === 'h') return Math.min(23, Math.max(0, n));
+  if (seg === "h") return Math.min(23, Math.max(0, n));
   return Math.min(59, Math.max(0, n));
 }
 
 function segmentsToValue(h: string, m: string, s: string): string {
-  if (!h && !m && !s) return '';
+  if (!h && !m && !s) return "";
   const hi = h ? Number(h) : 0;
   const mi = m ? Number(m) : 0;
   const si = s ? Number(s) : 0;
@@ -53,16 +53,12 @@ function segmentsToValue(h: string, m: string, s: string): string {
 
 function valueToSegments(value: string): [string, string, string] {
   const text = value.trim();
-  if (!text) return ['', '', ''];
+  if (!text) return ["", "", ""];
 
   const sec = parseHmsToSec(text);
-  if (sec === null) return ['', '', ''];
+  if (sec === null) return ["", "", ""];
 
-  return [
-    pad2(Math.floor(sec / 3600)),
-    pad2(Math.floor((sec % 3600) / 60)),
-    pad2(sec % 60),
-  ];
+  return [pad2(Math.floor(sec / 3600)), pad2(Math.floor((sec % 3600) / 60)), pad2(sec % 60)];
 }
 
 export default function TimeField(props: Props) {
@@ -95,8 +91,8 @@ export default function TimeField(props: Props) {
   }
 
   function segRef(seg: Segment): HTMLInputElement | undefined {
-    if (seg === 'h') return hRef;
-    if (seg === 'm') return mRef;
+    if (seg === "h") return hRef;
+    if (seg === "m") return mRef;
     return sRef;
   }
 
@@ -107,36 +103,32 @@ export default function TimeField(props: Props) {
   }
 
   function focusAdjacent(seg: Segment, dir: -1 | 1) {
-    const order: Segment[] = ['h', 'm', 's'];
+    const order: Segment[] = ["h", "m", "s"];
     const idx = order.indexOf(seg) + dir;
     if (idx >= 0 && idx < order.length) focusSeg(order[idx]!);
   }
 
   function setSeg(seg: Segment, val: string) {
-    if (seg === 'h') setH(val);
-    else if (seg === 'm') setM(val);
+    if (seg === "h") setH(val);
+    else if (seg === "m") setM(val);
     else setS(val);
   }
 
   function getSeg(seg: Segment): string {
-    if (seg === 'h') return h();
-    if (seg === 'm') return m();
+    if (seg === "h") return h();
+    if (seg === "m") return m();
     return s();
   }
 
   function applySeg(seg: Segment, val: string) {
     setSeg(seg, val);
-    emit(
-      seg === 'h' ? val : h(),
-      seg === 'm' ? val : m(),
-      seg === 's' ? val : s(),
-    );
+    emit(seg === "h" ? val : h(), seg === "m" ? val : m(), seg === "s" ? val : s());
   }
 
   function stepSeg(seg: Segment, delta: 1 | -1) {
     const current = getSeg(seg);
-    const base = current === '' ? 0 : Number(current);
-    const max = seg === 'h' ? 23 : 59;
+    const base = current === "" ? 0 : Number(current);
+    const max = seg === "h" ? 23 : 59;
     const wrapped = delta === 1 ? (base >= max ? 0 : base + 1) : base <= 0 ? max : base - 1;
     applySeg(seg, pad2(wrapped));
   }
@@ -152,12 +144,12 @@ export default function TimeField(props: Props) {
     const replacing = !current || selected;
 
     if (replacing) {
-      if (seg === 'h' && Number(digit) >= 3) {
+      if (seg === "h" && Number(digit) >= 3) {
         applySeg(seg, pad2(Number(digit)));
         focusAdjacent(seg, 1);
         return;
       }
-      if ((seg === 'm' || seg === 's') && Number(digit) >= 6) {
+      if ((seg === "m" || seg === "s") && Number(digit) >= 6) {
         applySeg(seg, pad2(Number(digit)));
         focusAdjacent(seg, 1);
         return;
@@ -172,7 +164,7 @@ export default function TimeField(props: Props) {
   }
 
   function handlePaste(event: ClipboardEvent) {
-    const parsed = parsePaste(event.clipboardData?.getData('text') ?? '');
+    const parsed = parsePaste(event.clipboardData?.getData("text") ?? "");
     if (!parsed) return;
 
     event.preventDefault();
@@ -183,41 +175,41 @@ export default function TimeField(props: Props) {
   }
 
   function handleKeyDown(seg: Segment, event: KeyboardEvent) {
-    if (event.key === 'ArrowLeft') {
+    if (event.key === "ArrowLeft") {
       event.preventDefault();
       focusAdjacent(seg, -1);
       return;
     }
-    if (event.key === 'ArrowRight') {
+    if (event.key === "ArrowRight") {
       event.preventDefault();
       focusAdjacent(seg, 1);
       return;
     }
-    if (event.key === 'ArrowUp') {
+    if (event.key === "ArrowUp") {
       event.preventDefault();
       stepSeg(seg, 1);
       return;
     }
-    if (event.key === 'ArrowDown') {
+    if (event.key === "ArrowDown") {
       event.preventDefault();
       stepSeg(seg, -1);
       return;
     }
-    if (event.key === 'Backspace') {
+    if (event.key === "Backspace") {
       event.preventDefault();
       if (getSeg(seg)) {
-        applySeg(seg, '');
+        applySeg(seg, "");
       } else {
         focusAdjacent(seg, -1);
       }
       return;
     }
-    if (event.key === 'Delete') {
+    if (event.key === "Delete") {
       event.preventDefault();
-      applySeg(seg, '');
+      applySeg(seg, "");
       return;
     }
-    if (event.key === ':' || event.key === '.') {
+    if (event.key === ":" || event.key === ".") {
       event.preventDefault();
       return;
     }
@@ -237,7 +229,7 @@ export default function TimeField(props: Props) {
   return (
     <div class="time-field">
       <label for={`${props.id}-h`}>{props.label}</label>
-      <div class={`time-segments ${props.error ? 'input-error' : ''}`}>
+      <div class={`time-segments ${props.error ? "input-error" : ""}`}>
         <input
           ref={hRef}
           id={`${props.id}-h`}
@@ -246,13 +238,13 @@ export default function TimeField(props: Props) {
           inputmode="numeric"
           autocomplete="off"
           spellcheck={false}
-          aria-label={segLabel('hours')}
+          aria-label={segLabel("hours")}
           placeholder="00"
           value={h()}
           onFocus={(event) => event.currentTarget.select()}
           onPaste={handlePaste}
-          onKeyDown={(event) => handleKeyDown('h', event)}
-          onWheel={(event) => handleWheel('h', event)}
+          onKeyDown={(event) => handleKeyDown("h", event)}
+          onWheel={(event) => handleWheel("h", event)}
         />
         <span class="time-sep" aria-hidden="true">
           :
@@ -265,13 +257,13 @@ export default function TimeField(props: Props) {
           inputmode="numeric"
           autocomplete="off"
           spellcheck={false}
-          aria-label={segLabel('minutes')}
+          aria-label={segLabel("minutes")}
           placeholder="00"
           value={m()}
           onFocus={(event) => event.currentTarget.select()}
           onPaste={handlePaste}
-          onKeyDown={(event) => handleKeyDown('m', event)}
-          onWheel={(event) => handleWheel('m', event)}
+          onKeyDown={(event) => handleKeyDown("m", event)}
+          onWheel={(event) => handleWheel("m", event)}
         />
         <span class="time-sep" aria-hidden="true">
           :
@@ -284,13 +276,13 @@ export default function TimeField(props: Props) {
           inputmode="numeric"
           autocomplete="off"
           spellcheck={false}
-          aria-label={segLabel('seconds')}
+          aria-label={segLabel("seconds")}
           placeholder="00"
           value={s()}
           onFocus={(event) => event.currentTarget.select()}
           onPaste={handlePaste}
-          onKeyDown={(event) => handleKeyDown('s', event)}
-          onWheel={(event) => handleWheel('s', event)}
+          onKeyDown={(event) => handleKeyDown("s", event)}
+          onWheel={(event) => handleWheel("s", event)}
         />
       </div>
       {props.error ? <p class="time-error">{props.error}</p> : null}

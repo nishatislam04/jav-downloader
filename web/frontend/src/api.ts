@@ -26,7 +26,7 @@ export type ResolveResult = {
 export type Job = {
   id: string;
   url: string;
-  status: 'pending' | 'downloading' | 'paused' | 'completed' | 'failed';
+  status: "pending" | "downloading" | "paused" | "completed" | "failed";
   title?: string;
   site?: string;
   thumbnail?: string;
@@ -36,7 +36,7 @@ export type Job = {
   total?: number;
   speed?: number;
   progress_pct?: number;
-  progress_unit?: '' | 'bytes' | 'segments';
+  progress_unit?: "" | "bytes" | "segments";
   progress_phase?: string;
   progress_detail?: string;
   error?: string;
@@ -53,7 +53,7 @@ export type FolderPathResult = {
 
 async function request<T>(path: string, options: RequestInit = {}): Promise<T> {
   const resp = await fetch(path, {
-    headers: { 'Content-Type': 'application/json' },
+    headers: { "Content-Type": "application/json" },
     ...options,
   });
   const data = (await resp.json().catch(() => ({}))) as T & { error?: string };
@@ -64,7 +64,7 @@ async function request<T>(path: string, options: RequestInit = {}): Promise<T> {
 }
 
 export function fetchHealth() {
-  return request<{ ok: boolean; download_dir?: string }>('/api/health');
+  return request<{ ok: boolean; download_dir?: string }>("/api/health");
 }
 
 export type DownloadOptions = {
@@ -88,29 +88,29 @@ export type DownloadOptions = {
 };
 
 export function resolveUrl(url: string, options: DownloadOptions = {}) {
-  return request<ResolveResult>('/api/resolve', {
-    method: 'POST',
+  return request<ResolveResult>("/api/resolve", {
+    method: "POST",
     body: JSON.stringify({ url, ...options }),
   });
 }
 
 export function startDownload(url: string, options: DownloadOptions = {}) {
-  return request<{ ok: boolean; job?: Job; error?: string }>('/api/download', {
-    method: 'POST',
+  return request<{ ok: boolean; job?: Job; error?: string }>("/api/download", {
+    method: "POST",
     body: JSON.stringify({ url, ...options }),
   });
 }
 
 export function validateFolder(path: string) {
-  return request<FolderPathResult>('/api/validate-folder', {
-    method: 'POST',
+  return request<FolderPathResult>("/api/validate-folder", {
+    method: "POST",
     body: JSON.stringify({ path }),
   });
 }
 
 export function revealFile(path: string) {
-  return request<{ ok: boolean; error?: string }>('/api/reveal', {
-    method: 'POST',
+  return request<{ ok: boolean; error?: string }>("/api/reveal", {
+    method: "POST",
     body: JSON.stringify({ path }),
   });
 }
@@ -120,22 +120,22 @@ export function fetchJob(jobId: string) {
 }
 
 export function pauseJob(jobId: string) {
-  return request<{ ok: boolean; job?: Job; error?: string }>(
-    `/api/jobs/${jobId}/pause`,
-    { method: 'POST', body: '{}' },
-  );
+  return request<{ ok: boolean; job?: Job; error?: string }>(`/api/jobs/${jobId}/pause`, {
+    method: "POST",
+    body: "{}",
+  });
 }
 
 export function resumeJob(jobId: string) {
-  return request<{ ok: boolean; job?: Job; error?: string }>(
-    `/api/jobs/${jobId}/resume`,
-    { method: 'POST', body: '{}' },
-  );
+  return request<{ ok: boolean; job?: Job; error?: string }>(`/api/jobs/${jobId}/resume`, {
+    method: "POST",
+    body: "{}",
+  });
 }
 
 export function cancelJob(jobId: string) {
-  return request<{ ok: boolean; job?: Job; error?: string }>(
-    `/api/jobs/${jobId}/cancel`,
-    { method: 'POST', body: '{}' },
-  );
+  return request<{ ok: boolean; job?: Job; error?: string }>(`/api/jobs/${jobId}/cancel`, {
+    method: "POST",
+    body: "{}",
+  });
 }

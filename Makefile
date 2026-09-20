@@ -1,4 +1,4 @@
-.PHONY: help install install-web web-build web-build-if-needed start web web-api web-dev web-termux test
+.PHONY: help install install-web web-build web-build-if-needed web-format web-lint start web web-api web-dev web-termux test
 
 PYTHON ?= python3
 VENV ?= .venv
@@ -58,6 +58,12 @@ web-api:
 
 web-dev: install-web
 	cd $(FRONTEND) && $(NPM) run dev
+
+web-format:
+	cd $(FRONTEND) && $(NPM) run format
+
+web-lint:
+	cd $(FRONTEND) && $(NPM) run lint
 
 web-termux: start
 	@:
