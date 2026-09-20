@@ -30,6 +30,11 @@ export function classifyLogLine(line: string): LogLevel {
   if (text.startsWith("resolving next mirror")) return "warn";
   if (text.startsWith("no remaining stream")) return "warn";
 
+  // Cleanup sweep events.
+  if (text.startsWith("cleanup complete")) return "success";
+  if (text.startsWith("cleanup failed") || text.startsWith("scan failed")) return "error";
+  if (text.startsWith("skipped") || text.startsWith("could not")) return "warn";
+
   if (/\berror\b|\bfailed\b|\bfatal\b|not found/.test(text)) return "error";
 
   if (text.startsWith("complete:")) return "success";

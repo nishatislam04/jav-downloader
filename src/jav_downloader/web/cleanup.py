@@ -11,7 +11,8 @@ download folder itself (top level):
 
 Completed videos, user files, and any folder with mixed content are never
 touched. Every delete target must resolve strictly inside the download
-directory.
+directory. Each step is reported through an optional ``on_event`` callback
+so the web UI job log can show the sweep in detail.
 """
 
 from __future__ import annotations
@@ -55,7 +56,18 @@ def _is_segment_dir(path: str) -> bool:
     return all(_SEGMENT_NAME_RE.match(entry) for entry in entries)
 
 
-def sweep_dest_folder(dest_folder: str) -> dict:
+def _fmt_size(num: float) -> str:
+    size = float(num)
+    for unit in ("B", "KB", "MB", "GB"):
+        if size < 1024 or unit == "GB":
+            if unit == "B":
+                return f"{int(size)} B"
+            return f"{size:.1f} {unit}"
+        size /= 1024
+    return f"{size:.1f} GB"
+
+
+def sweep_dest_folder(dest_folder: str, on_event=None) -> dict:
     """Remove known partial artifacts under dest_folder. Never recurses
     into user directories; scans the top level only."""
     result = {
@@ -66,36 +78,65 @@ def sweep_dest_folder(dest_folder: str) -> dict:
         "skipped": 0,
         "error": "",
     }
+
+    def emit(message: str) -> None:
+        if on_event is None:
+            return
+        try:
+            on_event(message)
+        except Exception:
+            pass
+
     root = os.path.realpath(os.path.expanduser(dest_folder or ""))
     if not os.path.isdir(root):
         result["error"] = "Download directory does not exist"
         return result
 
+    emit(f"Scanning {root}")
     try:
         entries = sorted(os.listdir(root))
     except OSError as exc:
         result["error"] = str(exc)
+        emit(f"Scan failed: {exc}")
         return result
 
     for name in entries:
         path = os.path.join(root, name)
         if not _contained(path, root):
             result["skipped"] += 1
+            emit(f"Skipped {name} (outside download folder)")
             continue
         try:
             if os.path.isdir(path) and not os.path.islink(path):
                 if name.startswith(WORKDIR_PREFIXES) or _is_segment_dir(path):
-                    result["freed_bytes"] += _tree_size(path)
+                    size = _tree_size(path)
+                    emit(f"Removing folder {name}/ ({_fmt_size(size)})")
                     shutil.rmtree(path, ignore_errors=True)
-                    result["removed_dirs"] += 1
+                    if os.path.exists(path):
+                        result["skipped"] += 1
+                        emit(f"Could not fully remove folder {name}/ (in use?)")
+                    else:
+                        result["freed_bytes"] += size
+                        result["removed_dirs"] += 1
             elif os.path.isfile(path):
                 if name.startswith(TEMP_FILE_PREFIXES) or name.endswith(_PART_SUFFIX):
-                    result["freed_bytes"] += os.path.getsize(path)
+                    size = os.path.getsize(path)
+                    emit(f"Removing {name} ({_fmt_size(size)})")
                     os.remove(path)
+                    result["freed_bytes"] += size
                     result["removed_files"] += 1
-        except OSError:
+        except OSError as exc:
             result["skipped"] += 1
+            emit(f"Skipped {name}: {exc}")
 
+    if result["removed_files"] or result["removed_dirs"]:
+        emit(
+            f"Cleanup complete: {result['removed_files']} files, "
+            f"{result['removed_dirs']} folders, "
+            f"{_fmt_size(result['freed_bytes'])} freed"
+        )
+    else:
+        emit("Nothing to clean up")
     result["ok"] = True
     return result
 
@@ -124,12 +165,10 @@ def cleanup_job(manager, job_id: str) -> dict:
     if not dest:
         dest = default_download_dir()
 
-    result = sweep_dest_folder(dest)
-    if result["ok"]:
-        manager.append_log(
-            job_id,
-            f"Cleanup: removed {result['removed_files']} files and "
-            f"{result['removed_dirs']} folders "
-            f"({result['freed_bytes']} bytes) from {dest}",
-        )
+    def on_event(message: str) -> None:
+        manager.append_log(job_id, f"[{service._log_stamp()}] {message}")
+
+    result = sweep_dest_folder(dest, on_event)
+    if not result["ok"]:
+        on_event(f"Cleanup failed: {result['error']}")
     return result

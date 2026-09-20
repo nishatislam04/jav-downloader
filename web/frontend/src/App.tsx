@@ -523,7 +523,13 @@ export default function App() {
     if (data.ok && data.job) {
       setJob(data.job);
     }
+    setStatusMessage("Cleaning up partial files…", "");
     const sweep = await cleanupJob(jobId);
+    // Pull the job again so the sweep's log lines show in the progress log.
+    const refreshed = await fetchJob(jobId);
+    if (refreshed.ok && refreshed.job) {
+      setJob(refreshed.job);
+    }
     setActionBusy(false);
     setBusy(false);
     setDownloadComplete(false);
@@ -531,15 +537,14 @@ export default function App() {
       setStatusMessage(sweep.error || "Download cancelled. Cleanup failed.", "error");
       return;
     }
-    const parts: string[] = [];
-    if (sweep.removed_files) parts.push(`${sweep.removed_files} files`);
-    if (sweep.removed_dirs) parts.push(`${sweep.removed_dirs} folders`);
-    setStatusMessage(
-      parts.length
-        ? `Download cancelled. Removed ${parts.join(" and ")}.`
-        : "Download cancelled. Nothing to clean up.",
-      "",
-    );
+    if (sweep.removed_files || sweep.removed_dirs) {
+      setStatusMessage(
+        `Download cancelled. Cleaned ${sweep.removed_files} files and ${sweep.removed_dirs} folders.`,
+        "",
+      );
+    } else {
+      setStatusMessage("Download cancelled. Nothing to clean up.", "");
+    }
   }
 
   async function startDownloadJob() {
