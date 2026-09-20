@@ -262,10 +262,11 @@ input.input-error,
 }
 
 .cut-range-fields {
-  display: grid;
-  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: space-between;
   gap: 10px;
-  align-items: start;
+  align-items: flex-start;
 }
 
 .cut-actions {
@@ -1477,6 +1478,16 @@ button.confirm-danger:hover {
   width: auto;
   margin-top: 3px;
   accent-color: var(--accent-2);
+}
+
+.audio-grid.disabled,
+.toggle-row.disabled {
+  opacity: 0.45;
+}
+
+.toggle-row.disabled,
+.toggle-row.disabled input {
+  cursor: not-allowed;
 }
 
 .encode-grid {

@@ -362,9 +362,31 @@ export function QualityIcon() {
 export function EncodeIcon() {
   return (
     <svg viewBox="0 0 24 24" width="18" height="18" aria-hidden="true">
+      <rect
+        x="3"
+        y="5"
+        width="18"
+        height="14"
+        rx="2.5"
+        fill="none"
+        stroke="currentColor"
+        stroke-width="1.75"
+      />
       <path
-        d="M4 8v8h2.5l3.5-5 3.5 5H16V8h-2.5L10 13 6.5 8H4zm10 0v8h6v-2h-4v-1.5h3.5V11H16V9.5h3.5V8H14z"
-        fill="currentColor"
+        d="M6.5 9.5h6m0 0-2.2-2.2m2.2 2.2-2.2 2.2"
+        fill="none"
+        stroke="currentColor"
+        stroke-width="1.75"
+        stroke-linecap="round"
+        stroke-linejoin="round"
+      />
+      <path
+        d="M17.5 14.5h-6m0 0 2.2-2.2m-2.2 2.2 2.2 2.2"
+        fill="none"
+        stroke="currentColor"
+        stroke-width="1.75"
+        stroke-linecap="round"
+        stroke-linejoin="round"
       />
     </svg>
   );

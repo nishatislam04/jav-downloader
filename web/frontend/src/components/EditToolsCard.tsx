@@ -289,7 +289,7 @@ export default function EditToolsCard(props: Props) {
                       />
                       <span>Remove audio track (no audio in output)</span>
                     </label>
-                    <div class="audio-grid">
+                    <div class="audio-grid" classList={{ disabled: props.audioSettings.mute }}>
                       <label class="encode-field">
                         <div class="encode-field-head">
                           <span>Bitrate</span>
@@ -358,7 +358,7 @@ export default function EditToolsCard(props: Props) {
                         />
                       </label>
                     </div>
-                    <label class="toggle-row">
+                    <label class="toggle-row" classList={{ disabled: props.audioSettings.mute }}>
                       <input
                         type="checkbox"
                         checked={props.audioSettings.fade}
@@ -372,7 +372,7 @@ export default function EditToolsCard(props: Props) {
                       />
                       <span>Fade in / out (0.5s at start and end)</span>
                     </label>
-                    <label class="toggle-row">
+                    <label class="toggle-row" classList={{ disabled: props.audioSettings.mute }}>
                       <input
                         type="checkbox"
                         checked={props.audioSettings.loudnorm}
