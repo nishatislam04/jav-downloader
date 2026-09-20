@@ -1,6 +1,6 @@
 export function formatBytes(n: number): string {
-  if (!n || n <= 0) return '0 B';
-  const units = ['B', 'KB', 'MB', 'GB'];
+  if (!n || n <= 0) return "0 B";
+  const units = ["B", "KB", "MB", "GB"];
   let value = n;
   let idx = 0;
   while (value >= 1024 && idx < units.length - 1) {
@@ -16,7 +16,7 @@ export function formatSpeed(bps: number): string {
 
 export function formatEta(seconds: number | null | undefined): string {
   if (seconds == null || !Number.isFinite(seconds) || seconds <= 0) {
-    return '';
+    return "";
   }
   const total = Math.ceil(seconds);
   if (total < 60) {
@@ -34,7 +34,7 @@ export function formatEta(seconds: number | null | undefined): string {
 
 export function estimateEta(job: {
   progress_pct?: number;
-  progress_unit?: '' | 'bytes' | 'segments';
+  progress_unit?: "" | "bytes" | "segments";
   downloaded?: number;
   total?: number;
   speed?: number;
@@ -42,7 +42,7 @@ export function estimateEta(job: {
   updated_at?: number;
 }): number | null {
   const speed = job.speed ?? 0;
-  if (job.progress_unit === 'bytes' && speed > 0) {
+  if (job.progress_unit === "bytes" && speed > 0) {
     const total = job.total ?? 0;
     const downloaded = job.downloaded ?? 0;
     if (total > downloaded) {
@@ -54,7 +54,7 @@ export function estimateEta(job: {
   const created = job.created_at ?? 0;
   const updated = job.updated_at ?? created;
   if (pct > 0 && pct < 100 && updated > created) {
-    return (updated - created) * (100 - pct) / pct;
+    return ((updated - created) * (100 - pct)) / pct;
   }
   return null;
 }
@@ -64,15 +64,31 @@ export function formatProgressPhase(job: {
   progress_detail?: string;
 }): string {
   const phase = job.progress_phase?.trim();
-  if (!phase) return '';
+  if (!phase) return "";
   const detail = job.progress_detail?.trim();
   return detail ? `${phase} · ${detail}` : phase;
 }
 
-export function formatProgress(job: {
+function detailCoversSegments(job: {
+  progress_detail?: string;
+  downloaded?: number;
+  total?: number;
+}): boolean {
+  const detail = job.progress_detail?.trim().toLowerCase() ?? "";
+  if (!detail) return false;
+  if (detail.includes("segment")) return true;
+  const downloaded = job.downloaded ?? 0;
+  const total = job.total ?? 0;
+  if (total > 0) {
+    return detail.includes(`${downloaded}/${total}`) || detail.includes(`${downloaded} / ${total}`);
+  }
+  return false;
+}
+
+/** Numeric progress only — use under the phase headline to avoid repeating it. */
+export function formatProgressStats(job: {
   progress_pct?: number;
-  progress_unit?: '' | 'bytes' | 'segments';
-  progress_phase?: string;
+  progress_unit?: "" | "bytes" | "segments";
   progress_detail?: string;
   downloaded?: number;
   total?: number;
@@ -80,13 +96,10 @@ export function formatProgress(job: {
   created_at?: number;
   updated_at?: number;
 }): string {
-  const phase = formatProgressPhase(job);
   const pct = job.progress_pct || 0;
-  const parts: string[] = [];
-  if (phase) parts.push(phase);
-  parts.push(`${pct.toFixed(1)}%`);
+  const parts: string[] = [`${pct.toFixed(1)}%`];
 
-  if (job.progress_unit === 'bytes') {
+  if (job.progress_unit === "bytes") {
     const downloaded = job.downloaded ?? 0;
     const total = job.total ?? 0;
     if (downloaded > 0 || total > 0) {
@@ -96,7 +109,11 @@ export function formatProgress(job: {
           : `${formatBytes(downloaded)} / ?`,
       );
     }
-  } else if (job.progress_unit === 'segments' && (job.total ?? 0) > 0) {
+  } else if (
+    job.progress_unit === "segments" &&
+    (job.total ?? 0) > 0 &&
+    !detailCoversSegments(job)
+  ) {
     parts.push(`${job.downloaded ?? 0} / ${job.total ?? 0} segments`);
   }
 
@@ -109,5 +126,50 @@ export function formatProgress(job: {
     parts.push(eta);
   }
 
-  return parts.join(' · ');
+  return parts.join(" · ");
+}
+
+export function formatProgress(job: {
+  progress_pct?: number;
+  progress_unit?: "" | "bytes" | "segments";
+  progress_phase?: string;
+  progress_detail?: string;
+  downloaded?: number;
+  total?: number;
+  speed?: number;
+  created_at?: number;
+  updated_at?: number;
+}): string {
+  const phase = formatProgressPhase(job);
+  if (phase) {
+    return formatProgressStats(job);
+  }
+
+  const pct = job.progress_pct || 0;
+  const parts: string[] = [`${pct.toFixed(1)}%`];
+
+  if (job.progress_unit === "bytes") {
+    const downloaded = job.downloaded ?? 0;
+    const total = job.total ?? 0;
+    if (downloaded > 0 || total > 0) {
+      parts.push(
+        total > 0
+          ? `${formatBytes(downloaded)} / ${formatBytes(total)}`
+          : `${formatBytes(downloaded)} / ?`,
+      );
+    }
+  } else if (job.progress_unit === "segments" && (job.total ?? 0) > 0) {
+    parts.push(`${job.downloaded ?? 0} / ${job.total ?? 0} segments`);
+  }
+
+  if ((job.speed ?? 0) > 0) {
+    parts.push(formatSpeed(job.speed ?? 0));
+  }
+
+  const eta = formatEta(estimateEta(job));
+  if (eta) {
+    parts.push(eta);
+  }
+
+  return parts.join(" · ");
 }
