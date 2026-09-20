@@ -387,12 +387,16 @@ def post_process_media(site, src_path: str, duration_sec: float | None = None) -
         preset = resolved_encode_preset(site)
         height = normalize_encode_max_height(getattr(site, '_encode_max_height', None))
         threads = resolved_encode_threads(site)
+        height_label = f'{height}p' if height > 0 else 'original'
+        codec_label = 'H.265' if codec == 'hevc' else 'H.264'
+        encode_detail = (
+            f'{codec_label} CRF {site._encode_crf} · '
+            f'{height_label} · {preset} · {threads} thread(s)')
+        phase_cb = getattr(site, '_progress_phase', None)
+        if phase_cb:
+            phase_cb('Encoding', encode_detail)
         if emit:
-            height_label = f'{height}p' if height > 0 else 'original'
-            codec_label = 'H.265' if codec == 'hevc' else 'H.264'
-            emit(
-                f'Encoding… {codec_label} CRF {site._encode_crf} · '
-                f'{height_label} · {preset} · {threads} thread(s)')
+            emit(f'Encoding… {encode_detail}')
 
         cmd = _build_encode_cmd(ffmpeg, site, src_path, temp_path, duration_sec)
         ok, stderr_tail = _run_ffmpeg(

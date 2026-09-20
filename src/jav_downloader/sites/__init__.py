@@ -58,8 +58,7 @@ def VaildateUrl(url):  # noqa: N802 - legacy API typo retained for v2 callers
 def create_site(
         url, savepath="", silence=False, max_workers=None,
         cut_start=None, cut_end=None, cuts=None,
-        audio_fade=False, audio_loudnorm=False, stream_preference=None,
-        resolution_pref=None, hls_tier=None,
+        audio_fade=False, audio_loudnorm=False,
         encode=None, encode_codec=None, encode_crf=None,
         encode_max_height=None, encode_output_mode=None,
         encode_preset=None, encode_threads=None,
@@ -78,9 +77,6 @@ def create_site(
         'audio_mute': audio_mute,
         'audio_bitrate': audio_bitrate,
         'audio_volume': audio_volume,
-        'stream_preference': stream_preference,
-        'resolution_pref': resolution_pref,
-        'hls_tier': hls_tier,
         'encode': encode,
         'encode_codec': encode_codec,
         'encode_crf': encode_crf,
@@ -97,15 +93,14 @@ def create_site(
 def CreateSite(  # noqa: N802
         url, savepath="", silence=False, max_workers=None,
         cut_start=None, cut_end=None, cuts=None,
-        audio_fade=False, audio_loudnorm=False, stream_preference=None,
-        resolution_pref=None, hls_tier=None,
+        audio_fade=False, audio_loudnorm=False,
         encode=None, encode_codec=None, encode_crf=None,
         encode_max_height=None, encode_output_mode=None,
         encode_preset=None, encode_threads=None,
         audio_mute=False, audio_bitrate=None, audio_volume=None):
     return create_site(
         url, savepath, silence, max_workers, cut_start, cut_end, cuts,
-        audio_fade, audio_loudnorm, stream_preference, resolution_pref, hls_tier,
+        audio_fade, audio_loudnorm,
         encode, encode_codec, encode_crf, encode_max_height,
         encode_output_mode, encode_preset, encode_threads,
         audio_mute, audio_bitrate, audio_volume)

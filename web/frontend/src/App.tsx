@@ -83,8 +83,6 @@ export default function App() {
 		loadRememberEncode() ? loadEncodeSettings() : { ...DEFAULT_ENCODE_SETTINGS },
 	);
 	const [rememberEncode, setRememberEncode] = createSignal(loadRememberEncode());
-	const [streamPreference, setStreamPreference] = createSignal("");
-	const [hlsTier, setHlsTier] = createSignal("");
 	const [activeTool, setActiveTool] = createSignal<ToolId | null>(null);
 	const [status, setStatus] = createSignal("");
 	const [statusKind, setStatusKind] = createSignal<"ok" | "error" | "">("");
@@ -145,8 +143,6 @@ export default function App() {
 		if (!rememberEncode()) {
 			setEncodeSettings({ ...DEFAULT_ENCODE_SETTINGS });
 		}
-		setStreamPreference("");
-		setHlsTier("");
 		if (!rememberSavePath()) {
 			setSavePathCustom(false);
 			setSavePath(defaultDownloadDir());
@@ -163,8 +159,6 @@ export default function App() {
 		if (!rememberEncode()) {
 			setEncodeSettings({ ...DEFAULT_ENCODE_SETTINGS });
 		}
-		setStreamPreference("");
-		setHlsTier("");
 		setServerCutError("");
 		setJob(null);
 		setDownloadComplete(false);
@@ -203,9 +197,6 @@ export default function App() {
 			audio_mute?: boolean;
 			audio_bitrate?: number;
 			audio_volume?: number;
-			stream_preference?: string;
-			resolution_pref?: string;
-			hls_tier?: string;
 			encode?: boolean;
 			encode_codec?: string;
 			encode_crf?: number;
@@ -232,11 +223,6 @@ export default function App() {
 		if (audio.mute) payload.audio_mute = true;
 		if (audio.bitrate !== 128) payload.audio_bitrate = audio.bitrate;
 		if (audio.volume > 1) payload.audio_volume = audio.volume;
-		const stream = streamPreference().trim();
-		if (stream) payload.stream_preference = stream;
-		const tier = hlsTier().trim();
-		if (tier) payload.hls_tier = tier;
-
 		const encode = encodeSettings();
 		if (encode.enabled) {
 			payload.encode = true;
@@ -312,8 +298,6 @@ export default function App() {
 			if (!rememberEncode()) {
 				setEncodeSettings({ ...DEFAULT_ENCODE_SETTINGS });
 			}
-			setStreamPreference("");
-			setHlsTier("");
 			if (!rememberSavePath() && !savePathCustom()) {
 				if (data.dest_folder) {
 					setSavePath(data.dest_folder);
@@ -424,27 +408,6 @@ export default function App() {
 		} else {
 			persistEncodeSettings(encodeSettings(), false);
 		}
-	}
-
-	function handleStreamPreferenceChange(label: string) {
-		setStreamPreference(label);
-		scheduleResolve("edit");
-	}
-
-	function handleTryNextStream() {
-		const mirrors = resolved()?.stream_mirrors ?? [];
-		const active = resolved()?.active_stream ?? "";
-		if (!mirrors.length) return;
-		const index = Math.max(0, mirrors.indexOf(active));
-		const next = mirrors[(index + 1) % mirrors.length] ?? "";
-		if (!next) return;
-		setStreamPreference(next);
-		scheduleResolve("edit");
-	}
-
-	function handleHlsTierChange(tierId: string) {
-		setHlsTier(tierId);
-		scheduleResolve("edit");
 	}
 
 	async function pollJob(jobId: string) {
@@ -629,6 +592,17 @@ export default function App() {
 		return Math.max(0, Math.min(100, current.progress_pct ?? 0));
 	});
 
+	const progressTitle = createMemo(() => {
+		const current = job();
+		if (!current?.progress_phase) {
+			return `Downloading ${progressPct().toFixed(0)}%`;
+		}
+		const detail = current.progress_detail?.trim();
+		return detail
+			? `${current.progress_phase} · ${detail}`
+			: current.progress_phase;
+	});
+
 	const resolveBadgeLabel = createMemo(() => {
 		if (resolvePhase() === "metadata") return "Parse metadata";
 		if (resolvePhase() === "updating") return "Update metadata";
@@ -650,8 +624,6 @@ export default function App() {
 		if (audioCount) badges.audio = audioCount;
 		if (customTitle().trim()) badges.rename = 1;
 		if (savePathCustom()) badges.save = 1;
-		if (streamPreference().trim()) badges.stream = 1;
-		if (hlsTier().trim()) badges.quality = 1;
 		if (encodeSettings().enabled) badges.encode = 1;
 		return badges;
 	});
@@ -717,7 +689,7 @@ export default function App() {
 							>
 								<ProgressRing
 									progress={progressPct()}
-									title={`Downloading ${progressPct().toFixed(0)}%`}
+									title={progressTitle()}
 								>
 									<span class="progress-ring-label">
 										{progressPct().toFixed(0)}%
@@ -759,10 +731,6 @@ export default function App() {
 							rememberAudio={rememberAudio()}
 							encodeSettings={encodeSettings()}
 							rememberEncode={rememberEncode()}
-							streamMirrors={meta().stream_mirrors ?? []}
-							activeStream={meta().active_stream ?? ""}
-							hlsTiers={meta().hls_tiers ?? []}
-							activeHlsTier={meta().active_hls_tier ?? ""}
 							onCutChange={handleCutChange}
 							onAddCut={handleAddCut}
 							onRemoveCut={handleRemoveCut}
@@ -770,9 +738,6 @@ export default function App() {
 							onRememberAudioChange={handleRememberAudioChange}
 							onEncodeSettingsChange={handleEncodeSettingsChange}
 							onRememberEncodeChange={handleRememberEncodeChange}
-							onStreamPreferenceChange={handleStreamPreferenceChange}
-							onTryNextStream={handleTryNextStream}
-							onHlsTierChange={handleHlsTierChange}
 							onCustomTitleChange={handleCustomTitleChange}
 							onSavePathChange={handleSavePathChange}
 							onRememberSavePathChange={handleRememberSavePathChange}

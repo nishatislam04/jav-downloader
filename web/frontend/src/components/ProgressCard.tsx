@@ -1,6 +1,6 @@
 import { createEffect, createSignal, For, onCleanup, Show } from "solid-js";
 import type { Job } from "../api";
-import { formatProgress } from "../lib/format";
+import { formatProgress, formatProgressPhase } from "../lib/format";
 import IconButton, {
 	CloseIcon,
 	CollapseIcon,
@@ -119,6 +119,7 @@ export default function ProgressCard(props: Props) {
 	const canRetry = () => isFailed() && props.job.error !== "Download cancelled";
 	const showControls = () => isDownloading() || isPaused() || canRetry();
 	const outputFile = () => props.job.output_file || "";
+	const phaseText = () => formatProgressPhase(props.job);
 
 	createEffect(() => {
 		logLines();
@@ -195,6 +196,9 @@ export default function ProgressCard(props: Props) {
 				<div class="bar-track" aria-hidden="true">
 					<div class="bar-fill" style={{ width: `${barWidth()}%` }} />
 				</div>
+				<Show when={phaseText() && !isCompleted()}>
+					<p class="progress-phase">{phaseText()}</p>
+				</Show>
 				<p class="mono progress-text">{progressText(props.job)}</p>
 				<Show when={logLines().length > 0}>
 					<div class="log-block" classList={{ "log-block-full": logFull() }}>

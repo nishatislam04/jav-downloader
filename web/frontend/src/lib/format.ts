@@ -59,17 +59,32 @@ export function estimateEta(job: {
   return null;
 }
 
+export function formatProgressPhase(job: {
+  progress_phase?: string;
+  progress_detail?: string;
+}): string {
+  const phase = job.progress_phase?.trim();
+  if (!phase) return '';
+  const detail = job.progress_detail?.trim();
+  return detail ? `${phase} · ${detail}` : phase;
+}
+
 export function formatProgress(job: {
   progress_pct?: number;
   progress_unit?: '' | 'bytes' | 'segments';
+  progress_phase?: string;
+  progress_detail?: string;
   downloaded?: number;
   total?: number;
   speed?: number;
   created_at?: number;
   updated_at?: number;
 }): string {
+  const phase = formatProgressPhase(job);
   const pct = job.progress_pct || 0;
-  const parts = [`${pct.toFixed(1)}%`];
+  const parts: string[] = [];
+  if (phase) parts.push(phase);
+  parts.push(`${pct.toFixed(1)}%`);
 
   if (job.progress_unit === 'bytes') {
     const downloaded = job.downloaded ?? 0;

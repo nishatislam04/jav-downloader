@@ -31,9 +31,7 @@ import {
 	CutIcon,
 	EncodeIcon,
 	FolderIcon,
-	QualityIcon,
 	RenameIcon,
-	StreamIcon,
 } from "./IconButton";
 import FieldHint from "./FieldHint";
 import TimeField from "./TimeField";
@@ -42,8 +40,6 @@ export type ToolId =
 	| "cut"
 	| "audio"
 	| "encode"
-	| "stream"
-	| "quality"
 	| "rename"
 	| "save";
 
@@ -85,10 +81,6 @@ type Props = {
 	rememberAudio: boolean;
 	encodeSettings: EncodeSettings;
 	rememberEncode: boolean;
-	streamMirrors: string[];
-	activeStream: string;
-	hlsTiers: NonNullable<ResolveResult["hls_tiers"]>;
-	activeHlsTier: string;
 	onCutChange: (id: string, field: "start" | "end", value: string) => void;
 	onAddCut: () => void;
 	onRemoveCut: (id: string) => void;
@@ -96,9 +88,6 @@ type Props = {
 	onRememberAudioChange: (value: boolean) => void;
 	onEncodeSettingsChange: (value: EncodeSettings) => void;
 	onRememberEncodeChange: (value: boolean) => void;
-	onStreamPreferenceChange: (label: string) => void;
-	onTryNextStream: () => void;
-	onHlsTierChange: (tierId: string) => void;
 	onCustomTitleChange: (value: string) => void;
 	onSavePathChange: (path: string) => void;
 	onRememberSavePathChange: (value: boolean) => void;
@@ -177,26 +166,7 @@ export default function EditToolsCard(props: Props) {
 	// Apply is only enabled while the draft differs from the applied path.
 	const pathDirty = createMemo(() => draftPath().trim() !== props.savePath);
 
-	const visibleTools = createMemo(() => {
-		const items = [...BASE_TOOLS];
-		let insertAt = 3;
-		if (props.hlsTiers.length > 0) {
-			items.splice(insertAt, 0, {
-				id: "quality",
-				label: "Source",
-				Icon: QualityIcon,
-			});
-			insertAt += 1;
-		}
-		if (props.streamMirrors.length > 0) {
-			items.splice(insertAt, 0, {
-				id: "stream",
-				label: "Stream",
-				Icon: StreamIcon,
-			});
-		}
-		return items;
-	});
+	const visibleTools = createMemo(() => [...BASE_TOOLS]);
 
 	const totalDurationLabel = createMemo(() => {
 		let total = 0;
@@ -716,63 +686,6 @@ export default function EditToolsCard(props: Props) {
 											/>
 											<span>Remember encode settings</span>
 										</label>
-									</Show>
-
-									<Show when={toolId() === "quality"}>
-										<p class="stream-active">
-											Active tier:{" "}
-											<strong>
-												{props.hlsTiers.find(
-													(tier) => tier.id === props.activeHlsTier,
-												)?.label || "—"}
-											</strong>
-										</p>
-										<div class="stream-mirror-list">
-											<For each={props.hlsTiers}>
-												{(tier) => (
-													<button
-														type="button"
-														class={`stream-mirror-btn ${
-															tier.id === props.activeHlsTier ? "active" : ""
-														}`}
-														onClick={() => props.onHlsTierChange(tier.id)}
-													>
-														{tier.label}
-													</button>
-												)}
-											</For>
-										</div>
-									</Show>
-
-									<Show when={toolId() === "stream"}>
-										<p class="stream-active">
-											Active mirror:{" "}
-											<strong>{props.activeStream || "—"}</strong>
-										</p>
-										<div class="stream-mirror-list">
-											<For each={props.streamMirrors}>
-												{(label) => (
-													<button
-														type="button"
-														class={`stream-mirror-btn ${
-															label === props.activeStream ? "active" : ""
-														}`}
-														onClick={() =>
-															props.onStreamPreferenceChange(label)
-														}
-													>
-														STREAM {label}
-													</button>
-												)}
-											</For>
-										</div>
-										<button
-											type="button"
-											class="tool-btn subtle stream-next-btn"
-											onClick={() => props.onTryNextStream()}
-										>
-											Try next mirror
-										</button>
 									</Show>
 
 									<Show when={toolId() === "rename"}>

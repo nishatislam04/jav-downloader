@@ -166,9 +166,6 @@ class WebHandler(BaseHTTPRequestHandler):
                 cuts=payload.get('cuts'),
                 output_title=output_title,
                 **service._audio_options_from_mapping(payload),
-                stream_preference=payload.get('stream_preference'),
-                resolution_pref=payload.get('resolution_pref'),
-                hls_tier=payload.get('hls_tier'),
                 **service._encode_options_from_mapping(payload),
             )
             status = HTTPStatus.OK if result.get('ok') else HTTPStatus.UNPROCESSABLE_ENTITY
@@ -234,9 +231,6 @@ class WebHandler(BaseHTTPRequestHandler):
                 cuts=payload.get('cuts'),
                 output_title=output_title,
                 **service._audio_options_from_mapping(payload),
-                stream_preference=payload.get('stream_preference'),
-                resolution_pref=payload.get('resolution_pref'),
-                hls_tier=payload.get('hls_tier'),
                 **service._encode_options_from_mapping(payload),
             )
             _json_response(self, HTTPStatus.ACCEPTED, {

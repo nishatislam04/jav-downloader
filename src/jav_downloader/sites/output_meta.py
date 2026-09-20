@@ -120,23 +120,16 @@ def populate_hls_tiers(site) -> None:
             'index': index,
         })
 
-    tier_id = getattr(site, '_hls_tier_id', None)
-    tier_map = {tier['id']: tier for tier in tiers}
-    selected = None
-    if tier_id and tier_id in tier_map:
-        selected = playlists[tier_map[tier_id]['index']]
-        active_id = tier_id
-    else:
-        pref = getattr(site, '_resolution_pref', None) or get_resolution_pref()
-        selected = select_variant(playlists, pref)
-        active_id = ''
-        if selected is not None:
-            for tier in tiers:
-                if playlists[tier['index']] is selected:
-                    active_id = tier['id']
-                    break
-        if not active_id and tiers:
-            active_id = tiers[-1]['id']
+    pref = get_resolution_pref()
+    selected = select_variant(playlists, pref)
+    active_id = ''
+    if selected is not None:
+        for tier in tiers:
+            if playlists[tier['index']] is selected:
+                active_id = tier['id']
+                break
+    if not active_id and tiers:
+        active_id = tiers[-1]['id']
 
     site._hls_tiers = tiers
     site._active_hls_tier = active_id
@@ -154,17 +147,7 @@ def pick_hls_playlist(playlists, site):
     """Return the playlist entry chosen for this site instance."""
     if not playlists:
         return None
-
-    tiers = getattr(site, '_hls_tiers', None) or []
-    tier_id = getattr(site, '_hls_tier_id', None)
-    if tier_id and tiers:
-        for tier in tiers:
-            if tier.get('id') == tier_id:
-                index = tier.get('index')
-                if isinstance(index, int) and 0 <= index < len(playlists):
-                    return playlists[index]
-
-    pref = getattr(site, '_resolution_pref', None) or get_resolution_pref()
+    pref = get_resolution_pref()
     return select_variant(playlists, pref)
 
 
@@ -198,7 +181,7 @@ def estimate_output_size(site) -> tuple[int | None, bool]:
     return None, False
 
 
-def apply_download_options(site, resolution_pref=None, hls_tier=None) -> None:
-    site._resolution_pref = _normalize_resolution_pref(resolution_pref)
-    tier = str(hls_tier).strip() if hls_tier else None
-    site._hls_tier_id = tier or None
+def apply_download_options(site) -> None:
+    """Apply default download resolution behaviour (no per-request UI overrides)."""
+    site._resolution_pref = None
+    site._hls_tier_id = None

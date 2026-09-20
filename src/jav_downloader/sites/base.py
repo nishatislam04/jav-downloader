@@ -574,8 +574,7 @@ class M3U8Crawler:
     def __init__(
             self, url, savepath="", silence=False, max_workers=None,
             cut_start=None, cut_end=None, cuts=None,
-            audio_fade=False, audio_loudnorm=False, stream_preference=None,
-            resolution_pref=None, hls_tier=None,
+            audio_fade=False, audio_loudnorm=False,
             encode=None, encode_codec=None, encode_crf=None,
             encode_max_height=None, encode_output_mode=None,
             encode_preset=None, encode_threads=None,
@@ -604,9 +603,7 @@ class M3U8Crawler:
             encode_preset=encode_preset,
             encode_threads=encode_threads,
         )
-        self._stream_preference = (str(stream_preference).strip().upper()
-                                   if stream_preference else None) or None
-        apply_download_options(self, resolution_pref, hls_tier)
+        apply_download_options(self)
         self._hls_tiers = []
         self._active_hls_tier = ''
         self._selected_variant_bandwidth = 0

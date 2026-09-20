@@ -731,10 +731,7 @@ class SiteJavGuru(M3U8Crawler):
         self._m3u8url = None
         self._extra_headers = {}
         errors = []
-        prefer = getattr(self, '_stream_preference', None)
         labels = list(servers.keys())
-        if prefer and prefer in servers:
-            labels = [prefer] + [label for label in labels if label != prefer]
         if skip_labels:
             self._emit_job_log(
                 f'Resolving next mirror (skipping {", ".join(sorted(skip_labels))})…')

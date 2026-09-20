@@ -17,10 +17,6 @@ export type ResolveResult = {
   quality?: string;
   views?: string;
   uploader?: string;
-  stream_mirrors?: string[];
-  active_stream?: string;
-  hls_tiers?: HlsTier[];
-  active_hls_tier?: string;
   output_size_bytes?: number | null;
   output_size_exact?: boolean;
   exists?: boolean;
@@ -41,6 +37,8 @@ export type Job = {
   speed?: number;
   progress_pct?: number;
   progress_unit?: '' | 'bytes' | 'segments';
+  progress_phase?: string;
+  progress_detail?: string;
   error?: string;
   log?: string[];
   created_at?: number;
@@ -80,9 +78,6 @@ export type DownloadOptions = {
   audio_mute?: boolean;
   audio_bitrate?: number;
   audio_volume?: number;
-  stream_preference?: string;
-  resolution_pref?: string;
-  hls_tier?: string;
   encode?: boolean;
   encode_codec?: string;
   encode_crf?: number;

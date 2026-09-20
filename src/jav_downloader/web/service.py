@@ -14,6 +14,7 @@ from jav_downloader.sites.base import (
 )
 from jav_downloader.web.jobs import Job, JobManager, JobStatus
 from jav_downloader.web.paths import default_download_dir, validate_dest_folder
+from jav_downloader.web.progress_phase import phase_from_log
 
 _active_downloads: dict[str, object] = {}
 _active_lock = threading.Lock()
@@ -142,10 +143,6 @@ def _site_resolve_extras(site) -> dict:
     populate_hls_tiers(site)
     size_bytes, size_exact = estimate_output_size(site)
     return {
-        'stream_mirrors': list(getattr(site, '_available_stream_labels', None) or []),
-        'active_stream': getattr(site, '_active_stream_label', None) or '',
-        'hls_tiers': list(getattr(site, '_hls_tiers', None) or []),
-        'active_hls_tier': getattr(site, '_active_hls_tier', None) or '',
         'output_size_bytes': size_bytes,
         'output_size_exact': bool(size_exact) if size_bytes else False,
     }
@@ -175,9 +172,6 @@ def resolve_url(
         audio_mute: bool = False,
         audio_bitrate: int | None = None,
         audio_volume: float | None = None,
-        stream_preference: str | None = None,
-        resolution_pref: str | None = None,
-        hls_tier: str | None = None,
         **encode_kwargs) -> dict:
     """Collect metadata for a supported URL without starting a download."""
     url = (url or '').strip()
@@ -202,9 +196,6 @@ def resolve_url(
             cut_start=_optional_time(cut_start),
             cut_end=_optional_time(cut_end),
             cuts=cuts,
-            stream_preference=_optional_text(stream_preference),
-            resolution_pref=_optional_text(resolution_pref),
-            hls_tier=_optional_text(hls_tier),
             **_audio_options(
                 audio_fade=audio_fade,
                 audio_loudnorm=audio_loudnorm,
@@ -262,11 +253,14 @@ def _run_download(
         audio_mute: bool = False,
         audio_bitrate: int | None = None,
         audio_volume: float | None = None,
-        stream_preference: str | None = None,
-        resolution_pref: str | None = None,
-        hls_tier: str | None = None,
         **encode_kwargs) -> None:
-    manager.update(job_id, status=JobStatus.DOWNLOADING, error='')
+    manager.update(
+        job_id,
+        status=JobStatus.DOWNLOADING,
+        error='',
+        progress_phase='Preparing',
+        progress_detail='',
+    )
     try:
         site_cls = sites.validate_url(url)
         site = sites.create_site(
@@ -276,9 +270,6 @@ def _run_download(
             cut_start=cut_start,
             cut_end=cut_end,
             cuts=cuts,
-            stream_preference=stream_preference,
-            resolution_pref=resolution_pref,
-            hls_tier=hls_tier,
             **_audio_options(
                 audio_fade=audio_fade,
                 audio_loudnorm=audio_loudnorm,
@@ -312,9 +303,18 @@ def _run_download(
 
         def _on_log(message: str) -> None:
             stamp = _log_stamp()
-            manager.append_log(job_id, f'[{stamp}] {message}')
+            line = f'[{stamp}] {message}'
+            manager.append_log(job_id, line)
+            parsed = phase_from_log(message)
+            if parsed:
+                phase, detail = parsed
+                manager.set_phase(job_id, phase, detail)
+
+        def _on_phase(phase: str, detail: str = '') -> None:
+            manager.set_phase(job_id, phase, detail)
 
         site._job_log = _on_log
+        site._progress_phase = _on_phase
         _on_log('Preparing download…')
         stream_label = getattr(site, '_active_stream_label', None)
         if stream_label:
@@ -333,12 +333,27 @@ def _run_download(
 
         def _on_progress(
                 downloaded: int, total: int, speed: float, unit: str | None = None) -> None:
+            unit = unit or progress_unit
+            phase = None
+            detail = None
+            job = manager.get(job_id)
+            current_phase = job.progress_phase if job else ''
+            current_detail = job.progress_detail if job else ''
+            if unit == 'segments' and total > 0:
+                phase, detail = 'Downloading', f'{downloaded}/{total} segments'
+            elif unit == 'bytes' and total > 0:
+                if current_phase == 'Encoding':
+                    phase, detail = 'Encoding', current_detail
+                else:
+                    phase, detail = 'Downloading', 'transfer'
             manager.set_progress(
                 job_id,
                 downloaded,
                 total,
                 speed,
-                progress_unit=unit or progress_unit,
+                progress_unit=unit,
+                progress_phase=phase,
+                progress_detail=detail,
             )
 
         site._progress_callback = _on_progress
@@ -415,9 +430,6 @@ def start_download(
         audio_mute: bool = False,
         audio_bitrate: int | None = None,
         audio_volume: float | None = None,
-        stream_preference: str | None = None,
-        resolution_pref: str | None = None,
-        hls_tier: str | None = None,
         **encode_kwargs) -> Job:
     """Queue a download and return its job record."""
     url = (url or '').strip()
@@ -427,9 +439,6 @@ def start_download(
     cut_start = _optional_time(cut_start)
     cut_end = _optional_time(cut_end)
     output_title = _optional_text(output_title)
-    stream_preference = _optional_text(stream_preference)
-    resolution_pref = _optional_text(resolution_pref)
-    hls_tier = _optional_text(hls_tier)
     _job_params[job.id] = {
         'url': url,
         'dest': dest,
@@ -444,9 +453,6 @@ def start_download(
             audio_bitrate=audio_bitrate,
             audio_volume=audio_volume,
         ),
-        'stream_preference': stream_preference,
-        'resolution_pref': resolution_pref,
-        'hls_tier': hls_tier,
         **_encode_options(**encode_kwargs),
     }
 
@@ -461,9 +467,6 @@ def start_download(
                 audio_bitrate=audio_bitrate,
                 audio_volume=audio_volume,
             ),
-            'stream_preference': stream_preference,
-            'resolution_pref': resolution_pref,
-            'hls_tier': hls_tier,
             **_encode_options(**encode_kwargs),
         },
         name=f'jav-web-{job.id}',
@@ -506,9 +509,6 @@ def resume_download(manager: JobManager, job_id: str) -> bool:
         ),
         kwargs={
             **_audio_options_from_mapping(params),
-            'stream_preference': params.get('stream_preference'),
-            'resolution_pref': params.get('resolution_pref'),
-            'hls_tier': params.get('hls_tier'),
             **_encode_options_from_mapping(params),
         },
         name=f'jav-web-{job_id}-resume',

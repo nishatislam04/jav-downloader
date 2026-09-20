@@ -32,6 +32,8 @@ class Job:
     speed: float = 0.0
     progress_pct: float = 0.0
     progress_unit: str = ''  # 'bytes', 'segments', or '' when unknown
+    progress_phase: str = ''
+    progress_detail: str = ''
     error: str = ''
     log: list[str] = field(default_factory=list)
     created_at: float = field(default_factory=time.time)
@@ -52,6 +54,8 @@ class Job:
             'speed': self.speed,
             'progress_pct': self.progress_pct,
             'progress_unit': self.progress_unit,
+            'progress_phase': self.progress_phase,
+            'progress_detail': self.progress_detail,
             'error': self.error,
             'log': list(self.log),
             'created_at': self.created_at,
@@ -112,14 +116,27 @@ class JobManager:
             total: int,
             speed: float,
             *,
-            progress_unit: str = '') -> None:
+            progress_unit: str = '',
+            progress_phase: str | None = None,
+            progress_detail: str | None = None) -> None:
         pct = (downloaded / total * 100.0) if total > 0 else 0.0
+        fields = {
+            'downloaded': downloaded,
+            'total': total,
+            'speed': speed,
+            'progress_pct': round(pct, 2),
+            'progress_unit': progress_unit,
+            'status': JobStatus.DOWNLOADING,
+        }
+        if progress_phase is not None:
+            fields['progress_phase'] = progress_phase
+        if progress_detail is not None:
+            fields['progress_detail'] = progress_detail
+        self.update(job_id, **fields)
+
+    def set_phase(self, job_id: str, phase: str, detail: str = '') -> None:
         self.update(
             job_id,
-            downloaded=downloaded,
-            total=total,
-            speed=speed,
-            progress_pct=round(pct, 2),
-            progress_unit=progress_unit,
-            status=JobStatus.DOWNLOADING,
+            progress_phase=str(phase or ''),
+            progress_detail=str(detail or ''),
         )
