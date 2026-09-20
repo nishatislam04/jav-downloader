@@ -298,18 +298,22 @@ export default function EditToolsCard(props: Props) {
                           <span>Bitrate</span>
                           <FieldHint label="Audio bitrate">
                             <p>
-                              AAC bitrate when audio is re-encoded (fade, loudnorm, volume boost,
-                              encode, or non-default bitrate).
+                              How much data is used for sound when the app needs to process audio
+                              (for example after fade, loudness fix, or video re-encode). Higher
+                              numbers usually sound clearer but make the file slightly larger.
                             </p>
                             <ul class="field-hint-list">
                               <li>
-                                <strong>96k</strong> — Smallest audio; fine for speech.
+                                <strong>96k</strong> — Smallest audio size. Good for voice-only
+                                clips or when you care more about saving space than perfect sound.
                               </li>
                               <li>
-                                <strong>128k</strong> — Default balance for most clips.
+                                <strong>128k</strong> — Balanced everyday choice. Clear enough for
+                                most videos; this is the default and what most people should use.
                               </li>
                               <li>
-                                <strong>192k</strong> — Higher fidelity when music matters.
+                                <strong>192k</strong> — Richer sound for music, ambience, or when
+                                you notice muffled audio at 128k. Makes the file a bit bigger.
                               </li>
                             </ul>
                           </FieldHint>
@@ -339,10 +343,26 @@ export default function EditToolsCard(props: Props) {
                           <span>Volume boost {props.audioSettings.volume.toFixed(1)}×</span>
                           <FieldHint label="Volume boost">
                             <p>
-                              Multiplies quiet source audio before other filters. Loudnorm afterward
-                              still targets standard loudness — use boost only when the source is
-                              too quiet.
+                              Makes quiet videos louder before saving. Useful when the original
+                              sounds too soft even at full phone/TV volume.
                             </p>
+                            <ul class="field-hint-list">
+                              <li>
+                                <strong>1.0× (left end)</strong> — No boost. Normal volume; choose
+                                this unless the source is genuinely too quiet.
+                              </li>
+                              <li>
+                                <strong>1.5×–2.0×</strong> — Moderate boost for slightly quiet
+                                clips. A safe range to try first.
+                              </li>
+                              <li>
+                                <strong>2.5×–3.0×</strong> — Strong boost for very quiet sources.
+                                May distort if the original was already loud — listen after
+                                download.
+                              </li>
+                            </ul>
+                            <p>If you also turn on “Normalize loudness”, that step runs after boost
+                              and tries to keep a consistent overall level.</p>
                           </FieldHint>
                         </div>
                         <input
@@ -419,20 +439,23 @@ export default function EditToolsCard(props: Props) {
                       <label class="encode-field">
                         <div class="encode-field-head">
                           <span>Codec</span>
-                          <FieldHint label="Codec">
+                          <FieldHint label="Video format (codec)">
                             <p>
-                              Pick based on where you will play the file and how much space you want
-                              to save.
+                              The type of video compression used in the saved file. Pick based on
+                              where you will watch it and how much storage you want to use.
                             </p>
                             <ul class="field-hint-list">
                               <li>
-                                <strong>H.264</strong> — Plays on almost everything (phones, TVs,
-                                browsers). Best when you share files or need maximum compatibility.
+                                <strong>H.264</strong> — Works on almost every phone, TV, browser,
+                                and media app. Slightly larger files. Choose this if you share files
+                                widely or are unsure what your player supports. Best default for
+                                most people.
                               </li>
                               <li>
-                                <strong>H.265 / HEVC</strong> — Roughly 30–50% smaller at the same
-                                visual quality. Slower to encode and some older devices cannot play
-                                it. Use when storage matters and your players support it.
+                                <strong>H.265 / HEVC</strong> — Often produces noticeably smaller
+                                files at similar picture quality. Takes longer to encode and some
+                                older TVs, browsers, or apps cannot play it. Choose this when saving
+                                space matters and you know your device supports HEVC.
                               </li>
                             </ul>
                           </FieldHint>
@@ -454,15 +477,31 @@ export default function EditToolsCard(props: Props) {
                       <label class="encode-field">
                         <div class="encode-field-head">
                           <span>Max height</span>
-                          <FieldHint label="Max height">
+                          <FieldHint label="Max height (resolution)">
                             <p>
-                              Limits output resolution to save space. The downloader skips scaling
-                              when the source is already at or below this height.
+                              Caps how tall the video can be in pixels. Lower resolution = smaller
+                              file and faster processing. If the source is already smaller than your
+                              choice, the app leaves it unchanged.
                             </p>
-                            <p>
-                              <strong>Default:</strong> Original — keep source resolution unless you
-                              need a smaller file.
-                            </p>
+                            <ul class="field-hint-list">
+                              <li>
+                                <strong>Original</strong> — Keeps the same sharpness as the
+                                downloaded stream. Choose when quality matters most or the source is
+                                already low resolution. Default for most people.
+                              </li>
+                              <li>
+                                <strong>480p</strong> — DVD-style size; fine on a phone screen and
+                                very good for saving space. A popular choice for long videos.
+                              </li>
+                              <li>
+                                <strong>720p</strong> — HD-ish balance: sharper than 480p but still
+                                much smaller than full 1080p sources.
+                              </li>
+                              <li>
+                                <strong>1080p</strong> — Full HD cap. Use when you want high
+                                sharpness but the source might be 4K or very high bitrate.
+                              </li>
+                            </ul>
                           </FieldHint>
                         </div>
                         <select
@@ -481,8 +520,33 @@ export default function EditToolsCard(props: Props) {
                           <option value="1080">1080p</option>
                         </select>
                       </label>
-                      <label class="encode-field">
-                        <span>Output</span>
+                      <label class="encode-field encode-field-wide">
+                        <div class="encode-field-head">
+                          <span>Output</span>
+                          <FieldHint label="Output file choice">
+                            <p>
+                              What happens to the original downloaded file after re-encoding
+                              finishes.
+                            </p>
+                            <ul class="field-hint-list">
+                              <li>
+                                <strong>Replace original</strong> — The new compressed file takes
+                                over; the first download version is removed. Keeps one clean
+                                filename. Best default for most people.
+                              </li>
+                              <li>
+                                <strong>Keep both</strong> — Saves the re-encoded file alongside the
+                                original. Uses more disk space but lets you compare quality or keep
+                                a backup.
+                              </li>
+                              <li>
+                                <strong>Tagged file only</strong> — Keeps only the new file (with a
+                                tag in the name) and deletes the original. Similar to “keep both”
+                                but you end up with just the processed copy.
+                              </li>
+                            </ul>
+                          </FieldHint>
+                        </div>
                         <select
                           value={props.encodeSettings.outputMode}
                           disabled={!props.encodeSettings.enabled}
@@ -520,17 +584,33 @@ export default function EditToolsCard(props: Props) {
                             <span>Encoding engine</span>
                             <FieldHint label="Encoding engine">
                               <p>
-                                Chooses how video is processed after download. Auto picks hardware
-                                on supported Android devices when re-encoding is needed, otherwise
-                                software.
+                                How the app converts video after download — speed vs flexibility.
+                                Only matters when re-encode is turned on.
                               </p>
-                              <p>
-                                <strong>Direct / Remux</strong> — Stream copy when possible; fastest
-                                but no resolution or codec change.
-                              </p>
-                              <p>
-                                <strong>Default:</strong> Auto — recommended for most users.
-                              </p>
+                              <ul class="field-hint-list">
+                                <li>
+                                  <strong>Auto</strong> — Lets the app decide: skip work when nothing
+                                  needs changing; use fast phone/GPU encoding when available;
+                                  otherwise use standard software encoding. Recommended for almost
+                                  everyone.
+                                </li>
+                                <li>
+                                  <strong>Direct / Remux</strong> — Fastest path: copies video as-is
+                                  when possible. Will not shrink resolution or change format. Choose
+                                  only if you enabled re-encode but do not actually want visual
+                                  changes.
+                                </li>
+                                <li>
+                                  <strong>Hardware</strong> — Uses your device’s built-in video
+                                  encoder (phone chip or PC graphics). Usually much faster and uses
+                                  less battery/CPU. Falls back to software if unsupported.
+                                </li>
+                                <li>
+                                  <strong>Software</strong> — Encodes on the main processor. Slower
+                                  but predictable and works everywhere. Choose for maximum
+                                  compatibility or if hardware results look bad on your device.
+                                </li>
+                              </ul>
                             </FieldHint>
                           </div>
                           <select
@@ -551,14 +631,23 @@ export default function EditToolsCard(props: Props) {
                         <label class="encode-field">
                           <div class="encode-field-head">
                             <span>Hardware codec</span>
-                            <FieldHint label="Hardware codec">
+                            <FieldHint label="Hardware video format">
                               <p>
-                                Uses the same H.264 / HEVC choice as above, but via Android
-                                MediaCodec when hardware encoding is selected.
+                                Mirrors the main “Codec” choice above, but shows whether your
+                                device’s fast hardware encoder supports each format. If an option
+                                says “unavailable”, hardware mode cannot use it on this device.
                               </p>
-                              <p>
-                                HEVC can produce smaller files but compatibility varies by device.
-                              </p>
+                              <ul class="field-hint-list">
+                                <li>
+                                  <strong>H.264</strong> — Most compatible hardware path. Choose
+                                  when you want speed and broad playback support.
+                                </li>
+                                <li>
+                                  <strong>HEVC</strong> — Can save more space at similar quality
+                                  when hardware supports it. Pick only if HEVC shows as available
+                                  and your players handle HEVC files.
+                                </li>
+                              </ul>
                             </FieldHint>
                           </div>
                           <select value={props.encodeSettings.codec} disabled>
@@ -579,14 +668,27 @@ export default function EditToolsCard(props: Props) {
                         <label class="encode-field">
                           <div class="encode-field-head">
                             <span>Hardware bitrate mode</span>
-                            <FieldHint label="Bitrate mode">
+                            <FieldHint label="Hardware bitrate mode">
                               <p>
-                                VBR varies bitrate for better quality; CBR holds a steadier rate.
-                                Hardware encoders use bitrate instead of CRF.
+                                How strictly the hardware encoder sticks to a target data rate
+                                (affects size and sometimes quality in busy scenes).
                               </p>
-                              <p>
-                                <strong>Default:</strong> Auto (VBR).
-                              </p>
+                              <ul class="field-hint-list">
+                                <li>
+                                  <strong>Auto (VBR)</strong> — Smart variable rate: spends more
+                                  data on complex moments and less on simple ones. Best default for
+                                  most people.
+                                </li>
+                                <li>
+                                  <strong>VBR</strong> — Same idea as Auto: quality-first variable
+                                  bitrate. Use if you want to force variable mode explicitly.
+                                </li>
+                                <li>
+                                  <strong>CBR</strong> — Steady bitrate throughout. Predictable
+                                  file size and streaming behavior; quality may dip in fast motion.
+                                  Rarely needed unless you know you want constant rate.
+                                </li>
+                              </ul>
                             </FieldHint>
                           </div>
                           <select
@@ -607,14 +709,31 @@ export default function EditToolsCard(props: Props) {
                         <label class="encode-field">
                           <div class="encode-field-head">
                             <span>Hardware bitrate (kbps)</span>
-                            <FieldHint label="Bitrate">
+                            <FieldHint label="Hardware bitrate (kbps)">
                               <p>
-                                Target video bitrate for hardware encoding. Higher values improve
-                                quality but increase file size.
+                                Target video data rate for hardware encoding. Think of it as a
+                                “quality budget” — higher numbers look better but make larger
+                                files.
                               </p>
-                              <p>
-                                <strong>Default:</strong> 0 (Auto) — chosen from resolution.
-                              </p>
+                              <ul class="field-hint-list">
+                                <li>
+                                  <strong>0 (Auto)</strong> — App picks a sensible rate from your
+                                  resolution (for example ~1000k at 480p). Leave at 0 unless you
+                                  know what you are doing. Default for most people.
+                                </li>
+                                <li>
+                                  <strong>500–1000</strong> — Smaller files; okay for 480p or when
+                                  space is tight.
+                                </li>
+                                <li>
+                                  <strong>1500–3000</strong> — Mid range for 720p–1080p when you
+                                  want cleaner picture without going huge.
+                                </li>
+                                <li>
+                                  <strong>4000+</strong> — High quality / large files. Only if you
+                                  have storage to spare and notice blockiness at lower values.
+                                </li>
+                              </ul>
                             </FieldHint>
                           </div>
                           <input
@@ -638,15 +757,28 @@ export default function EditToolsCard(props: Props) {
                         <label class="encode-field">
                           <div class="encode-field-head">
                             <span>GOP / keyframe interval</span>
-                            <FieldHint label="GOP / Keyframe interval">
+                            <FieldHint label="Keyframe interval (GOP)">
                               <p>
-                                How often full keyframes are inserted. Affects seeking smoothness
-                                and compression. Auto uses about 2 seconds at 30 fps (GOP 60).
+                                How often the encoder saves a full picture frame (not just changes
+                                from the previous frame). Affects scrubbing/seeking in players and
+                                slightly affects file size.
                               </p>
-                              <p>
-                                <strong>Default:</strong> Auto — leave alone unless you have a
-                                specific reason to change it.
-                              </p>
+                              <ul class="field-hint-list">
+                                <li>
+                                  <strong>0 (Auto)</strong> — App uses a safe default (~2 seconds
+                                  between full frames). Leave this unless you have a specific
+                                  reason to change it. Best for almost everyone.
+                                </li>
+                                <li>
+                                  <strong>Lower values (e.g. 30)</strong> — More frequent full
+                                  frames; smoother seeking, slightly larger files.
+                                </li>
+                                <li>
+                                  <strong>Higher values (e.g. 120+)</strong> — Fewer full frames;
+                                  may hitch when jumping through the timeline. Slightly smaller
+                                  files. Uncommon for casual use.
+                                </li>
+                              </ul>
                             </FieldHint>
                           </div>
                           <input
@@ -667,14 +799,30 @@ export default function EditToolsCard(props: Props) {
                         <label class="encode-field">
                           <div class="encode-field-head">
                             <span>CRF {props.encodeSettings.crf}</span>
-                            <FieldHint label="CRF (software quality)">
+                            <FieldHint label="Software quality (CRF)">
                               <p>
-                                Software-only quality control. Lower CRF means higher quality and
-                                larger files. Not used for hardware encoding.
+                                Fine-tunes picture quality when using software encoding (not
+                                hardware). Lower number = sharper picture and bigger file; higher
+                                number = smaller file and more visible compression.
                               </p>
-                              <p>
-                                <strong>Default:</strong> 23.
-                              </p>
+                              <ul class="field-hint-list">
+                                <li>
+                                  <strong>18–20</strong> — Very high quality; large files. For
+                                  archiving or when you see banding at 23.
+                                </li>
+                                <li>
+                                  <strong>21–23</strong> — Sweet spot for most downloads. 23 is the
+                                  default — balanced size and clarity.
+                                </li>
+                                <li>
+                                  <strong>24–26</strong> — Smaller files with acceptable quality on
+                                  small screens.
+                                </li>
+                                <li>
+                                  <strong>27–28</strong> — Aggressive space saving; may look soft
+                                  or blocky on a big TV. Use when file size matters most.
+                                </li>
+                              </ul>
                             </FieldHint>
                           </div>
                           <input
@@ -694,14 +842,40 @@ export default function EditToolsCard(props: Props) {
                         <label class="encode-field encode-field-wide">
                           <div class="encode-field-head">
                             <span>Software preset</span>
-                            <FieldHint label="Software preset">
+                            <FieldHint label="Software encoding speed">
                               <p>
-                                Faster presets encode quicker but compress less efficiently at the
-                                same CRF. Slower presets take more CPU time.
+                                Trade-off between how long software encoding takes and how tightly
+                                the file is packed at the same quality setting above. Does not
+                                change hardware encoding.
                               </p>
-                              <p>
-                                <strong>Default:</strong> Auto.
-                              </p>
+                              <ul class="field-hint-list">
+                                <li>
+                                  <strong>Auto</strong> — Picks a sensible speed for your device
+                                  (faster on phones, balanced on desktop). Default — use this
+                                  unless you have a reason to change.
+                                </li>
+                                <li>
+                                  <strong>Ultrafast</strong> — Fastest; biggest files. Good for
+                                  quick tests or very long videos when you are in a hurry.
+                                </li>
+                                <li>
+                                  <strong>Superfast / Veryfast</strong> — Still quick; reasonable
+                                  choice on slower phones or laptops.
+                                </li>
+                                <li>
+                                  <strong>Faster / Fast</strong> — Middle ground: not too slow,
+                                  slightly better compression than the fastest options.
+                                </li>
+                                <li>
+                                  <strong>Medium</strong> — Balanced desktop encoding; good everyday
+                                  choice if Auto feels too slow or too fast.
+                                </li>
+                                <li>
+                                  <strong>Slow</strong> — Best compression for a given quality
+                                  level but can take a long time. Only when you want smallest
+                                  software-encoded files and can wait.
+                                </li>
+                              </ul>
                             </FieldHint>
                           </div>
                           <select
@@ -726,14 +900,25 @@ export default function EditToolsCard(props: Props) {
                         <label class="encode-field">
                           <div class="encode-field-head">
                             <span>Threads</span>
-                            <FieldHint label="Threads">
+                            <FieldHint label="CPU threads">
                               <p>
-                                CPU threads for software encoding and decoding. 0 uses all cores.
-                                Does not apply to hardware encoders.
+                                How many processor cores software encoding may use. Only affects
+                                software mode — hardware encoding ignores this.
                               </p>
-                              <p>
-                                <strong>Default:</strong> 0 (Auto).
-                              </p>
+                              <ul class="field-hint-list">
+                                <li>
+                                  <strong>0 (Auto)</strong> — Uses all available cores for fastest
+                                  software encode. Default and best for most people.
+                                </li>
+                                <li>
+                                  <strong>1–2</strong> — Leaves headroom so your phone or PC stays
+                                  responsive for other apps while encoding runs in the background.
+                                </li>
+                                <li>
+                                  <strong>4+</strong> — Manual cap on multi-core use. Rarely needed;
+                                  try only if Auto makes the device uncomfortably hot or sluggish.
+                                </li>
+                              </ul>
                             </FieldHint>
                           </div>
                           <input
