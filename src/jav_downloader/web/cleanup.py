@@ -20,6 +20,7 @@ from __future__ import annotations
 import os
 import re
 import shutil
+import time
 
 WORKDIR_PREFIXES = ("jav-remux-", "jav-multicut-", "jav-hlsmulticut-")
 TEMP_FILE_PREFIXES = ("jav-encode-", "jav-audio-", "jav-cut-", "jav-hlsmulticut-")
@@ -141,9 +142,44 @@ def sweep_dest_folder(dest_folder: str, on_event=None) -> dict:
     return result
 
 
-def cleanup_job(manager, job_id: str) -> dict:
-    """Sweep a stopped job's download folder after user confirmation."""
+def _wait_for_shutdown(manager, job_id: str, timeout: float) -> bool:
+    """Wait for the worker thread and cancel to fully unwind."""
+    from jav_downloader.web import service
     from jav_downloader.web.jobs import JobStatus
+
+    deadline = time.time() + timeout
+    while True:
+        with service._active_lock:
+            active = job_id in service._active_downloads
+        job = manager.get(job_id)
+        status_active = job is None or job.status in (
+            JobStatus.DOWNLOADING,
+            JobStatus.PENDING,
+        )
+        if not active and not status_active:
+            return True
+        if time.time() >= deadline:
+            return False
+        time.sleep(0.2)
+
+
+def _other_job_writing_to(manager, job_id: str, dest: str) -> bool:
+    """True when a different active job targets the same folder."""
+    from jav_downloader.web import service
+
+    real_dest = os.path.realpath(os.path.expanduser(dest))
+    with service._active_lock:
+        other_ids = [jid for jid in service._active_downloads if jid != job_id]
+    for other_id in other_ids:
+        other = manager.get(other_id)
+        if other and other.dest_folder:
+            if os.path.realpath(os.path.expanduser(other.dest_folder)) == real_dest:
+                return True
+    return False
+
+
+def cleanup_job(manager, job_id: str, wait_timeout: float = 10.0) -> dict:
+    """Sweep a stopped job's download folder after user confirmation."""
     from jav_downloader.web.paths import default_download_dir
 
     job = manager.get(job_id)
@@ -152,11 +188,6 @@ def cleanup_job(manager, job_id: str) -> dict:
 
     # Imported lazily: service pulls in the site crawlers.
     from jav_downloader.web import service
-
-    with service._active_lock:
-        active = job_id in service._active_downloads
-    if active or job.status in (JobStatus.DOWNLOADING, JobStatus.PENDING):
-        return {"ok": False, "error": "Job is still running — cancel it first"}
 
     dest = job.dest_folder or ""
     if not dest:
@@ -167,6 +198,18 @@ def cleanup_job(manager, job_id: str) -> dict:
 
     def on_event(message: str) -> None:
         manager.append_log(job_id, f"[{service._log_stamp()}] {message}")
+
+    on_event("Waiting for download to stop…")
+    if not _wait_for_shutdown(manager, job_id, wait_timeout):
+        on_event("Cleanup aborted: job is still shutting down")
+        return {"ok": False, "error": "Job is still shutting down — try again"}
+
+    if _other_job_writing_to(manager, job_id, dest):
+        on_event(f"Cleanup skipped: another download is using {dest}")
+        return {
+            "ok": False,
+            "error": "Another download is writing to this folder",
+        }
 
     result = sweep_dest_folder(dest, on_event)
     if not result["ok"]:

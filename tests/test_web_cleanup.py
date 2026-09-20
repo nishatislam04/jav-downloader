@@ -82,10 +82,10 @@ def test_cleanup_job_requires_stopped_job():
     job = manager.create("https://example.test/video")
     manager.update(job.id, status=JobStatus.DOWNLOADING, dest_folder="/tmp/somewhere")
 
-    result = cleanup.cleanup_job(manager, job.id)
+    result = cleanup.cleanup_job(manager, job.id, wait_timeout=0.1)
 
     assert result["ok"] is False
-    assert "cancel it first" in result["error"]
+    assert "shutting down" in result["error"]
 
 
 def test_cleanup_job_sweeps_completed_job_folder(tmp_path):

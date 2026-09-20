@@ -5,8 +5,8 @@ import type {
   AudioBitrate,
   AudioSettings,
   EncodeCodec,
-  EncodeMaxHeight,
   EncodeEngine,
+  EncodeMaxHeight,
   EncodeOutputMode,
   EncodePreset,
   EncodeSettings,
@@ -361,8 +361,10 @@ export default function EditToolsCard(props: Props) {
                                 download.
                               </li>
                             </ul>
-                            <p>If you also turn on “Normalize loudness”, that step runs after boost
-                              and tries to keep a consistent overall level.</p>
+                            <p>
+                              If you also turn on “Normalize loudness”, that step runs after boost
+                              and tries to keep a consistent overall level.
+                            </p>
                           </FieldHint>
                         </div>
                         <input
@@ -577,7 +579,9 @@ export default function EditToolsCard(props: Props) {
                       />
                       <span>Enable advanced encoding settings</span>
                     </label>
-                    <Show when={props.encodeSettings.advancedEnabled && props.encodeSettings.enabled}>
+                    <Show
+                      when={props.encodeSettings.advancedEnabled && props.encodeSettings.enabled}
+                    >
                       <div class="encode-grid encode-grid-advanced">
                         <label class="encode-field encode-field-wide">
                           <div class="encode-field-head">
@@ -589,10 +593,10 @@ export default function EditToolsCard(props: Props) {
                               </p>
                               <ul class="field-hint-list">
                                 <li>
-                                  <strong>Auto</strong> — Lets the app decide: skip work when nothing
-                                  needs changing; use fast phone/GPU encoding when available;
-                                  otherwise use standard software encoding. Recommended for almost
-                                  everyone.
+                                  <strong>Auto</strong> — Lets the app decide: skip work when
+                                  nothing needs changing; use fast phone/GPU encoding when
+                                  available; otherwise use standard software encoding. Recommended
+                                  for almost everyone.
                                 </li>
                                 <li>
                                   <strong>Direct / Remux</strong> — Fastest path: copies video as-is
@@ -684,8 +688,8 @@ export default function EditToolsCard(props: Props) {
                                   bitrate. Use if you want to force variable mode explicitly.
                                 </li>
                                 <li>
-                                  <strong>CBR</strong> — Steady bitrate throughout. Predictable
-                                  file size and streaming behavior; quality may dip in fast motion.
+                                  <strong>CBR</strong> — Steady bitrate throughout. Predictable file
+                                  size and streaming behavior; quality may dip in fast motion.
                                   Rarely needed unless you know you want constant rate.
                                 </li>
                               </ul>
@@ -712,8 +716,7 @@ export default function EditToolsCard(props: Props) {
                             <FieldHint label="Hardware bitrate (kbps)">
                               <p>
                                 Target video data rate for hardware encoding. Think of it as a
-                                “quality budget” — higher numbers look better but make larger
-                                files.
+                                “quality budget” — higher numbers look better but make larger files.
                               </p>
                               <ul class="field-hint-list">
                                 <li>
@@ -766,8 +769,8 @@ export default function EditToolsCard(props: Props) {
                               <ul class="field-hint-list">
                                 <li>
                                   <strong>0 (Auto)</strong> — App uses a safe default (~2 seconds
-                                  between full frames). Leave this unless you have a specific
-                                  reason to change it. Best for almost everyone.
+                                  between full frames). Leave this unless you have a specific reason
+                                  to change it. Best for almost everyone.
                                 </li>
                                 <li>
                                   <strong>Lower values (e.g. 30)</strong> — More frequent full
@@ -819,8 +822,8 @@ export default function EditToolsCard(props: Props) {
                                   small screens.
                                 </li>
                                 <li>
-                                  <strong>27–28</strong> — Aggressive space saving; may look soft
-                                  or blocky on a big TV. Use when file size matters most.
+                                  <strong>27–28</strong> — Aggressive space saving; may look soft or
+                                  blocky on a big TV. Use when file size matters most.
                                 </li>
                               </ul>
                             </FieldHint>
@@ -851,8 +854,8 @@ export default function EditToolsCard(props: Props) {
                               <ul class="field-hint-list">
                                 <li>
                                   <strong>Auto</strong> — Picks a sensible speed for your device
-                                  (faster on phones, balanced on desktop). Default — use this
-                                  unless you have a reason to change.
+                                  (faster on phones, balanced on desktop). Default — use this unless
+                                  you have a reason to change.
                                 </li>
                                 <li>
                                   <strong>Ultrafast</strong> — Fastest; biggest files. Good for
@@ -871,8 +874,8 @@ export default function EditToolsCard(props: Props) {
                                   choice if Auto feels too slow or too fast.
                                 </li>
                                 <li>
-                                  <strong>Slow</strong> — Best compression for a given quality
-                                  level but can take a long time. Only when you want smallest
+                                  <strong>Slow</strong> — Best compression for a given quality level
+                                  but can take a long time. Only when you want smallest
                                   software-encoded files and can wait.
                                 </li>
                               </ul>

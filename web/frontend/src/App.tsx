@@ -10,10 +10,10 @@ import {
 import {
   cancelJob,
   cleanupJob,
+  type EncodingCapabilities,
   fetchEncodingCapabilities,
   fetchHealth,
   fetchJob,
-  type EncodingCapabilities,
   type Job,
   pauseJob,
   type ResolveResult,
@@ -79,8 +79,9 @@ export default function App() {
     loadRememberEncode() ? loadEncodeSettings() : { ...DEFAULT_ENCODE_SETTINGS },
   );
   const [rememberEncode, setRememberEncode] = createSignal(loadRememberEncode());
-  const [encodingCapabilities, setEncodingCapabilities] =
-    createSignal<EncodingCapabilities | null>(null);
+  const [encodingCapabilities, setEncodingCapabilities] = createSignal<EncodingCapabilities | null>(
+    null,
+  );
   const [activeTool, setActiveTool] = createSignal<ToolId | null>(null);
   const [status, setStatus] = createSignal("");
   const [statusKind, setStatusKind] = createSignal<"ok" | "error" | "">("");
@@ -543,6 +544,9 @@ export default function App() {
     setCleanupJobId(null);
     if (!jobId) return;
     setActionBusy(true);
+    // Stop polling so ticks can't overwrite the cleanup status/log mid-sweep.
+    if (pollTimer) clearInterval(pollTimer);
+    pollTimer = undefined;
     const data = await cancelJob(jobId);
     if (data.ok && data.job) {
       setJob(data.job);
