@@ -26,6 +26,7 @@ import { DownloadIcon, SuccessIcon } from "./components/IconButton";
 import MetaCard from "./components/MetaCard";
 import ProgressCard from "./components/ProgressCard";
 import ProgressRing from "./components/ProgressRing";
+import SupportedSites from "./components/SupportedSites";
 import { appendHistory } from "./lib/history";
 import {
   type AudioSettings,
@@ -624,7 +625,10 @@ export default function App() {
     <main class="shell">
       <header class="app-header">
         <h1>JAV Downloader</h1>
-        <HistoryMenu onSelect={(entry) => setUrl(entry.url)} />
+        <div class="header-actions">
+          <SupportedSites />
+          <HistoryMenu onSelect={(entry) => setUrl(entry.url)} />
+        </div>
       </header>
 
       <section class="card url-dashboard sticky-dashboard">
