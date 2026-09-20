@@ -104,6 +104,37 @@ def test_create_site_forwards_explicit_worker_limit(monkeypatch, tmp_path):
     assert captured['max_workers'] == 4
 
 
+def test_create_site_forwards_advanced_encode_options(monkeypatch, tmp_path):
+    captured = {}
+
+    class _FakeSite:
+        @classmethod
+        def validate_url(cls, url):
+            return 'video'
+
+        def __init__(self, url, savepath='', silence=False, **kwargs):
+            captured.update(url=url, savepath=savepath, silence=silence, **kwargs)
+
+    monkeypatch.setattr(M3U8Sites, 'siteList', (_FakeSite,))
+
+    M3U8Sites.create_site(
+        'https://example.test/video',
+        str(tmp_path),
+        silence=True,
+        encode=True,
+        encode_engine='hardware',
+        encode_hardware_bitrate_kbps=1500,
+        encode_hardware_gop=60,
+        encode_hardware_bitrate_mode='vbr',
+    )
+
+    assert captured['encode'] is True
+    assert captured['encode_engine'] == 'hardware'
+    assert captured['encode_hardware_bitrate_kbps'] == 1500
+    assert captured['encode_hardware_gop'] == 60
+    assert captured['encode_hardware_bitrate_mode'] == 'vbr'
+
+
 def test_segment_executor_receives_the_job_worker_limit(monkeypatch):
     seen = []
 

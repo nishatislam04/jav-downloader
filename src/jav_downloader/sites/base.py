@@ -578,6 +578,8 @@ class M3U8Crawler:
             encode=None, encode_codec=None, encode_crf=None,
             encode_max_height=None, encode_output_mode=None,
             encode_preset=None, encode_threads=None,
+            encode_engine=None, encode_hardware_bitrate_kbps=None,
+            encode_hardware_gop=None, encode_hardware_bitrate_mode=None,
             audio_mute=False, audio_bitrate=None, audio_volume=None):
         self.silence = silence
         from jav_downloader.sites.multi_cut import build_cut_ranges
@@ -602,6 +604,10 @@ class M3U8Crawler:
             encode_output_mode=encode_output_mode,
             encode_preset=encode_preset,
             encode_threads=encode_threads,
+            encode_engine=encode_engine,
+            encode_hardware_bitrate_kbps=encode_hardware_bitrate_kbps,
+            encode_hardware_gop=encode_hardware_gop,
+            encode_hardware_bitrate_mode=encode_hardware_bitrate_mode,
         )
         apply_download_options(self)
         self._hls_tiers = []
