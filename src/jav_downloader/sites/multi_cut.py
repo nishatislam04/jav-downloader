@@ -253,6 +253,9 @@ def run_hls_multi_cut(site):
     dest_dir = os.path.dirname(out) or os.getcwd()
     os.makedirs(dest_dir, exist_ok=True)
     workdir = tempfile.mkdtemp(prefix='jav-hlsmulticut-', dir=dest_dir)
+    emit = getattr(site, '_emit_job_log', None)
+    if emit:
+        emit(f'Clip staging folder: {workdir}')
     clip_paths = []
     try:
         for index, (start_sec, end_sec) in enumerate(cut_ranges):
@@ -277,6 +280,8 @@ def run_hls_multi_cut(site):
     finally:
         for path in clip_paths:
             _safe_remove(path)
+        if emit:
+            emit(f'Removing merge staging folder {workdir}')
         try:
             import shutil
             shutil.rmtree(workdir, ignore_errors=True)

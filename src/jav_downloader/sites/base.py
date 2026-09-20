@@ -1066,6 +1066,7 @@ class M3U8Crawler:
             post_process_media(self, saveName, getattr(self, '_duration_sec', None))
             published = True
         finally:
+            self._emit_job_log(f'Removing merge staging folder {workdir}')
             shutil.rmtree(workdir, ignore_errors=True)
             if not published and os.path.exists(part):
                 try: os.remove(part)
@@ -1075,6 +1076,7 @@ class M3U8Crawler:
         print(f'\n合成完成，花費 {spent_time:.1f} 秒', flush=True)
         self._deleteMp4Chunks()
         if self._temp_folder != self._dest_folder:
+            self._emit_job_log(f'Removing segment temp dir {self._temp_folder}')
             try: os.removedirs(self._temp_folder)
             except OSError: pass
         return spent_time
@@ -1280,6 +1282,7 @@ class M3U8Crawler:
             dest = getattr(self, '_dest_folder', None)
             if (temp and os.path.isdir(temp) and
                     os.path.abspath(temp) != os.path.abspath(dest or '')):
+                self._emit_job_log(f'Removing segment temp dir {temp}')
                 shutil.rmtree(temp, ignore_errors=True)
         except Exception:
             pass
@@ -1311,6 +1314,7 @@ class M3U8Crawler:
                 return run_stream_multi_cut(self)
         if not self.is_target_video_exist():
             self._create_temp_folder()
+            self._emit_job_log(f'Segments temp dir: {self._temp_folder}')
             self._emit_job_log('Loading HLS playlist…')
             self._create_m3u8()
             self._emit_job_log(f'Found {len(self._tsList)} segments')

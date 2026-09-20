@@ -18,6 +18,14 @@ def phase_from_log(message: str) -> tuple[str, str] | None:
         return None
 
     lower = text.lower()
+    if lower.startswith('segments temp dir:'):
+        return 'Segments folder ready', text.split(':', 1)[-1].strip()
+    if lower.startswith('clip staging folder:'):
+        return 'Clip staging ready', text.split(':', 1)[-1].strip()
+    if lower.startswith('removing segment temp dir'):
+        return 'Cleaning up', 'segment temp dir'
+    if lower.startswith('removing merge staging folder'):
+        return 'Cleaning up', 'merge staging'
     if lower.startswith('preparing download'):
         return 'Preparing', ''
     if lower.startswith('using stream mirror:'):
