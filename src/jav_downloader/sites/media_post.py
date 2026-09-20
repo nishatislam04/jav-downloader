@@ -21,6 +21,8 @@ _VALID_PRESETS = frozenset({
     'fast', 'medium', 'slow',
 })
 _VALID_OUTPUT_MODES = frozenset({'replace', 'keep_both', 'suffix'})
+_VALID_ENCODE_ENGINES = frozenset({'auto', 'direct', 'hardware', 'software'})
+_VALID_HW_BITRATE_MODES = frozenset({'auto', 'vbr', 'cbr'})
 _VALID_MAX_HEIGHTS = frozenset({0, 480, 720, 1080})
 _VALID_AUDIO_BITRATES = frozenset({96, 128, 192})
 _DEFAULT_AUDIO_BITRATE = 128
@@ -64,6 +66,36 @@ def normalize_encode_max_height(value) -> int:
 def normalize_encode_output_mode(value) -> str:
     mode = str(value or 'replace').strip().lower()
     return mode if mode in _VALID_OUTPUT_MODES else 'replace'
+
+
+def normalize_encode_engine(value) -> str:
+    engine = str(value or 'auto').strip().lower()
+    return engine if engine in _VALID_ENCODE_ENGINES else 'auto'
+
+
+def normalize_hardware_bitrate_kbps(value) -> int:
+    try:
+        kbps = int(value if value is not None else 0)
+    except (TypeError, ValueError):
+        return 0
+    if kbps <= 0:
+        return 0
+    return max(200, min(50000, kbps))
+
+
+def normalize_hardware_gop(value) -> int:
+    try:
+        gop = int(value if value is not None else 0)
+    except (TypeError, ValueError):
+        return 0
+    if gop <= 0:
+        return 0
+    return max(1, min(600, gop))
+
+
+def normalize_hardware_bitrate_mode(value) -> str:
+    mode = str(value or 'auto').strip().lower()
+    return mode if mode in _VALID_HW_BITRATE_MODES else 'auto'
 
 
 def normalize_encode_preset(value) -> str:
@@ -122,7 +154,11 @@ def apply_encode_options(
         encode_max_height=None,
         encode_output_mode=None,
         encode_preset=None,
-        encode_threads=None) -> None:
+        encode_threads=None,
+        encode_engine=None,
+        encode_hardware_bitrate_kbps=None,
+        encode_hardware_gop=None,
+        encode_hardware_bitrate_mode=None) -> None:
     site._encode_enabled = bool(encode)
     site._encode_codec = normalize_encode_codec(encode_codec)
     site._encode_crf = normalize_encode_crf(encode_crf)
@@ -130,6 +166,12 @@ def apply_encode_options(
     site._encode_output_mode = normalize_encode_output_mode(encode_output_mode)
     site._encode_preset = normalize_encode_preset(encode_preset)
     site._encode_threads = normalize_encode_threads(encode_threads)
+    site._encode_engine = normalize_encode_engine(encode_engine)
+    site._encode_hardware_bitrate_kbps = normalize_hardware_bitrate_kbps(
+        encode_hardware_bitrate_kbps)
+    site._encode_hardware_gop = normalize_hardware_gop(encode_hardware_gop)
+    site._encode_hardware_bitrate_mode = normalize_hardware_bitrate_mode(
+        encode_hardware_bitrate_mode)
     site._encoded_output_path = None
 
 
@@ -295,27 +337,25 @@ def _emit_encode_progress(site, out_path, out_time_sec, duration_sec, input_size
     cb(max(downloaded, 0), max(total, 1), 0.0, 'bytes')
 
 
-def _build_encode_cmd(ffmpeg, site, src_path, dst_path, duration_sec):
-    threads = resolved_encode_threads(site)
-    preset = resolved_encode_preset(site)
-    codec = normalize_encode_codec(getattr(site, '_encode_codec', None))
-    crf = normalize_encode_crf(getattr(site, '_encode_crf', None))
-    max_height = normalize_encode_max_height(getattr(site, '_encode_max_height', None))
+def _build_encode_cmd(ffmpeg, site, src_path, dst_path, duration_sec, decision=None):
+    """Backward-compatible wrapper; prefer build_encode_command directly."""
+    from jav_downloader.sites.encoding_decision import (
+        MODE_SOFTWARE_ENCODE,
+        EncodingDecision,
+    )
+    from jav_downloader.sites.encoding_strategies import build_encode_command
 
-    cmd = [
-        ffmpeg, '-y', '-hide_banner', '-loglevel', 'error',
-        '-nostats', '-progress', 'pipe:1',
-        '-threads', str(threads),
-        '-i', src_path,
-    ]
-    if max_height > 0:
-        cmd.extend(['-vf', f'scale=-2:{max_height}'])
-    if codec == 'hevc':
-        cmd.extend(['-c:v', 'libx265', '-crf', str(crf), '-preset', preset])
-    else:
-        cmd.extend(['-c:v', 'libx264', '-crf', str(crf), '-preset', preset])
-    _append_audio_mapping(cmd, site, duration_sec, video_copy=False)
-    cmd.extend(['-movflags', '+faststart', dst_path])
+    if decision is None:
+        decision = EncodingDecision(
+            mode=MODE_SOFTWARE_ENCODE,
+            video_copy=False,
+            scale_needed=False,
+            reasons=('legacy encode path',),
+        )
+    cmd = build_encode_command(
+        ffmpeg, site, src_path, dst_path, duration_sec, decision)
+    if cmd is None:
+        raise Exception('encode command requested for direct-remux decision')
     return cmd
 
 
@@ -361,6 +401,18 @@ def _run_ffmpeg(cmd, site, out_path, duration_sec, input_size):
     return True, stderr_tail
 
 
+def _log_encoding_decision(site, decision, media_info) -> None:
+    from jav_downloader.sites.encoding_decision import format_encoding_decision_log
+
+    message = format_encoding_decision_log(decision, media_info, site)
+    emit = getattr(site, '_emit_job_log', None)
+    if emit:
+        emit(message)
+    phase_cb = getattr(site, '_progress_phase', None)
+    if phase_cb and decision.mode != 'skip':
+        phase_cb('Encoding', message.split('Encoding decision:', 1)[-1].strip())
+
+
 def post_process_media(site, src_path: str, duration_sec: float | None = None) -> str | None:
     """Run optional encode and/or audio processing. Returns final output path."""
     if not src_path or not os.path.isfile(src_path):
@@ -376,6 +428,26 @@ def post_process_media(site, src_path: str, duration_sec: float | None = None) -
     input_size = os.path.getsize(src_path)
 
     if site_wants_encode(site):
+        from jav_downloader.sites.encoding_decision import (
+            MODE_DIRECT_REMUX,
+            MODE_SKIP,
+            decide_encoding,
+        )
+        from jav_downloader.sites.media_probe import probe_media
+
+        media_info = probe_media(src_path)
+        decision = decide_encoding(site, media_info)
+        _log_encoding_decision(site, decision, media_info)
+
+        if decision.mode == MODE_SKIP:
+            if needs_audio_processing(site):
+                post_process_audio(site, src_path, duration_sec)
+            return src_path
+
+        if decision.mode == MODE_DIRECT_REMUX:
+            post_process_audio(site, src_path, duration_sec)
+            return src_path
+
         dst_path, mode = _encode_destination_path(src_path, site)
         dest_dir = os.path.dirname(dst_path) or os.getcwd()
         os.makedirs(dest_dir, exist_ok=True)
@@ -383,24 +455,47 @@ def post_process_media(site, src_path: str, duration_sec: float | None = None) -
             suffix='.mp4', prefix='jav-encode-', dir=dest_dir)
         os.close(fd)
 
-        codec = normalize_encode_codec(getattr(site, '_encode_codec', None))
-        preset = resolved_encode_preset(site)
-        height = normalize_encode_max_height(getattr(site, '_encode_max_height', None))
-        threads = resolved_encode_threads(site)
-        height_label = f'{height}p' if height > 0 else 'original'
-        codec_label = 'H.265' if codec == 'hevc' else 'H.264'
-        encode_detail = (
-            f'{codec_label} CRF {site._encode_crf} · '
-            f'{height_label} · {preset} · {threads} thread(s)')
+        from jav_downloader.sites.encoding_strategies import (
+            STRATEGY_HARDWARE,
+            STRATEGY_SOFTWARE,
+            build_encode_command,
+            encode_strategy_label,
+            strategy_for_decision,
+        )
+
+        strategy = strategy_for_decision(decision, site)
+        encode_detail = encode_strategy_label(strategy, site)
         phase_cb = getattr(site, '_progress_phase', None)
         if phase_cb:
             phase_cb('Encoding', encode_detail)
         if emit:
             emit(f'Encoding… {encode_detail}')
 
-        cmd = _build_encode_cmd(ffmpeg, site, src_path, temp_path, duration_sec)
+        cmd = build_encode_command(
+            ffmpeg, site, src_path, temp_path, duration_sec, decision,
+            strategy=strategy)
         ok, stderr_tail = _run_ffmpeg(
             cmd, site, temp_path, float(duration_sec or 0), input_size)
+        if (not ok or not os.path.isfile(temp_path) or
+                os.path.getsize(temp_path) <= 0) and strategy == STRATEGY_HARDWARE:
+            fallback_detail = stderr_tail.strip() or 'hardware encode failed'
+            if emit:
+                emit(
+                    f'Hardware encoder failed ({fallback_detail}); '
+                    f'falling back to software')
+            strategy = STRATEGY_SOFTWARE
+            encode_detail = encode_strategy_label(strategy, site)
+            if phase_cb:
+                phase_cb('Encoding', encode_detail)
+            if emit:
+                emit(f'Encoding… {encode_detail}')
+            _safe_remove(temp_path)
+            cmd = build_encode_command(
+                ffmpeg, site, src_path, temp_path, duration_sec, decision,
+                strategy=strategy)
+            ok, stderr_tail = _run_ffmpeg(
+                cmd, site, temp_path, float(duration_sec or 0), input_size)
+
         if not ok or not os.path.isfile(temp_path) or os.path.getsize(temp_path) <= 0:
             _safe_remove(temp_path)
             detail = stderr_tail.strip() or 'ffmpeg encode failed'
