@@ -374,7 +374,7 @@ flowchart TD
 | 4 Capability + fallback | Done | Runtime probe + hardware→software fallback |
 | 5 Advanced UI | Done | Opt-in advanced section + tooltips |
 | 6 Benchmarks | Doc only | `docs/encoding-benchmarks.md` |
-| 7 Desktop HW | **Not started** | NVENC/VAAPI/QSV deferred |
-| 8 App-level perf | Partial | Skip unnecessary encode; existing merge/remux |
+| 7 Desktop HW | Done | NVENC, QSV, VAAPI, VideoToolbox (macOS) with validation |
+| 8 App-level perf | Done | Wake lock, probe cache, skip unneeded scale, remux session |
 | 9 Root optimization | Doc only | `docs/android-root-performance-optimization.md` |
 | 10 Regression | Done | 331 tests passing |

@@ -150,25 +150,22 @@ def _encode_options_from_mapping(payload: dict | None) -> dict:
 
 
 def encoding_capabilities_payload() -> dict:
-    from jav_downloader.sites.encoding_capabilities import (
-        hardware_encoder_available,
-        is_android_like,
-        mediacodec_encoder_name,
-    )
+    from jav_downloader.sites.encoding_capabilities import hardware_capabilities_summary
 
-    platform = 'android' if is_android_like() else 'desktop'
-    codecs = {}
-    for codec in ('h264', 'hevc'):
-        available, encoder, reason = hardware_encoder_available(codec)
-        codecs[codec] = {
-            'available': available,
-            'encoder': encoder or mediacodec_encoder_name(codec),
-            'reason': reason,
+    summary = hardware_capabilities_summary()
+    hardware_codecs = {}
+    for codec, info in (summary.get('codecs') or {}).items():
+        hardware_codecs[codec] = {
+            'available': bool(info.get('available')),
+            'encoder': info.get('encoder'),
+            'backend': info.get('backend'),
+            'reason': info.get('reason'),
         }
     return {
         'ok': True,
-        'platform': platform,
-        'hardware_codecs': codecs,
+        'platform': summary.get('platform', 'desktop'),
+        'hardware_codecs': hardware_codecs,
+        'hardware_backends': summary.get('backends') or {},
         'hardware_bitrate_modes': ['vbr', 'cbr'],
     }
 

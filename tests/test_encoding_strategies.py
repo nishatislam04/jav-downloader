@@ -61,6 +61,12 @@ def test_build_software_video_args_hevc():
     assert args[idx + 1] == 'libx265'
 
 
+def test_build_software_video_args_skip_unneeded_scale():
+    site = _site(codec='h264', max_height=480)
+    args = encoding_strategies.build_software_video_args(site, source_height=360)
+    assert '-vf' not in args
+
+
 def test_build_software_encode_cmd_structure():
     site = _site()
     cmd = encoding_strategies.build_software_encode_cmd(
