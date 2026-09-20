@@ -429,6 +429,7 @@ def _run_download(
             )
             if os.path.isfile(output):
                 size = os.path.getsize(output)
+                _on_log(f'Saving as {os.path.basename(output)}')
                 _on_log(f'Complete: {output}')
                 manager.update(
                     job_id,

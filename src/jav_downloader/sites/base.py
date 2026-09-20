@@ -1185,6 +1185,9 @@ class M3U8Crawler:
         total = len(self._tsList)
         self._job_total = len(self._pending_set)
         print(f'共 {total} 片段，已完成 {total - self._job_total}，剩餘 {self._job_total}...', flush=True)
+        reused = total - self._job_total
+        if reused > 0:
+            self._emit_job_log(f'Reusing {reused} already-downloaded segments')
 
         max_rounds = max(1, int(getattr(
             self, '_segment_retry_rounds',
@@ -1209,6 +1212,8 @@ class M3U8Crawler:
                 break
             if round_num < max_rounds:
                 print(f'\n重試第 {round_num} 次，剩餘 {still_pending} 片段...', flush=True)
+                self._emit_job_log(
+                    f'Retrying round {round_num} · {still_pending} segments left')
                 if not self._stop_requested():
                     delay = min(
                         retry_base_delay * round_num,
@@ -1243,6 +1248,7 @@ class M3U8Crawler:
     def download_image(self):
         if not self.is_target_image_exist():
             self._create_dest_folder()
+            self._emit_job_log('Fetching thumbnail…')
             try:
                 response = _http_get(self._imageUrl, self._m3u8_headers(), timeout=15)
                 if response.status_code != 200:

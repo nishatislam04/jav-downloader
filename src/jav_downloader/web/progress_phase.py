@@ -26,6 +26,17 @@ def phase_from_log(message: str) -> tuple[str, str] | None:
         return 'Cleaning up', 'segment temp dir'
     if lower.startswith('removing merge staging folder'):
         return 'Cleaning up', 'merge staging'
+    if lower.startswith('fetching thumbnail'):
+        return 'Fetching thumbnail', ''
+    if lower.startswith('reusing ') and 'already-downloaded segments' in lower:
+        match = re.search(r'reusing\s+(\d+)', lower)
+        count = match.group(1) if match else ''
+        return 'Reusing segments', count
+    match = re.match(r'retrying round\s+(\d+)\s+·\s+(\d+) segments left', lower)
+    if match:
+        return 'Retrying', f'Round {match.group(1)} · {match.group(2)} left'
+    if lower.startswith('saving as '):
+        return 'Saving', text.split('Saving as ', 1)[-1].strip()
     if lower.startswith('preparing download'):
         return 'Preparing', ''
     if lower.startswith('using stream mirror:'):
