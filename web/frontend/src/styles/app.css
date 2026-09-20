@@ -684,6 +684,7 @@ button:disabled {
 .total-time {
   color: var(--ok);
   font-size: 0.78rem;
+  font-weight: 700;
   white-space: nowrap;
 }
 

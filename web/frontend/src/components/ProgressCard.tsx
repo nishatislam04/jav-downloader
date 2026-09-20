@@ -145,7 +145,7 @@ export default function ProgressCard(props: Props) {
         <div class="progress-head-left">
           <p class="label">Progress</p>
           <Show when={isCompleted() && totalTime()}>
-            <span class="total-time mono">Total {totalTime()}</span>
+            <span class="total-time mono">{totalTime()}</span>
           </Show>
         </div>
         <Show when={showControls() || (isCompleted() && outputFile() && props.onReveal)}>
