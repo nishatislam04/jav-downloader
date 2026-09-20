@@ -987,6 +987,38 @@ button.tool-sidebar-btn {
   word-break: break-word;
 }
 
+/* Per-line severity colors, keyed by class from classifyLogLine(). */
+.job-log-line .log-msg.info {
+  color: #9cdcfe;
+}
+.job-log-line .log-msg.success {
+  color: var(--ok);
+}
+.job-log-line .log-msg.warn {
+  color: var(--accent-2);
+}
+
+.job-log-line .log-msg.error {
+  color: #ff6b6b;
+}
+
+/* Timestamp dimmed so the message color carries the signal. */
+.job-log-line .log-stamp {
+  color: #5a626e;
+  margin-right: 8px;
+}
+
+/* Soft red tint behind error lines. */
+.job-log-line.error-line {
+  background: rgba(255, 82, 99, 0.08);
+  border-radius: 4px;
+}
+
+/* Fullscreen log keeps colors legible on the same dark backdrop. */
+.log-block-full .job-log-line .log-msg.error {
+  color: #ff6b6b;
+}
+
 .job-log-line + .job-log-line {
   margin-top: 4px;
 }

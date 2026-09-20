@@ -6,6 +6,7 @@ import {
   formatProgressPhase,
   formatProgressStats,
 } from "../lib/format";
+import { classifyLogLine, splitLogStamp } from "../lib/loglevel";
 import IconButton, {
   CloseIcon,
   CollapseIcon,
@@ -237,7 +238,20 @@ export default function ProgressCard(props: Props) {
               </span>
             </div>
             <div class="job-log" ref={logEl} aria-live="polite">
-              <For each={logLines()}>{(line) => <div class="job-log-line">{line}</div>}</For>
+              <For each={logLines()}>
+                {(line) => {
+                  const level = classifyLogLine(line);
+                  const { stamp, message } = splitLogStamp(line);
+                  return (
+                    <div class="job-log-line" classList={{ "error-line": level === "error" }}>
+                      <Show when={stamp}>
+                        <span class="log-stamp">{stamp}</span>
+                      </Show>
+                      <span class={`log-msg ${level}`}>{message}</span>
+                    </div>
+                  );
+                }}
+              </For>
             </div>
           </div>
         </Show>
