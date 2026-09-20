@@ -349,9 +349,32 @@ flowchart TD
 | Concern | File |
 |---------|------|
 | Encode command | `sites/media_post.py` |
+| Source probe | `sites/media_probe.py` |
+| Encode decision | `sites/encoding_decision.py` |
+| Strategies / FFmpeg args | `sites/encoding_strategies.py` |
+| Capability detection | `sites/encoding_capabilities.py` |
 | FFmpeg location | `sites/base.py::locate_ffmpeg` |
 | HLS remux | `sites/base.py::_remux_to_mp4` |
 | Site init / options | `sites/base.py::M3U8Crawler.__init__` |
 | Web API mapping | `web/service.py` |
+| Capabilities API | `GET /api/encoding/capabilities` |
 | UI settings | `web/frontend/src/lib/persist.ts`, `EditToolsCard.tsx` |
 | Progress UI | `web/progress_phase.py`, `ProgressCard.tsx` |
+
+---
+
+## Implementation Status (feature/encoding-optimization)
+
+| Phase | Status | Notes |
+|-------|--------|-------|
+| 0 Audit | Done | This document |
+| 1 Direct remux decision | Done | `media_probe`, `encoding_decision`, tests |
+| 2 Encoder abstraction | Done | `encoding_strategies.py` |
+| 3 Android MediaCodec | Done | `h264_mediacodec`, `hevc_mediacodec`, GOP, VBR |
+| 4 Capability + fallback | Done | Runtime probe + hardware→software fallback |
+| 5 Advanced UI | Done | Opt-in advanced section + tooltips |
+| 6 Benchmarks | Doc only | `docs/encoding-benchmarks.md` |
+| 7 Desktop HW | **Not started** | NVENC/VAAPI/QSV deferred |
+| 8 App-level perf | Partial | Skip unnecessary encode; existing merge/remux |
+| 9 Root optimization | Doc only | `docs/android-root-performance-optimization.md` |
+| 10 Regression | Done | 331 tests passing |
