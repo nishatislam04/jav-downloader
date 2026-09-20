@@ -87,6 +87,52 @@ export function hasActiveCut(cut: CutRangeInput): boolean {
   return Boolean(cut.start.trim() || cut.end.trim());
 }
 
+/** Match backend `_cut_output_suffix` time token (MMSS or HHMMSS). */
+export function formatCutSuffixTime(totalSec: number): string {
+  const sec = Math.max(0, Math.floor(Number(totalSec) || 0));
+  const hours = Math.floor(sec / 3600);
+  const minutes = Math.floor((sec % 3600) / 60);
+  const seconds = sec % 60;
+  if (hours > 0) {
+    return `${String(hours).padStart(2, "0")}${String(minutes).padStart(2, "0")}${String(seconds).padStart(2, "0")}`;
+  }
+  return `${String(minutes).padStart(2, "0")}${String(seconds).padStart(2, "0")}`;
+}
+
+const CUT_OUTPUT_SUFFIX_RE = /\s+\[(?:\d+cuts|\d{4,6}-(?:\d{4,6}|end))\]$/;
+
+/** Strip a trailing cut-range suffix from a title, if present. */
+export function stripCutOutputSuffix(title: string): string {
+  return title.replace(CUT_OUTPUT_SUFFIX_RE, "");
+}
+
+/** Filename suffix appended when cutting (mirrors `M3U8Crawler._cut_output_suffix`). */
+export function cutOutputSuffix(
+  cuts: CutRangeInput[],
+  durationSec?: number | null,
+): string {
+  if (validateCutRanges(durationSec, cuts)) {
+    return "";
+  }
+  const active = cuts.filter(hasActiveCut);
+  if (active.length > 1) {
+    return ` [${active.length}cuts]`;
+  }
+  if (active.length === 1) {
+    const cut = active[0]!;
+    const startText = cut.start.trim();
+    const endText = cut.end.trim();
+    if (!startText && !endText) {
+      return "";
+    }
+    const start = startText ? (parseTimeInputSec(startText) ?? 0) : 0;
+    const left = formatCutSuffixTime(start);
+    const right = endText ? formatCutSuffixTime(parseTimeInputSec(endText) ?? 0) : "end";
+    return ` [${left}-${right}]`;
+  }
+  return "";
+}
+
 export function validateCutRanges(
   durationSec: number | null | undefined,
   cuts: CutRangeInput[],

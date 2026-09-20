@@ -48,7 +48,13 @@ import {
   persistSavePath,
 } from "./lib/persist";
 import { siteFaviconSrc, siteFromLabel } from "./lib/sites";
-import { hasActiveCut, looksLikeSupportedUrl, validateCutRanges } from "./lib/time";
+import {
+  cutOutputSuffix,
+  hasActiveCut,
+  looksLikeSupportedUrl,
+  stripCutOutputSuffix,
+  validateCutRanges,
+} from "./lib/time";
 
 type ResolvePhase = "" | "metadata" | "updating";
 
@@ -179,6 +185,15 @@ export default function App() {
   }
 
   const durationSec = () => resolved()?.duration_sec ?? null;
+
+  const renameDisplayTitle = createMemo(() => {
+    const suffix = cutOutputSuffix(cuts(), durationSec());
+    const base = customTitle().trim() || resolved()?.title?.trim() || "";
+    if (!suffix) {
+      return customTitle();
+    }
+    return `${base}${suffix}`;
+  });
 
   const cutValidation = createMemo(() => {
     const local = validateCutRanges(durationSec(), cuts());
@@ -635,10 +650,11 @@ export default function App() {
   }
 
   function handleCustomTitleChange(value: string) {
-    setCustomTitle(value);
+    const base = stripCutOutputSuffix(value);
+    setCustomTitle(base);
     setResolved((prev) => {
       if (!prev?.ok) return prev;
-      return { ...prev, title: value };
+      return { ...prev, title: base || prev.title };
     });
     scheduleEditResolve();
   }
@@ -889,7 +905,7 @@ export default function App() {
               meta={meta()}
               durationSec={durationSec()}
               cuts={cuts()}
-              customTitle={customTitle()}
+              customTitle={renameDisplayTitle()}
               savePath={savePath()}
               rememberSavePath={rememberSavePath()}
               activeTool={activeTool()}
