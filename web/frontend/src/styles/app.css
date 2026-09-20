@@ -178,9 +178,7 @@ input.has-site-logo {
 .app-logo {
   width: 36px;
   height: 36px;
-  padding: 3px;
   border-radius: 9px;
-  background: #fff;
   object-fit: contain;
   flex-shrink: 0;
 }
