@@ -22,7 +22,7 @@ import {
 } from "./api";
 import EditToolsCard, { type CutRange, newCutRange, type ToolId } from "./components/EditToolsCard";
 import HistoryMenu from "./components/HistoryMenu";
-import { CloseIcon, DownloadIcon, SuccessIcon } from "./components/IconButton";
+import { CloseIcon, DownloadIcon, PlayIcon, SuccessIcon } from "./components/IconButton";
 import MetaCard from "./components/MetaCard";
 import ProgressCard from "./components/ProgressCard";
 import ProgressRing from "./components/ProgressRing";
@@ -43,6 +43,7 @@ import {
   persistEncodeSettings,
   persistSavePath,
 } from "./lib/persist";
+import { siteFaviconSrc, siteFromLabel } from "./lib/sites";
 import { hasActiveCut, looksLikeSupportedUrl, validateCutRanges } from "./lib/time";
 
 type ResolvePhase = "" | "metadata" | "updating";
@@ -82,6 +83,7 @@ export default function App() {
   const [job, setJob] = createSignal<Job | null>(null);
   const [busy, setBusy] = createSignal(false);
   const [resolving, setResolving] = createSignal(false);
+  const [parseCancelled, setParseCancelled] = createSignal(false);
   const [actionBusy, setActionBusy] = createSignal(false);
   const [hasResolvedOnce, setHasResolvedOnce] = createSignal(false);
   const [downloadComplete, setDownloadComplete] = createSignal(false);
@@ -252,6 +254,7 @@ export default function App() {
     const includeCuts = trigger === "cut" && !localCutError;
     const silent = trigger !== "url" && hasResolvedOnce();
     const requestId = ++resolveRequest;
+    setParseCancelled(false);
     resolveAbort?.abort();
     const abort = new AbortController();
     resolveAbort = abort;
@@ -321,6 +324,14 @@ export default function App() {
     resolveAbort?.abort();
     setResolving(false);
     setResolvePhase("");
+    setParseCancelled(true);
+  }
+
+  function startParse() {
+    setParseCancelled(false);
+    if (resolveTimer) clearTimeout(resolveTimer);
+    if (editResolveTimer) clearTimeout(editResolveTimer);
+    void runResolve("url");
   }
 
   function scheduleResolve(trigger: "url" | "cut" | "edit" = "url") {
@@ -345,6 +356,7 @@ export default function App() {
       setResolved(null);
       setResolving(false);
       setResolvePhase("");
+      setParseCancelled(false);
       resetEditTools();
       return;
     }
@@ -595,6 +607,17 @@ export default function App() {
     () => !!resolved()?.ok && !cutValidation() && !busy() && !resolving(),
   );
 
+  const showStartParse = createMemo(() => {
+    const value = url().trim();
+    return (
+      parseCancelled() &&
+      !resolving() &&
+      !hasResolvedOnce() &&
+      value.length > 0 &&
+      looksLikeSupportedUrl(value)
+    );
+  });
+
   const progressPct = createMemo(() => {
     const current = job();
     if (!busy() || !current) return 0;
@@ -641,6 +664,8 @@ export default function App() {
     return meta?.ok ? meta : undefined;
   });
 
+  const resolvedSite = createMemo(() => siteFromLabel(resolvedMeta()?.site));
+
   return (
     <main class="shell">
       <header class="app-header">
@@ -654,6 +679,16 @@ export default function App() {
       <section class="card url-dashboard sticky-dashboard">
         <label for="url" class="url-label">
           <span>Video URL</span>
+          <Show when={resolvedSite()}>
+            {(site) => (
+              <img
+                class="url-site-logo"
+                src={siteFaviconSrc(site().domain)}
+                alt={site().name}
+                title={site().name}
+              />
+            )}
+          </Show>
           <Show when={urlUnsupported()}>
             <span class="badge-unsupported">Unsupported</span>
           </Show>
@@ -675,6 +710,22 @@ export default function App() {
                 <CloseIcon />
               </button>
             </span>
+          </Show>
+          <Show when={showStartParse()}>
+            <button
+              type="button"
+              class="badge-start"
+              aria-label="Parse metadata"
+              title="Parse metadata"
+              onClick={(event) => {
+                event.preventDefault();
+                event.stopPropagation();
+                startParse();
+              }}
+            >
+              <PlayIcon />
+              Parse metadata
+            </button>
           </Show>
         </label>
         <div class="url-input-row">

@@ -17,3 +17,15 @@ export const SITES: SiteInfo[] = [
 export function siteFaviconSrc(domain: string): string {
   return `https://icons.duckduckgo.com/ip3/${domain}.ico`;
 }
+
+/** Backend site labels ("JavGuru", "SiteMissAV", "SiteJableTV_Backup") → SITES entry. */
+export function siteFromLabel(label: string | undefined | null): SiteInfo | undefined {
+  if (!label) return undefined;
+  const key = label
+    .replace(/^site/i, "")
+    .replace(/_?backup$/i, "")
+    .replace(/[^a-z0-9]/gi, "")
+    .toLowerCase();
+  if (!key) return undefined;
+  return SITES.find((site) => site.name.replace(/[^a-z0-9]/gi, "").toLowerCase() === key);
+}

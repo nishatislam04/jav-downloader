@@ -119,6 +119,7 @@ label {
   justify-content: center;
   width: 16px;
   height: 16px;
+  margin-left: auto;
   padding: 0;
   border: none;
   border-radius: 50%;
@@ -134,6 +135,41 @@ label {
 
 .badge-cancel:hover {
   background: rgba(245, 185, 66, 0.45);
+}
+
+.badge-start {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 2px 10px 2px 8px;
+  border: none;
+  border-radius: 999px;
+  background: rgba(61, 220, 151, 0.16);
+  color: var(--ok);
+  font-family: inherit;
+  font-size: 0.72rem;
+  font-weight: 600;
+  letter-spacing: 0.02em;
+  cursor: pointer;
+}
+
+.badge-start svg {
+  width: 11px;
+  height: 11px;
+}
+
+.badge-start:hover {
+  background: rgba(61, 220, 151, 0.28);
+}
+
+.url-site-logo {
+  width: 18px;
+  height: 18px;
+  padding: 2px;
+  border-radius: 5px;
+  background: #fff;
+  object-fit: contain;
+  flex-shrink: 0;
 }
 
 @keyframes spin {
