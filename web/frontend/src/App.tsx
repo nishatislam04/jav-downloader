@@ -360,22 +360,28 @@ export default function App() {
 
   createEffect(() => {
     const value = url();
-    if (!value.trim()) {
-      setResolved(null);
-      setResolving(false);
-      setResolvePhase("");
-      setParseCancelled(false);
-      resetEditTools();
-      return;
-    }
-    if (looksLikeSupportedUrl(value)) {
-      setResolved(null);
-      setResolving(true);
-      setResolvePhase("metadata");
-    }
-    clearTransientState();
-    setHasResolvedOnce(false);
-    scheduleResolve("url");
+    // Only url() should be tracked here. The helpers below read the
+    // remember*() signals; tracking them would re-run this effect (and wipe
+    // resolved state back to "Parse metadata") whenever a Remember toggle
+    // changes.
+    untrack(() => {
+      if (!value.trim()) {
+        setResolved(null);
+        setResolving(false);
+        setResolvePhase("");
+        setParseCancelled(false);
+        resetEditTools();
+        return;
+      }
+      if (looksLikeSupportedUrl(value)) {
+        setResolved(null);
+        setResolving(true);
+        setResolvePhase("metadata");
+      }
+      clearTransientState();
+      setHasResolvedOnce(false);
+      scheduleResolve("url");
+    });
   });
 
   createEffect(() => {
