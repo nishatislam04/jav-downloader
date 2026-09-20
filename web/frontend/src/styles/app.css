@@ -185,11 +185,6 @@ input.has-site-logo {
   flex-shrink: 0;
 }
 
-svg.app-logo {
-  padding: 0;
-  background: transparent;
-}
-
 .url-actions {
   display: flex;
   align-items: center;

@@ -23,14 +23,7 @@ import {
 import ConfirmDialog from "./components/ConfirmDialog";
 import EditToolsCard, { type CutRange, newCutRange, type ToolId } from "./components/EditToolsCard";
 import HistoryMenu from "./components/HistoryMenu";
-import {
-  AppLogoIcon,
-  BrushIcon,
-  CloseIcon,
-  DownloadIcon,
-  PlayIcon,
-  SuccessIcon,
-} from "./components/IconButton";
+import { BrushIcon, CloseIcon, DownloadIcon, PlayIcon, SuccessIcon } from "./components/IconButton";
 import MetaCard from "./components/MetaCard";
 import ProgressCard from "./components/ProgressCard";
 import ProgressRing from "./components/ProgressRing";
@@ -685,7 +678,17 @@ export default function App() {
     <main class="shell">
       <header class="app-header">
         <div class="app-title">
-          <Show when={resolvedSite()} fallback={<AppLogoIcon />}>
+          <Show
+            when={resolvedSite()}
+            fallback={
+              <img
+                class="app-logo"
+                src="/favicon.svg"
+                alt="JAV Downloader"
+                title="JAV Downloader"
+              />
+            }
+          >
             {(site) => (
               <img
                 class="app-logo"
