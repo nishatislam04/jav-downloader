@@ -360,6 +360,13 @@ def _build_encode_cmd(ffmpeg, site, src_path, dst_path, duration_sec, decision=N
 
 
 def _run_ffmpeg(cmd, site, out_path, duration_sec, input_size):
+    from jav_downloader.sites.encoding_performance import ffmpeg_work_session
+
+    with ffmpeg_work_session(site):
+        return _run_ffmpeg_inner(cmd, site, out_path, duration_sec, input_size)
+
+
+def _run_ffmpeg_inner(cmd, site, out_path, duration_sec, input_size):
     proc = subprocess.Popen(
         cmd,
         stdin=subprocess.DEVNULL,
@@ -433,9 +440,12 @@ def post_process_media(site, src_path: str, duration_sec: float | None = None) -
             MODE_SKIP,
             decide_encoding,
         )
-        from jav_downloader.sites.media_probe import probe_media
+        from jav_downloader.sites.encoding_performance import cached_probe_media
 
-        media_info = probe_media(src_path)
+        media_info = cached_probe_media(site, src_path)
+        source_height = (
+            media_info.video.height
+            if media_info and media_info.video else None)
         decision = decide_encoding(site, media_info)
         _log_encoding_decision(site, decision, media_info)
 
@@ -473,7 +483,7 @@ def post_process_media(site, src_path: str, duration_sec: float | None = None) -
 
         cmd = build_encode_command(
             ffmpeg, site, src_path, temp_path, duration_sec, decision,
-            strategy=strategy)
+            strategy=strategy, source_height=source_height)
         ok, stderr_tail = _run_ffmpeg(
             cmd, site, temp_path, float(duration_sec or 0), input_size)
         if (not ok or not os.path.isfile(temp_path) or
@@ -492,7 +502,7 @@ def post_process_media(site, src_path: str, duration_sec: float | None = None) -
             _safe_remove(temp_path)
             cmd = build_encode_command(
                 ffmpeg, site, src_path, temp_path, duration_sec, decision,
-                strategy=strategy)
+                strategy=strategy, source_height=source_height)
             ok, stderr_tail = _run_ffmpeg(
                 cmd, site, temp_path, float(duration_sec or 0), input_size)
 
@@ -544,13 +554,16 @@ def post_process_audio(site, src_path: str, duration_sec: float | None = None) -
     ]
     _append_audio_mapping(cmd, site, duration_sec, video_copy=True)
     cmd.extend(['-movflags', '+faststart', temp_path])
-    proc = subprocess.run(
-        cmd,
-        stdin=subprocess.DEVNULL,
-        capture_output=True,
-        text=True,
-        **_no_window_kwargs(),
-    )
+    from jav_downloader.sites.encoding_performance import ffmpeg_work_session
+
+    with ffmpeg_work_session(site):
+        proc = subprocess.run(
+            cmd,
+            stdin=subprocess.DEVNULL,
+            capture_output=True,
+            text=True,
+            **_no_window_kwargs(),
+        )
     if proc.returncode != 0 or not os.path.isfile(temp_path) or os.path.getsize(temp_path) <= 0:
         _safe_remove(temp_path)
         detail = (proc.stderr or proc.stdout or '').strip() or f'ffmpeg exit {proc.returncode}'

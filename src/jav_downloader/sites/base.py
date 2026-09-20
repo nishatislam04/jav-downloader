@@ -1093,21 +1093,23 @@ class M3U8Crawler:
                '-c', 'copy', '-movflags', '+faststart',
                '-avoid_negative_ts', 'make_zero', out_arg]
         print('正在重新封裝為可正常拖曳的 MP4 ...', flush=True)
+        from jav_downloader.sites.encoding_performance import ffmpeg_work_session
         try:
-            with open(log_path, 'wb') as errf:
-                proc = subprocess.Popen(cmd, stdin=subprocess.DEVNULL,
-                                        stdout=subprocess.DEVNULL, stderr=errf,
-                                        **_no_window_kwargs())
-                self._ffmpeg_proc = proc
-                try:
-                    while True:
-                        try:
-                            proc.wait(timeout=0.3); break
-                        except subprocess.TimeoutExpired:
-                            if self._stop_requested():
-                                proc.kill(); proc.wait(); return False
-                finally:
-                    self._ffmpeg_proc = None
+            with ffmpeg_work_session(self):
+                with open(log_path, 'wb') as errf:
+                    proc = subprocess.Popen(cmd, stdin=subprocess.DEVNULL,
+                                            stdout=subprocess.DEVNULL, stderr=errf,
+                                            **_no_window_kwargs())
+                    self._ffmpeg_proc = proc
+                    try:
+                        while True:
+                            try:
+                                proc.wait(timeout=0.3); break
+                            except subprocess.TimeoutExpired:
+                                if self._stop_requested():
+                                    proc.kill(); proc.wait(); return False
+                    finally:
+                        self._ffmpeg_proc = None
         except Exception as e:
             print(f'[合成] ffmpeg 執行錯誤: {e}', flush=True)
             return False
