@@ -67,7 +67,12 @@ async function request<T>(path: string, options: RequestInit = {}): Promise<T> {
 }
 
 export function fetchHealth() {
-  return request<{ ok: boolean; download_dir?: string }>("/api/health");
+  return request<{
+    ok: boolean;
+    download_dir?: string;
+    platform?: "termux" | "desktop";
+    reveal_mode?: "open_file" | "show_in_folder";
+  }>("/api/health");
 }
 
 export function fetchEncodingCapabilities() {

@@ -25,6 +25,7 @@ type Props = {
   onCancel?: (jobId: string) => void;
   onRetry?: () => void;
   onReveal?: (path: string) => void;
+  revealMode?: "open_file" | "show_in_folder";
   actionBusy?: boolean;
 };
 
@@ -157,7 +158,7 @@ export default function ProgressCard(props: Props) {
                 onClick={() => props.onReveal?.(outputFile())}
               >
                 <FolderIcon />
-                <span>Show in folder</span>
+                <span>{props.revealMode === "open_file" ? "Open file" : "Show in folder"}</span>
               </button>
             </Show>
             <Show when={isDownloading() && props.onPause}>

@@ -1,6 +1,21 @@
 #!/usr/bin/env python
 """Lightweight browser UI for paste-link downloads."""
 
+# --- issue #23: point SSL/curl_cffi at certifi's ASCII-safe CA bundle BEFORE any
+# curl_cffi import, so a non-UTF-8 default cert path can't crash the resolver.
+# (Relocated from the removed CLI entry point.) ---
+import os as _os
+
+try:
+    import certifi as _certifi
+
+    _ca = _certifi.where()
+    if _ca and _os.path.exists(_ca):
+        _os.environ.setdefault("SSL_CERT_FILE", _ca)
+        _os.environ.setdefault("SSL_CERT_DIR", _os.path.dirname(_ca))
+except Exception:
+    pass
+
 from __future__ import annotations
 
 import argparse
@@ -15,7 +30,7 @@ from urllib.parse import parse_qs, unquote, urlparse
 from jav_downloader.web import cleanup, service
 from jav_downloader.web.jobs import JobManager
 from jav_downloader.web.paths import default_download_dir, validate_dest_folder
-from jav_downloader.web.reveal import reveal_in_file_manager
+from jav_downloader.web.reveal import is_termux_like, reveal_in_file_manager, reveal_mode
 from jav_downloader.web.thumbnail import fetch_thumbnail
 
 STATIC_DIR = Path(__file__).resolve().parent / "static"
@@ -82,6 +97,8 @@ class WebHandler(BaseHTTPRequestHandler):
                 {
                     "ok": True,
                     "download_dir": default_download_dir(),
+                    "platform": "termux" if is_termux_like() else "desktop",
+                    "reveal_mode": reveal_mode(),
                 },
             )
             return

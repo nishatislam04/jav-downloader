@@ -73,6 +73,9 @@ export default function App() {
   const [url, setUrl] = createSignal("");
   const [cuts, setCuts] = createSignal<CutRange[]>([newCutRange()]);
   const [defaultDownloadDir, setDefaultDownloadDir] = createSignal("");
+  const [revealMode, setRevealMode] = createSignal<"open_file" | "show_in_folder">(
+    "show_in_folder",
+  );
   const [savePath, setSavePath] = createSignal("");
   const [savePathCustom, setSavePathCustom] = createSignal(false);
   const [rememberSavePath, setRememberSavePath] = createSignal(loadRememberSavePath());
@@ -126,6 +129,9 @@ export default function App() {
     if (caps?.ok) setEncodingCapabilities(caps);
     const downloadDir = health.download_dir || "";
     setDefaultDownloadDir(downloadDir);
+    if (health.reveal_mode === "open_file" || health.reveal_mode === "show_in_folder") {
+      setRevealMode(health.reveal_mode);
+    }
 
     if (rememberSavePath()) {
       const stored = loadSavedPath().trim();
@@ -638,8 +644,13 @@ export default function App() {
   async function handleReveal(path: string) {
     const result = await revealFile(path);
     if (!result.ok) {
-      setStatusMessage(result.error || "Could not open file location", "error");
+      setStatusMessage(result.error || "Could not open file", "error");
+      return;
     }
+    setStatusMessage(
+      revealMode() === "open_file" ? "Opening file…" : "Opening folder…",
+      "ok",
+    );
   }
 
   function selectTool(tool: ToolId) {
@@ -940,6 +951,7 @@ export default function App() {
             onCancel={handleCancel}
             onRetry={handleRetry}
             onReveal={handleReveal}
+            revealMode={revealMode()}
             actionBusy={actionBusy()}
           />
         )}
