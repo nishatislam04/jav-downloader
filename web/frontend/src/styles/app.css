@@ -841,12 +841,12 @@ button.edit-tools-head {
 }
 
 .edit-tools-head .edit-tools-collapse-btn {
-	display: inline-flex;
-	align-items: center;
-	justify-content: center;
-	margin-left: auto;
-	margin-right: 16px;
-	color: var(--muted);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  margin-left: auto;
+  margin-right: 16px;
+  color: var(--muted);
 }
 
 button.edit-tools-head:hover .edit-tools-collapse-btn,
@@ -867,8 +867,7 @@ button.edit-tools-head:hover .edit-tools-heading {
   gap: 8px;
   max-height: 320px;
   overflow-y: auto;
-  /* Room for the corner badges so overflow doesn't clip them */
-  padding: 6px 8px 2px 0;
+  padding: 6px 0 2px;
 }
 
 button.tool-sidebar-btn {
@@ -879,8 +878,8 @@ button.tool-sidebar-btn {
   min-height: 42px;
   padding: 10px 12px;
   border-radius: 10px;
-  border: 1px solid var(--border);
-  background: #0c0e13;
+  border: none;
+  background: transparent;
   color: var(--text);
   font-size: 0.86rem;
   text-align: left;
@@ -894,23 +893,19 @@ button.tool-sidebar-btn svg {
 }
 
 button.tool-sidebar-btn:hover:not(.active) {
-  border-color: var(--accent-2);
   color: var(--accent-2);
 }
 
 button.tool-sidebar-btn.active {
-  border-color: var(--accent-2);
   background: rgba(245, 185, 66, 0.14);
   color: var(--accent-2);
 }
 
-/* Modification count badge on a tool icon (e.g. number of active cuts) */
+/* Modification count badge, inline right after the tool label */
 .tool-badge {
-  position: absolute;
-  top: -6px;
-  right: -6px;
   min-width: 16px;
   height: 16px;
+  margin-left: auto;
   padding: 0 4px;
   border-radius: 999px;
   background: var(--accent);
@@ -1906,7 +1901,12 @@ button.confirm-danger:hover {
     display: none;
   }
 
+  /* Icon-only rows: badge floats in the top-right corner again */
   .tool-sidebar-btn span.tool-badge {
+    position: absolute;
+    top: -4px;
+    right: -4px;
+    margin-left: 0;
     display: inline-flex;
     align-items: center;
     justify-content: center;
