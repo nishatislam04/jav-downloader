@@ -52,10 +52,10 @@ header h1 {
 }
 
 .card {
-  margin-top: 16px;
+  margin-top: 24px;
   padding: 16px;
-  background: var(--card);
-  border: 1px solid var(--border);
+  background: transparent;
+  border: none;
   border-radius: 14px;
 }
 
@@ -71,7 +71,10 @@ label {
   align-items: center;
   flex-wrap: wrap;
   gap: 10px;
-  margin-bottom: 8px;
+  margin-bottom: 12px;
+  font-size: 1.05rem;
+  font-weight: 700;
+  color: var(--text);
 }
 
 .spinner {
@@ -221,10 +224,23 @@ textarea {
   width: 100%;
   padding: 12px 14px;
   border-radius: 10px;
-  border: 1px solid var(--border);
-  background: #0c0e13;
+  border: none;
+  background: transparent;
   color: var(--text);
   font-size: 1rem;
+}
+
+/* No browser focus ring / teal highlight inside inputs */
+input[type="url"]:focus,
+input[type="text"]:focus,
+textarea:focus {
+  outline: none;
+  box-shadow: none;
+}
+
+::selection {
+  background: rgba(245, 185, 66, 0.32);
+  color: inherit;
 }
 
 textarea.title-textarea {
@@ -493,7 +509,8 @@ button:disabled {
 
 .meta-title {
   margin: 0;
-  line-height: 1.45;
+  font-size: 1.05rem;
+  line-height: 1.5;
   word-break: break-word;
 }
 
@@ -725,18 +742,16 @@ button.icon-btn {
   width: 36px;
   height: 36px;
   padding: 0;
-  background: #0c0e13;
+  background: transparent;
   color: var(--text);
-  border: 1px solid var(--border);
+  border: none;
 }
 
 button.icon-btn:hover:not(:disabled) {
-  border-color: var(--accent-2);
   color: var(--accent-2);
 }
 
 button.icon-btn-danger:hover:not(:disabled) {
-  border-color: #ff8a8a;
   color: #ff8a8a;
 }
 
@@ -751,8 +766,8 @@ button.icon-btn-danger:hover:not(:disabled) {
   gap: 0;
   padding: 12px 14px;
   border-radius: 10px;
-  border: 1px solid var(--border);
-  background: #0c0e13;
+  border: none;
+  background: transparent;
   font-size: 1rem;
   width: fit-content;
 }
@@ -817,9 +832,9 @@ button.icon-btn-danger:hover:not(:disabled) {
 
 .edit-tools-heading {
   margin: 0 0 14px;
-  font-size: 0.82rem;
-  font-weight: 600;
-  letter-spacing: 0.02em;
+  font-size: 1.05rem;
+  font-weight: 700;
+  letter-spacing: 0.01em;
 }
 
 button.edit-tools-head {
@@ -954,16 +969,15 @@ button.tool-sidebar-btn {
   gap: 6px;
   min-height: 26px;
   padding: 4px 10px;
-  border: 1px solid var(--border);
+  border: none;
   border-radius: 8px;
-  background: #0c0e13;
-  color: var(--text);
+  background: transparent;
+  color: var(--muted);
   font-size: 0.78rem;
   line-height: 1;
 }
 
 .log-copy-btn:hover {
-  border-color: var(--accent-2);
   color: var(--accent-2);
 }
 
@@ -1074,9 +1088,9 @@ button.tool-btn {
   justify-content: center;
   gap: 8px;
   min-height: 38px;
-  background: #0c0e13;
+  background: transparent;
   color: var(--text);
-  border: 1px solid var(--border);
+  border: none;
   padding: 10px 16px;
   font-size: 0.88rem;
   line-height: 1;
@@ -1090,12 +1104,11 @@ button.tool-btn svg {
 }
 
 button.tool-btn:hover:not(:disabled):not(.active) {
-  border-color: var(--accent-2);
+  background: rgba(245, 185, 66, 0.1);
   color: var(--accent-2);
 }
 
 button.tool-btn.active {
-  border-color: var(--accent-2);
   color: #111;
   background: var(--accent-2);
 }
@@ -1103,7 +1116,6 @@ button.tool-btn.active {
 button.tool-btn.active:hover:not(:disabled) {
   filter: brightness(1.06);
   color: #111;
-  border-color: var(--accent-2);
 }
 
 button.tool-btn.subtle {
@@ -1129,9 +1141,9 @@ button.save-apply-btn:not(:disabled):hover {
 
 .tool-panel {
   padding: 16px;
-  border: 1px solid var(--border);
-  border-radius: 12px;
-  background: #12151c;
+  border: none;
+  border-radius: 0;
+  background: transparent;
 }
 
 .save-path-field {
@@ -1141,8 +1153,8 @@ button.save-apply-btn:not(:disabled):hover {
   margin-top: 6px;
   padding: 10px 14px;
   border-radius: 10px;
-  border: 1px solid var(--border);
-  background: #0c0e13;
+  border: none;
+  background: transparent;
 }
 
 .save-path-field:focus-within {
@@ -1174,9 +1186,9 @@ button.save-apply-btn:not(:disabled):hover {
 
 .tool-panel-title {
   margin: 0 0 14px;
-  font-size: 0.95rem;
+  font-size: 1.15rem;
   font-weight: 700;
-  letter-spacing: 0.02em;
+  letter-spacing: 0.01em;
   text-transform: none;
   color: var(--text);
 }
@@ -1871,7 +1883,7 @@ button.confirm-danger:hover {
   }
 
   .card {
-    margin-top: 8px;
+    margin-top: 16px;
     padding: 10px;
     border-radius: 10px;
   }
@@ -2163,9 +2175,9 @@ button.confirm-danger:hover {
 }
 
 .summary-heading {
-  font-size: 0.82rem;
-  font-weight: 600;
-  letter-spacing: 0.02em;
+  font-size: 1.05rem;
+  font-weight: 700;
+  letter-spacing: 0.01em;
 }
 
 .summary-body {
@@ -2181,6 +2193,12 @@ button.confirm-danger:hover {
 .summary-toolbar {
   display: flex;
   justify-content: flex-end;
+  /* Stay pinned at the top-right of the scroll area while values scroll
+     horizontally, so Wrap is always reachable */
+  position: sticky;
+  top: 0;
+  right: 0;
+  z-index: 2;
 }
 
 .summary-wrap-btn {
@@ -2191,7 +2209,8 @@ button.confirm-danger:hover {
   padding: 4px 10px;
   border: 1px solid #1f2937;
   border-radius: 8px;
-  background: transparent;
+  /* Opaque so summary values scrolling underneath stay hidden */
+  background: #050608;
   color: var(--muted);
   font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
   font-size: 0.72rem;
