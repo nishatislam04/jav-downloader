@@ -542,7 +542,7 @@ button:disabled {
   display: flex;
   flex-direction: column;
   gap: 4px;
-  margin-top: 8px;
+  margin-top: 18px;
 }
 
 .meta-details-group--online {
@@ -557,13 +557,14 @@ button:disabled {
 }
 
 .meta-detail-key {
-  flex: 0 0 86px;
+  flex: 0 0 54px;
   color: var(--muted);
 }
 
 .meta-detail-val {
   min-width: 0;
   color: var(--text);
+  font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
   word-break: break-word;
 }
 
@@ -619,12 +620,23 @@ button:disabled {
   box-shadow: 0 0 0 2px rgba(245, 185, 66, 0.35);
 }
 
+/* Thumbnail: small inline by default, 40% column on desktop */
 .thumb {
   display: block;
   width: 120px;
   border-radius: 8px;
   object-fit: cover;
   pointer-events: none;
+}
+
+@media (min-width: 1024px) {
+  .meta-row .thumb-preview-trigger {
+    width: 40%;
+  }
+
+  .thumb {
+    width: 100%;
+  }
 }
 
 .thumb-lightbox {
@@ -800,6 +812,11 @@ button.icon-btn-danger:hover:not(:disabled) {
   flex-direction: column;
 }
 
+/* Align Start/End labels with the first digit inside the padded input */
+.time-field label {
+  padding-left: 14px;
+}
+
 .time-segments {
   display: inline-flex;
   align-items: center;
@@ -924,6 +941,8 @@ button.edit-tools-head:hover .edit-tools-heading {
   min-height: 220px;
   padding: 0 16px 16px;
 }
+
+/* Save panel: folder icon sits flush with the tool title's left edge */
 
 .edit-tools-sidebar {
   display: flex;
@@ -1191,7 +1210,7 @@ button.save-apply-btn:not(:disabled):hover {
   align-items: center;
   gap: 10px;
   margin-top: 6px;
-  padding: 10px 14px;
+  padding: 10px 14px 10px 0;
   border-radius: 10px;
   border: none;
   background: transparent;
@@ -2135,6 +2154,10 @@ button.confirm-danger:hover {
     padding: 10px 12px;
   }
 
+  .time-field label {
+    padding-left: 12px;
+  }
+
   .progress-head {
     flex-wrap: wrap;
   }
@@ -2163,6 +2186,10 @@ button.confirm-danger:hover {
 
   .time-segments {
     padding: 10px 8px;
+  }
+
+  .time-field label {
+    padding-left: 8px;
   }
 
   .time-segments .time-seg {

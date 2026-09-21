@@ -8,8 +8,8 @@ export function movieInformationDetails(meta: ResolveResult): MetaDetail[] {
   if (meta.release_date?.trim()) rows.push({ k: "released", v: meta.release_date.trim() });
   if (meta.studio?.trim()) rows.push({ k: "studio", v: meta.studio.trim() });
   if (meta.label?.trim()) rows.push({ k: "label", v: meta.label.trim() });
-  if (meta.tags?.length) rows.push({ k: "tags", v: meta.tags.join(", ") });
   if (meta.actresses?.length) rows.push({ k: "actress", v: meta.actresses.join(", ") });
+  if (meta.tags?.length) rows.push({ k: "tags", v: meta.tags.join(", ") });
   return rows;
 }
 

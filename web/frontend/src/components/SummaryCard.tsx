@@ -145,7 +145,7 @@ export default function SummaryCard(props: Props) {
           <span class="card-head-icon" aria-hidden="true">
             <ListIcon />
           </span>
-          <span class="summary-heading">Video summary</span>
+          <span class="summary-heading">Overview</span>
           <span class="summary-caret" aria-hidden="true" style={{ "margin-left": "auto" }}>
             <ChevronDownIcon />
           </span>
