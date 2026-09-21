@@ -267,10 +267,10 @@ input.input-error,
   grid-template-columns: minmax(0, 1fr) auto;
   gap: 8px;
   align-items: start;
-  padding: 12px 14px 14px;
-  border: 1px solid var(--border);
-  border-radius: 12px;
-  background: #12151c;
+  padding: 0;
+  border: none;
+  border-radius: 0;
+  background: transparent;
 }
 
 /* "Cut n" + calculated clip duration on one header row */
@@ -280,6 +280,8 @@ input.input-error,
   align-items: baseline;
   gap: 10px;
   margin-bottom: 10px;
+  padding-bottom: 6px;
+  border-bottom: 1px solid var(--border);
 }
 
 .cut-range-label {
@@ -323,9 +325,9 @@ input.input-error,
   width: 34px;
   height: 34px;
   padding: 0;
-  border: 1px solid var(--border);
+  border: none;
   border-radius: 10px;
-  background: #0c0e13;
+  background: transparent;
   color: var(--accent-2);
   font-size: 1.25rem;
   line-height: 1;
@@ -333,7 +335,7 @@ input.input-error,
 
 .cut-add-btn:hover:not(:disabled),
 .cut-remove-btn:hover:not(:disabled) {
-  border-color: var(--accent-2);
+  background: rgba(245, 185, 66, 0.12);
 }
 
 .cut-remove-btn {
@@ -352,7 +354,7 @@ input.input-error,
 
 .cut-remove-btn:hover:not(:disabled) {
   color: #ff8a8a;
-  border-color: #ff8a8a;
+  background: rgba(255, 82, 99, 0.12);
 }
 
 .cut-total-duration {
@@ -836,6 +838,12 @@ button.edit-tools-head {
   cursor: pointer;
 }
 
+/* Card padding lives on the layout, not the card, so the collapsed
+   header row is exactly as tall as the summary header. */
+.card.edit-tools {
+  padding: 0;
+}
+
 .edit-tools-head .edit-tools-heading {
   margin: 0;
 }
@@ -859,6 +867,7 @@ button.edit-tools-head:hover .edit-tools-heading {
   grid-template-columns: minmax(140px, 180px) minmax(0, 1fr);
   gap: 14px;
   min-height: 220px;
+  padding: 0 16px 16px;
 }
 
 .edit-tools-sidebar {
@@ -901,11 +910,10 @@ button.tool-sidebar-btn.active {
   color: var(--accent-2);
 }
 
-/* Modification count badge, inline right after the tool label */
+/* Modification count badge, right after the tool label */
 .tool-badge {
   min-width: 16px;
   height: 16px;
-  margin-left: auto;
   padding: 0 4px;
   border-radius: 999px;
   background: var(--accent);
@@ -987,10 +995,10 @@ button.tool-sidebar-btn {
 
 .edit-tools-panel {
   min-width: 0;
-  padding: 16px;
-  border: 1px solid var(--border);
-  border-radius: 12px;
-  background: #12151c;
+  padding: 4px 0 0;
+  border: none;
+  border-radius: 0;
+  background: transparent;
 }
 
 .tool-panel-empty {
@@ -998,6 +1006,7 @@ button.tool-sidebar-btn {
   flex-direction: column;
   justify-content: center;
   min-height: 180px;
+  padding: 0 16px;
 }
 
 .tool-panel-empty .hint {
@@ -1164,12 +1173,12 @@ button.save-apply-btn:not(:disabled):hover {
 }
 
 .tool-panel-title {
-  margin: 0 0 4px;
-  font-size: 0.82rem;
-  font-weight: 600;
-  letter-spacing: 0.04em;
-  text-transform: uppercase;
-  color: var(--accent-2);
+  margin: 0 0 14px;
+  font-size: 0.95rem;
+  font-weight: 700;
+  letter-spacing: 0.02em;
+  text-transform: none;
+  color: var(--text);
 }
 
 .remember-path {
@@ -1913,7 +1922,7 @@ button.confirm-danger:hover {
   }
 
   .edit-tools-panel {
-    padding: 10px;
+    padding: 2px 0 0;
   }
 
   .edit-tools-heading {
