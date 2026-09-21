@@ -19,6 +19,8 @@ export type ResolveResult = {
   uploader?: string;
   output_size_bytes?: number | null;
   output_size_exact?: boolean;
+  stream_type?: string;
+  hls_tiers?: HlsTier[];
   exists?: boolean;
   error?: string;
 };

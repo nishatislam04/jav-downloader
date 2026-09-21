@@ -107,10 +107,7 @@ export function stripCutOutputSuffix(title: string): string {
 }
 
 /** Filename suffix appended when cutting (mirrors `M3U8Crawler._cut_output_suffix`). */
-export function cutOutputSuffix(
-  cuts: CutRangeInput[],
-  durationSec?: number | null,
-): string {
+export function cutOutputSuffix(cuts: CutRangeInput[], durationSec?: number | null): string {
   if (validateCutRanges(durationSec, cuts)) {
     return "";
   }
