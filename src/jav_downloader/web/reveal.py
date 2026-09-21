@@ -32,6 +32,24 @@ def reveal_mode() -> str:
     return "open_file" if is_termux_like() else "show_in_folder"
 
 
+def _termux_prefix() -> str:
+    return os.environ.get("PREFIX", "/data/data/com.termux/files/usr")
+
+
+def _termux_env() -> dict[str, str]:
+    """Subprocess env with Termux + Android system bins on PATH."""
+    env = os.environ.copy()
+    prefix = _termux_prefix()
+    parts = [
+        os.path.join(prefix, "bin"),
+        "/system/bin",
+        "/system/xbin",
+        env.get("PATH", ""),
+    ]
+    env["PATH"] = ":".join(part for part in parts if part)
+    return env
+
+
 def _guess_mime_type(path: Path) -> str:
     mime, _encoding = mimetypes.guess_type(str(path))
     if mime:
@@ -44,7 +62,7 @@ def _guess_mime_type(path: Path) -> str:
 
 
 def _android_open_paths(target: Path) -> list[Path]:
-    """Return candidate paths termux-open may accept."""
+    """Return candidate paths termux-open / am may accept."""
     candidates: list[Path] = []
     resolved = target.resolve()
     candidates.append(resolved)
@@ -65,7 +83,7 @@ def _android_open_paths(target: Path) -> list[Path]:
     return list(dict.fromkeys(candidates))
 
 
-def _run_command(cmd: list[str]) -> None:
+def _run_command(cmd: list[str], *, env: dict[str, str] | None = None) -> None:
     try:
         proc = subprocess.run(
             cmd,
@@ -73,6 +91,7 @@ def _run_command(cmd: list[str]) -> None:
             text=True,
             timeout=30,
             start_new_session=True,
+            env=env or os.environ,
         )
     except FileNotFoundError as exc:
         raise ValueError(f"Command not found: {cmd[0]}") from exc
@@ -84,24 +103,82 @@ def _run_command(cmd: list[str]) -> None:
         raise ValueError(detail or f"{cmd[0]} exited with code {proc.returncode}")
 
 
+def _termux_open_binary() -> str | None:
+    binary = shutil.which("termux-open", path=_termux_env()["PATH"])
+    if binary:
+        return binary
+    candidate = os.path.join(_termux_prefix(), "bin", "termux-open")
+    return candidate if os.path.isfile(candidate) else None
+
+
+def _am_binary() -> str | None:
+    env_path = _termux_env()["PATH"]
+    binary = shutil.which("am", path=env_path)
+    if binary:
+        return binary
+    for candidate in ("/system/bin/am", "/system/xbin/am"):
+        if os.path.isfile(candidate):
+            return candidate
+    return None
+
+
+def _file_uri(path: Path) -> str:
+    text = str(path.resolve())
+    return f"file://{text}" if text.startswith("/") else f"file:///{text}"
+
+
+def _am_view(path: Path, mime: str) -> None:
+    """Direct VIEW intent for shared-storage paths (fallback)."""
+    am = _am_binary()
+    if am is None:
+        raise ValueError("am not found")
+    real = str(path.resolve())
+    if not real.startswith("/storage/"):
+        raise ValueError("am fallback requires shared storage path")
+    cmd = [
+        am,
+        "start",
+        "-a",
+        "android.intent.action.VIEW",
+        "-d",
+        _file_uri(path),
+        "-t",
+        mime,
+    ]
+    _run_command(cmd, env=_termux_env())
+
+
 def _termux_open(target: Path) -> None:
-    binary = shutil.which("termux-open")
+    binary = _termux_open_binary()
     if not binary:
         raise ValueError("termux-open not found — run: pkg install termux-tools")
 
+    env = _termux_env()
     mime = _guess_mime_type(target)
     errors: list[str] = []
     for candidate in _android_open_paths(target):
         if not candidate.is_file():
             errors.append(f"{candidate}: not a readable file")
             continue
-        for extra in ([], ["--chooser"]):
-            cmd = [binary, "--view", "--content-type", mime, *extra, str(candidate)]
+        path_text = str(candidate)
+        attempts: list[list[str]] = [
+            [binary, path_text],
+            [binary, "--content-type", mime, path_text],
+            [binary, "--chooser", "--content-type", mime, path_text],
+        ]
+        for cmd in attempts:
             try:
-                _run_command(cmd)
+                _run_command(cmd, env=env)
                 return
             except ValueError as exc:
                 errors.append(f"{' '.join(cmd)}: {exc}")
+
+        if str(candidate.resolve()).startswith("/storage/"):
+            try:
+                _am_view(candidate, mime)
+                return
+            except ValueError as exc:
+                errors.append(f"am VIEW {candidate}: {exc}")
 
     hint = (
         "Could not open file on Android. Enable "
