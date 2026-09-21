@@ -2,7 +2,7 @@
 
 <p align="center">
   Headless download engine for supported streaming sites.<br />
-  Pass one or more video URLs; the core resolves streams, downloads segments, and writes MP4 files to disk.
+  Pass one or more video URLs; the core resolves streams, downloads segments, and writes MP4 files.
 </p>
 
 <p align="center">
@@ -13,7 +13,7 @@
 
 ## Supported sites
 
-| Site | CLI / library download |
+| Site | Download |
 |---|:---:|
 | JableTV | ✓ |
 | MissAV | ✓ |
@@ -22,138 +22,106 @@
 | Jav.guru | ✓ |
 | SpankBang | ✓ |
 
-Additional legacy URL adapters remain registered for compatibility. Sites and CDNs can change without notice; if one stops working, update to the latest version and open an Issue with a reproducible URL.
-
-**Hanime1** covers official `watch?v=` URLs plus signed MP4 resolution with quality preference, ranged connections, resume, and serial fallback.
-
-**Jav.guru** resolves multi-server STREAM embeds (SB, TV, VO, LU, DD, JK, and related mirrors) with automatic fallback when one host fails.
-
-**SpankBang** resolves signed progressive MP4 links from the page stream API (`data-streamkey` → `/api/videos/stream`) with quality preference support.
+Legacy URL-only adapters stay registered for compatibility. Sites and CDNs change without notice — update to the latest version and open an Issue with a reproducible URL if something breaks.
 
 ## Quick start
 
-Requires **Python 3.10+**.
+Requires **Python 3.10+**. On Windows, install `make` first (e.g. `choco install make`).
 
 ```bash
 git clone https://github.com/nishatislam04/jav-downloader.git
 cd jav-downloader
-python -m venv .venv
-source .venv/bin/activate   # Windows: .venv\Scripts\activate
-python -m pip install -r requirements.txt
-python -m pip install -e .
-
-# One URL
-DOWNLOAD_DIR=./download jav-downloader-cli "https://jable.tv/videos/example/"
-
-# Multiple URLs
-DOWNLOAD_DIR=./download jav-downloader-cli \
-  "https://jable.tv/videos/a/" \
-  "https://supjav.com/123456.html"
+make install
+make start
 ```
 
-Installed console entry points:
+Open **<http://127.0.0.1:8765/**>, paste a URL, download. Files go to your default Downloads folder (or `DOWNLOAD_DIR`).
+
+### CLI only
 
 | Command | Purpose |
 |---|---|
-| `jav-downloader-cli` | Headless batch downloader (primary) |
-| `jav-downloader` / `jav` | Same entry point as `jav-downloader-cli` |
-| `jav-web` | Browser UI — paste a link, resolve metadata, download with progress |
-
-## Web UI
-
-Paste a supported URL in the browser, resolve metadata, then start the download. Progress updates live in the page. Files are written to your default **Downloads** folder (or `DOWNLOAD_DIR` if set).
-
-Built with **Vite + SolidJS** (`web/frontend/`). Production assets are committed under `src/jav_downloader/web/static/`, so **Termux does not need Node.js** — `make start` skips the build when `npm` is missing and serves the bundled UI.
-
-### Run (desktop or Termux — same command)
+| `jav-downloader-cli` | Headless batch download (primary) |
+| `jav` / `jav-downloader` | Same entry point |
+| `jav-web` | Web UI + API server (what `make start` runs) |
 
 ```bash
-make install
-make start
+DOWNLOAD_DIR=./download jav-downloader-cli \
+  "https://jable.tv/videos/example/" \
+  "https://supjav.com/123456.html"
 ```
 
-Open **http://127.0.0.1:8765/** in your browser.
+## Termux (Android) — full setup
 
-On Termux, `make start` auto-detects Android (`TERMUX_VERSION`), binds `0.0.0.0`, and defaults downloads to `~/storage/downloads`. Run `termux-setup-storage` once so that folder exists.
+1. Install **Termux** from [F-Droid](https://f-droid.org/en/packages/com.termux/) or GitHub Releases — not the Play Store build.
 
-**Frontend development** (laptop only):
+2. Update packages and install the toolchain:
 
-```bash
-make install-web
-make web-api       # terminal 1 — Python API on :8765
-make web-dev       # terminal 2 — Vite HMR on :5173, proxies /api
-```
+   ```bash
+   pkg update && pkg upgrade -y
+   pkg install -y python git make clang
+   ```
 
-Force a UI rebuild: `make web-build`.
+3. Grant storage access — tap **Allow**. This enables `~/storage/downloads`:
 
-### Android (Termux) setup
+   ```bash
+   termux-setup-storage
+   ```
 
-```bash
-pkg update && pkg install -y python git make
-termux-setup-storage    # tap Allow — enables ~/storage/downloads
-git clone https://github.com/nishatislam04/jav-downloader.git
-cd jav-downloader
-make install
-make start
-```
+4. Get the code and install:
 
-Optional env vars:
+   ```bash
+   git clone https://github.com/nishatislam04/jav-downloader.git
+   cd jav-downloader
+   make install
+   ```
+
+5. Recommended — stops Android from freezing long downloads when the screen turns off:
+
+   ```bash
+   termux-wake-lock
+   ```
+
+6. Start the server:
+
+   ```bash
+   make start
+   ```
+
+7. Open the UI:
+
+   - On the phone: **<http://localhost:8765**>
+   - From another device on the same Wi-Fi: **http://<phone-ip>:8765** (Termux binds `0.0.0.0`)
+
+Downloads land in the Android **Downloads** folder (`~/storage/downloads`), visible in any file manager. Keep Termux in the foreground or use `termux-wake-lock` while downloading — Android kills background apps.
+
+## Configuration
 
 | Variable | Purpose |
 |---|---|
-| `WEB_HOST` / `JAV_WEB_HOST` | Bind address (Make sets `0.0.0.0` on Termux) |
-| `WEB_PORT` / `JAV_WEB_PORT` | HTTP port (default `8765`) |
-| `DOWNLOAD_DIR` | Override output folder |
+| `DOWNLOAD_DIR` | Output folder (CLI default `/downloads` — set a writable path; Termux: `~/storage/downloads`) |
+| `RESOLUTION` | `highest`, `1080`, `720`, `480`, `360`, `lowest` |
+| `MAX_WORKERS_PER_VIDEO` | Segment workers per video, `1`–`16` |
+| `URL` / `URLS` | URLs via environment (space- or comma-separated) |
+| `URLS_FILE` | URL list file, one per line, `#` comments (default `<DOWNLOAD_DIR>/urls.txt`) |
+| `WEB_HOST` / `WEB_PORT` | Server bind address / port (default `8765`) |
 
-## URL input
+- URLs are collected in this order: CLI args → `URLS`/`URL` → `URLS_FILE`.
+- MissAV caps workers automatically; SupJav and Hanime1 direct downloads use max 4 ranged connections.
+- ffmpeg is optional — only needed for remux/encode post-processing.
 
-URLs are collected in this order:
+## Development
 
-1. Command-line arguments
-2. `URLS` or `URL` environment variable (space- or comma-separated)
-3. A text file (`URLS_FILE`, default `<DOWNLOAD_DIR>/urls.txt`, one URL per line, `#` comments allowed)
-
-If no URL is found, the CLI exits with a usage message.
-
-## Environment variables
-
-| Variable | Purpose |
-|---|---|
-| `DOWNLOAD_DIR` | Output directory (default `/downloads`; use a writable path on local machines) |
-| `RESOLUTION` | `highest`, `1080`, `720`, `480`, `360`, or `lowest` |
-| `MAX_WORKERS_PER_VIDEO` | Segment workers per video, `1`–`16`; lower values reduce load on proxies or slow links |
-| `URL` / `URLS` | One or more URLs |
-| `URLS_FILE` | URL list file; defaults to `<DOWNLOAD_DIR>/urls.txt` |
-
-MissAV automatically caps per-video and total workers when downloading; SupJav and Hanime1 direct downloads use at most four ranged connections.
-
-## Library use
-
-The same engine powers the CLI:
-
-```python
-from jav_downloader import sites
-
-site = sites.CreateSite("https://jable.tv/videos/example/", "/path/to/output")
-if site and site.is_url_vaildate():
-    site.start_download()
+```bash
+make test        # pytest suite
+make web-build   # rebuild UI after frontend edits
 ```
 
-`sites.validate_url(url)` returns the matching site class without starting a download.
-
-## Troubleshooting
-
-When opening a [GitHub Issue](https://github.com/nishatislam04/jav-downloader/issues/new), include:
-
-- Version, Python version, and operating system
-- Site and reproducible URL, plus expected and actual behavior
-- For crashes, attach `crash_log.txt` or `crash_native.log` if present
-- Do not upload cookies, proxy credentials, tokens, or other private values
+- Frontend: `web/frontend/` — Vite + SolidJS, Biome lint/format. The built bundle is committed under `src/jav_downloader/web/static/`, so Termux never needs Node.
+- Encoding pipeline: see `docs/encoding-architecture.md`.
 
 ## License and responsible use
 
-Code is licensed under the [Apache License 2.0](./LICENSE). Use this tool only for lawful personal or research purposes. Follow local law, site terms, and content rights, and download only material you are authorized to access.
+Code is licensed under the [Apache License 2.0](./LICENSE). Use this tool only for lawful personal or research purposes — follow local law, site terms, and content rights, and download only material you are authorized to access.
 
-See [Releases](https://github.com/nishatislam04/jav-downloader/releases) for version notes.
-
-<p align="center">Built and maintained by <a href="https://github.com/Alos21750">ALOS</a>.</p>
+<p align="center">Maintained by <a href="https://github.com/nishatislam04">nishatislam04</a>.</p>
