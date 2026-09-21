@@ -441,20 +441,10 @@ export function BrushIcon() {
   return (
     <svg viewBox="0 0 24 24" width="14" height="14" aria-hidden="true">
       <path
-        d="M10 5a2 2 0 0 0-1.344.519l-6.336 5.74a1 1 0 0 0 0 1.481l6.336 5.741A2 2 0 0 0 10 20h10a2 2 0 0 0 2-2V7a2 2 0 0 0-2-2z"
-        fill="none"
+        d="M6 6l12 12M18 6L6 18"
         stroke="currentColor"
         stroke-width="1.75"
         stroke-linecap="round"
-        stroke-linejoin="round"
-      />
-      <path
-        d="m15 9-6 6m0-6 6 6"
-        fill="none"
-        stroke="currentColor"
-        stroke-width="1.75"
-        stroke-linecap="round"
-        stroke-linejoin="round"
       />
     </svg>
   );
