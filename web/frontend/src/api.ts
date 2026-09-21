@@ -17,6 +17,14 @@ export type ResolveResult = {
   quality?: string;
   views?: string;
   uploader?: string;
+  code?: string;
+  release_date?: string;
+  studio?: string;
+  label?: string;
+  tags?: string[];
+  actresses?: string[];
+  posted?: string;
+  stream_mirrors?: string[];
   output_size_bytes?: number | null;
   output_size_exact?: boolean;
   stream_type?: string;

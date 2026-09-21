@@ -540,6 +540,18 @@ button:disabled {
   filter: brightness(1.15);
 }
 
+.meta-extra-line {
+  margin: 8px 0 0;
+  font-size: 0.82rem;
+  line-height: 1.45;
+  color: var(--muted);
+  word-break: break-word;
+}
+
+.meta-extra-line--online {
+  margin-top: 4px;
+}
+
 /* Normalize paragraph margins so spacing is controlled per-group */
 .meta p {
   margin: 0;

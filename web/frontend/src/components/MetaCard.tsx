@@ -1,6 +1,11 @@
-import { Show } from "solid-js";
+import { createMemo, Show } from "solid-js";
 import type { ResolveResult } from "../api";
 import { formatBytes } from "../lib/format";
+import {
+  formatMetaLine,
+  movieInformationDetails,
+  onlineStreamDetails,
+} from "../lib/metaDetails";
 import { formatDurationSec } from "../lib/time";
 import { ExternalLinkIcon } from "./IconButton";
 import ThumbnailPreview, { thumbnailSrc } from "./ThumbnailPreview";
@@ -23,6 +28,8 @@ export default function MetaCard(props: Props) {
   };
   const sizeLabel = () => (props.meta.output_size_exact ? "Size" : "Est. size");
   const sizeText = () => formatBytes(props.meta.output_size_bytes ?? 0);
+  const movieLine = createMemo(() => formatMetaLine(movieInformationDetails(props.meta)));
+  const onlineLine = createMemo(() => formatMetaLine(onlineStreamDetails(props.meta)));
 
   return (
     <section class="card meta">
@@ -46,6 +53,12 @@ export default function MetaCard(props: Props) {
               </a>
             </Show>
           </p>
+          <Show when={movieLine()}>
+            <p class="meta-extra-line">{movieLine()}</p>
+          </Show>
+          <Show when={onlineLine()}>
+            <p class="meta-extra-line meta-extra-line--online">{onlineLine()}</p>
+          </Show>
           <Show when={hasDuration()}>
             <p class="label">Duration</p>
             <p class="mono meta-duration">{duration()}</p>
@@ -58,12 +71,6 @@ export default function MetaCard(props: Props) {
             <>
               <p class="label">Quality</p>
               <p>{props.meta.quality}</p>
-            </>
-          ) : null}
-          {props.meta.views ? (
-            <>
-              <p class="label">Views</p>
-              <p>{props.meta.views}</p>
             </>
           ) : null}
           {props.meta.uploader ? (

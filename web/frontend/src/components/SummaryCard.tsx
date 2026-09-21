@@ -3,6 +3,7 @@ import type { ResolveResult } from "../api";
 import { formatBytes } from "../lib/format";
 import type { AudioSettings, EncodeSettings } from "../lib/persist";
 import { siteFromLabel } from "../lib/sites";
+import { movieInformationDetails, onlineStreamDetails } from "../lib/metaDetails";
 import { formatDurationSec } from "../lib/time";
 import type { CutRange } from "./EditToolsCard";
 import { ChevronDownIcon, ListIcon, WrapIcon } from "./IconButton";
@@ -32,7 +33,6 @@ export default function SummaryCard(props: Props) {
       rows.push({ k: "duration", v: formatDurationSec(m.duration_sec) });
     }
     if (m.quality) rows.push({ k: "quality", v: m.quality });
-    if (m.views) rows.push({ k: "views", v: m.views });
     if (m.uploader) rows.push({ k: "uploader", v: m.uploader });
     if (typeof m.output_size_bytes === "number" && m.output_size_bytes > 0) {
       const k = m.output_size_exact ? "size" : "est. size";
@@ -114,10 +114,22 @@ export default function SummaryCard(props: Props) {
     return rows;
   });
 
+  const movieInfoRows = createMemo<SummaryRow[]>(() =>
+    movieInformationDetails(props.meta).map((row) => ({ k: row.k, v: row.v })),
+  );
+
+  const onlineRows = createMemo<SummaryRow[]>(() =>
+    onlineStreamDetails(props.meta).map((row) => ({ k: row.k, v: row.v })),
+  );
+
   const groups = createMemo<SummaryGroup[]>(() => {
     const out: SummaryGroup[] = [];
     const video = videoRows();
     if (video.length) out.push({ title: "Video", rows: video });
+    const movie = movieInfoRows();
+    if (movie.length) out.push({ title: "Movie information", rows: movie });
+    const online = onlineRows();
+    if (online.length) out.push({ title: "Online stream", rows: online });
     const source = sourceRows();
     if (source.length) out.push({ title: "Source", rows: source });
     const dest = destRows();
