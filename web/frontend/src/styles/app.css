@@ -361,7 +361,7 @@ input.input-error,
 }
 
 .hint {
-  margin: 10px 0 0;
+  margin: 6px 0 0;
   color: var(--muted);
   font-size: 0.82rem;
   line-height: 1.45;
@@ -493,6 +493,22 @@ button:disabled {
   margin: 0;
   line-height: 1.45;
   word-break: break-word;
+}
+
+.meta-title-link {
+  display: inline-flex;
+  margin-left: 6px;
+  vertical-align: -2px;
+  color: var(--accent-2);
+}
+
+.meta-title-link svg {
+  width: 0.85em;
+  height: 0.85em;
+}
+
+.meta-title-link:hover {
+  filter: brightness(1.15);
 }
 
 /* Normalize paragraph margins so spacing is controlled per-group */
@@ -799,19 +815,24 @@ button.icon-btn-danger:hover:not(:disabled) {
 
 .edit-tools-heading {
   margin: 0 0 14px;
-  font-size: 0.95rem;
+  font-size: 0.82rem;
   font-weight: 600;
+  letter-spacing: 0.02em;
 }
 
 .edit-tools-head {
   display: flex;
   align-items: center;
-  justify-content: space-between;
   gap: 8px;
+  min-height: 40px;
 }
 
 .edit-tools-head .edit-tools-heading {
   margin: 0;
+}
+
+.edit-tools-head .edit-tools-collapse-btn {
+  margin-left: auto;
 }
 
 button.edit-tools-collapse-btn {
@@ -982,6 +1003,10 @@ button.tool-sidebar-btn {
   min-height: 180px;
 }
 
+.tool-panel-empty .hint {
+  margin-top: 6px;
+}
+
 .job-log {
   margin-top: 12px;
   max-height: 220px;
@@ -1142,7 +1167,7 @@ button.save-apply-btn:not(:disabled):hover {
 }
 
 .tool-panel-title {
-  margin: 0 0 12px;
+  margin: 0 0 4px;
   font-size: 0.82rem;
   font-weight: 600;
   letter-spacing: 0.04em;
@@ -1198,15 +1223,16 @@ button.save-apply-btn:not(:disabled):hover {
 }
 
 .history-menu-btn,
-.sites-menu-btn {
+.sites-menu-btn,
+.header-icon-btn {
   display: inline-flex;
   align-items: center;
   justify-content: center;
   width: 38px;
   height: 38px;
   padding: 0;
-  border: 1px solid var(--border);
-  background: var(--card);
+  border: none;
+  background: transparent;
   color: var(--text);
   border-radius: 10px;
   cursor: pointer;
@@ -1215,7 +1241,8 @@ button.save-apply-btn:not(:disabled):hover {
 .history-menu-btn:hover,
 .history-menu-btn.active,
 .sites-menu-btn:hover,
-.sites-menu-btn.active {
+.sites-menu-btn.active,
+.header-icon-btn:hover {
   border-color: var(--accent-2);
 }
 
@@ -1399,19 +1426,17 @@ button.save-apply-btn:not(:disabled):hover {
   width: 30px;
   height: 30px;
   padding: 0;
-  border: 1px solid var(--border);
+  border: none;
   border-radius: 8px;
-  background: rgba(255, 255, 255, 0.03);
+  background: transparent;
   color: var(--muted);
   cursor: pointer;
   transition:
     color 0.15s ease,
-    border-color 0.15s ease,
     background 0.15s ease;
 }
 
 .history-item-del:hover {
-  border-color: #ff8a8a;
   color: #ff8a8a;
   background: rgba(255, 82, 99, 0.12);
 }
@@ -1463,7 +1488,7 @@ button.save-apply-btn:not(:disabled):hover {
   align-items: center;
   gap: 6px;
   padding: 6px 12px;
-  border: 1px solid #ff8a8a;
+  border: none;
   border-radius: 8px;
   background: transparent;
   color: #ff8a8a;
@@ -2042,6 +2067,13 @@ button.confirm-danger:hover {
   padding: 0;
 }
 
+/* Yellow section icon shared by Video tools + Video summary headers */
+.card-head-icon {
+  display: inline-flex;
+  align-items: center;
+  color: var(--accent-2);
+}
+
 .summary-details {
   overflow: hidden;
 }
@@ -2050,7 +2082,8 @@ button.confirm-danger:hover {
   display: flex;
   align-items: center;
   gap: 8px;
-  padding: 12px 16px;
+  min-height: 40px;
+  padding: 4px 16px;
   cursor: pointer;
   user-select: none;
   list-style: none;
@@ -2062,29 +2095,19 @@ button.confirm-danger:hover {
 }
 
 .summary-caret {
-  font-size: 0.7rem;
-  color: #5a626e;
+  display: inline-flex;
+  color: var(--muted);
   transition: transform 0.15s ease;
 }
 
 .summary-details[open] .summary-caret {
-  transform: rotate(90deg);
+  transform: rotate(180deg);
 }
 
 .summary-heading {
   font-size: 0.82rem;
   font-weight: 600;
   letter-spacing: 0.02em;
-}
-
-.summary-hint {
-  margin-left: auto;
-  font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
-  font-size: 0.72rem;
-  color: #5a626e;
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
 }
 
 .summary-body {
