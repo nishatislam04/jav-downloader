@@ -28,6 +28,12 @@ Read `AGENTS.md` at repo root first. This repo is developed with **Cursor (ACP i
 - Refactor unrelated code in the same change
 - Create commits/PRs/docs unless explicitly asked
 
+## File edits
+
+- `write_file` disabled — never rewrite existing files wholesale
+- Use `edit_file` with ≤10-line `oldText` hunks, one hunk per call
+- Multi-file site work: one file → one hunk → `git diff -- path` → next file
+
 ## Always
 
 - Run `make test` before considering work done

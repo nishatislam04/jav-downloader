@@ -33,6 +33,11 @@ alwaysApply: false
 - Headers from `core.config` — never hardcode user cookies/tokens
 - Use `curl_cffi` when available (see `base.py` import pattern)
 
+## Edits
+
+- One file, one hunk per tool call — show `git diff` before moving to the next site file
+- `edit_file` only (`write_file` disabled); `oldText` ≤10 lines, exact match
+
 ## Tests
 
 - Mock page HTML — no live HTTP in unit tests

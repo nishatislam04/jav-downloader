@@ -15,6 +15,20 @@ Cursor ACP may also load `.cursorrules` / `.rules` if present — prefer this fi
 
 **GLM 5.3 Flash note:** Keep instructions concrete and file-specific. One task per turn when possible. Prefer small, verifiable diffs; read the target module before editing. For multi-file work, list touched paths up front.
 
+## File editing (MCP / agent tools)
+
+`write_file` is disabled — do not attempt it on existing files.
+
+- **Existing files:** use `edit_file` only, with `oldText` ≤10 lines (exact match including whitespace). One hunk per edit call.
+- **Alternative:** StrReplace-style single hunk — one search/replace, minimal surrounding context.
+- **New files only:** creating a file from scratch is fine; never rewrite a whole existing file in one shot.
+- **If an edit would reformat or touch unrelated lines:** stop — narrow the hunk, do not commit a broad rewrite.
+- **Do not `git checkout` to undo** unless the working tree is actually broken; fix forward with a smaller edit instead.
+
+### Multi-file site edits (`sites/*.py`)
+
+One file → one hunk → show diff (`git diff -- path`) → next file. Never batch-edit multiple site files in a single tool call.
+
 ---
 
 ## What this is
@@ -160,6 +174,9 @@ Web exposes `GET /api/encoding/capabilities`. Encode options today are web/API-f
 | Kill ffmpeg on cancel | Orphan subprocesses |
 | Read encoding-architecture.md before encoding work | Invent a new pipeline |
 | Small focused diffs (good for GLM 5.3 Flash) | Large unsolicited refactors |
+| `edit_file` with ≤10-line `oldText` hunks | Full-file rewrite or reformat |
+| One site file per edit + diff before next | Multi-file edits in one call |
+| Fix forward with a smaller hunk | `git checkout` loop to undo every miss |
 
 ---
 
