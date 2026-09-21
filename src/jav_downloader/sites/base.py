@@ -1376,14 +1376,3 @@ class M3U8Crawler:
         if self._t_executor:
             self._t_executor.shutdown(wait=False)
             self._t_executor = None
-
-
-class SiteUrlList_M3U8:
-    def getLinks(self): return self.links
-    def getLinkDescs(self): return self.linkDescriptions
-    def getListType(self): return self.listType
-    def getTotalLinks(self): return self.totalLinks
-    def getTotalPages(self): return self.totalPages
-    def getCurrentPage(self): return self.currentPage
-    def getSortType(self): return self.sortType
-    def isVaildLinks(self): return False if self.islist is None else True

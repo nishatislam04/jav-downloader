@@ -14,8 +14,7 @@ def _stub(name, factory=None):
 _stub('cloudscraper')
 _stub('customtkinter')
 
-from jav_downloader.sites import jabletv as jable_mod
-from jav_downloader.sites.jabletv import JableTVBrowser, SiteJableTV
+from jav_downloader.sites.jabletv import SiteJableTV
 
 
 def test_parse_page_precise_on_minified_html():
@@ -43,20 +42,3 @@ def test_validate_url_anchored():
     assert SiteJableTV.validate_url('https://missav.ai/sone-543') is None
 
 
-def test_category_counts_parse_english_video_suffix(monkeypatch):
-    html = (
-        '<a href="https://jable.tv/categories/">All</a>'
-        '<a href="https://jable.tv/categories/bdsm/">BDSM5271 videos</a>'
-    )
-    response = types.SimpleNamespace(content=html.encode('utf-8'))
-    monkeypatch.setattr(JableTVBrowser, '_get_scraper', classmethod(lambda cls: object()))
-    monkeypatch.setattr(
-        jable_mod,
-        'fetch_with_mirrors',
-        lambda *args, **kwargs: (response, 'jable.tv', 'ok'),
-    )
-
-    category = next(c for c in JableTVBrowser.fetch_categories()
-                    if c.get('slug') == 'bdsm')
-    assert category['name'] == 'BDSM'
-    assert category['count'] == 5271

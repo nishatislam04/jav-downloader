@@ -13,7 +13,7 @@ try:
 except ImportError:
     _use_cffi = False
 import threading as _threading
-from urllib.parse import quote, urlsplit
+from urllib.parse import urlsplit
 from jav_downloader.sites.base import *
 from jav_downloader.sites.base import _get_session
 from jav_downloader.sites.missav import _unpack_js_eval
@@ -26,9 +26,6 @@ _BLOCKED_MSG = "所有鏡像都被 Cloudflare 阻擋（可能是你的網路/IP 
 _DIRECT_RANGE_WORKERS = 4
 _DIRECT_RANGE_RETRIES = 4
 _DIRECT_RETRY_BASE_DELAY = 1.0
-
-_browser_scraper = None
-_browser_scraper_lock = _threading.Lock()
 
 def _make_scraper():
     """Fresh scraper: curl_cffi (Cloudflare-capable) if available, else cloudscraper."""
@@ -148,39 +145,6 @@ def _split_byte_ranges(total, workers=_DIRECT_RANGE_WORKERS):
         ranges.append((start, end))
         start = end + 1
     return ranges
-
-
-def _parse_videos(soup):
-    videos = []
-    seen = set()
-    for post in soup.select('div.post'):
-        a = post.select_one('a[href*=".html"]')
-        if not a:
-            continue
-        video_url = a['href']
-        if video_url in seen:
-            continue
-        seen.add(video_url)
-        title = html.unescape(a.get('title') or a.get_text(strip=True))
-        img = post.find('img')
-        thumbnail = (img.get('data-original') or img.get('data-src') or '') if img else ''
-        if img and not thumbnail:
-            src = img.get('src') or ''
-            if not src.startswith('data:'):
-                thumbnail = src
-        meta = post.select_one('div.meta')
-        date_match = re.search(
-            r'(?<!\d)(20\d{2}/\d{1,2}/\d{1,2})(?!\d)',
-            meta.get_text(' ', strip=True) if meta else '',
-        )
-        videos.append({
-            'url': video_url,
-            'title': title,
-            'thumbnail': thumbnail,
-            'duration': '',
-            'date': date_match.group(1) if date_match else '',
-        })
-    return videos
 
 
 class SiteSupJav(M3U8Crawler):
@@ -522,85 +486,3 @@ class SiteSupJav(M3U8Crawler):
                     except Exception:
                         pass
         return done, total
-
-
-class SupJavBrowser:
-    _url_root = 'https://supjav.com'
-    _scraper = None
-
-    CATEGORIES = [
-        ('最近更新', 'https://supjav.com/'),
-        ('熱門總榜', 'https://supjav.com/popular'),
-        ('本週熱門', 'https://supjav.com/popular?sort=week'),
-        ('本月熱門', 'https://supjav.com/popular?sort=month'),
-        ('無碼', 'https://supjav.com/category/uncensored-jav'),
-        ('有碼', 'https://supjav.com/category/censored-jav'),
-        ('素人', 'https://supjav.com/category/amateur'),
-        ('中文字幕', 'https://supjav.com/category/chinese-subtitles'),
-        ('英文字幕', 'https://supjav.com/category/english-subtitles'),
-        ('破壞版', 'https://supjav.com/category/reducing-mosaic'),
-    ]
-
-    @classmethod
-    def _get_scraper(cls):
-        global _browser_scraper
-        if _browser_scraper is None:
-            with _browser_scraper_lock:
-                if _browser_scraper is None:
-                    _browser_scraper = _make_scraper()
-        cls._scraper = _browser_scraper
-        return _browser_scraper
-
-    @classmethod
-    def _with_lang(cls, url, lang=''):
-        lang = (lang or '').strip().strip('/')
-        if not lang:
-            return url
-        root = cls._url_root
-        prefix = root + '/'
-        if url == root or url == prefix:
-            return f'{prefix}{lang}/'
-        if url.startswith(prefix):
-            return f'{prefix}{lang}/{url[len(prefix):]}'
-        return url
-
-    @classmethod
-    def fetch_categories(cls, lang=''):
-        return [{'name': n,
-                 'url': cls._with_lang(u, lang), 'count': 0}
-                for n, u in cls.CATEGORIES]
-
-    @classmethod
-    def fetch_page(cls, url):
-        def _validate(resp):
-            s = BeautifulSoup(resp.content, 'html.parser')
-            return bool(s.select('div.post a[href*=".html"]'))
-        resp, host, reason = fetch_with_mirrors(cls._get_scraper(), url, 'supjav', _validate)
-        if reason == 'blocked':
-            raise MirrorsBlockedError(url)
-        if reason != 'ok':
-            return []
-        try:
-            soup = BeautifulSoup(resp.content, 'html.parser')
-            return _parse_videos(soup)
-        except Exception:
-            return []
-
-    @classmethod
-    def page_url(cls, base, page):
-        if page <= 1:
-            return base
-        if '?s=' in base or '&s=' in base:
-            root, _, qs = base.partition('?')
-            return f"{root.rstrip('/')}/page/{page}/?{qs}"
-        if '?' in base:
-            return f"{base}&page={page}"
-        return f"{base.rstrip('/')}/page/{page}"
-
-    @classmethod
-    def search_url(cls, query, lang=''):
-        return f"{cls._with_lang(cls._url_root + '/', lang)}?s={quote(query, safe='')}"
-
-    @classmethod
-    def search(cls, query, lang=''):
-        return cls.fetch_page(cls.search_url(query, lang=lang))

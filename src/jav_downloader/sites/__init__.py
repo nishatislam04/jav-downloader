@@ -41,7 +41,6 @@ LEGACY_URL_ONLY_SITE_CLASSES = (
 
 # Backward-compatible public names used throughout the original application.
 siteList = FEATURED_SITE_CLASSES + LEGACY_URL_ONLY_SITE_CLASSES
-siteUrlList = (jabletv.JableTVList,)
 
 
 def validate_url(url):
@@ -116,26 +115,3 @@ def CreateSite(  # noqa: N802
         audio_mute, audio_bitrate, audio_volume)
 
 
-def create_site_url_list(url, silence=False):
-    for url_list in siteUrlList:
-        candidate = url_list(url, silence=silence)
-        if candidate.isVaildLinks():
-            return candidate
-    return None
-
-
-def CreateSiteUrlList(url, silence=False):  # noqa: N802
-    return create_site_url_list(url, silence)
-
-
-def consoles_main(url, dest=None, max_workers=None):
-    if not url:
-        url = input("輸入支援的網址: ")
-    job = create_site(url, dest, max_workers=max_workers)
-    if job and job.is_url_vaildate():
-        job.start_download()
-        print("下載完成!")
-
-
-if __name__ == "__main__":
-    consoles_main("")

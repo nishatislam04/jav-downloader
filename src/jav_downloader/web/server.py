@@ -1,6 +1,8 @@
 #!/usr/bin/env python
 """Lightweight browser UI for paste-link downloads."""
 
+from __future__ import annotations
+
 # --- issue #23: point SSL/curl_cffi at certifi's ASCII-safe CA bundle BEFORE any
 # curl_cffi import, so a non-UTF-8 default cert path can't crash the resolver.
 # (Relocated from the removed CLI entry point.) ---
@@ -15,8 +17,6 @@ try:
         _os.environ.setdefault("SSL_CERT_DIR", _os.path.dirname(_ca))
 except Exception:
     pass
-
-from __future__ import annotations
 
 import argparse
 import json

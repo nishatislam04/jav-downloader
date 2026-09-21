@@ -38,9 +38,6 @@ Releases = "https://github.com/nishatislam04/jav-downloader/releases"
 Issues = "https://github.com/nishatislam04/jav-downloader/issues"
 
 [project.scripts]
-jav = "jav_downloader.cli.headless:main"
-jav-downloader = "jav_downloader.cli.headless:main"
-jav-downloader-cli = "jav_downloader.cli.headless:main"
 jav-web = "jav_downloader.web.server:main"
 
 [tool.setuptools]

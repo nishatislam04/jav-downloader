@@ -5,7 +5,6 @@ import re
 import sys
 import time
 import types
-from types import SimpleNamespace
 
 
 def _stub(name, factory=None):
@@ -18,7 +17,7 @@ def _stub(name, factory=None):
 _stub('cloudscraper')
 _stub('customtkinter')
 
-from jav_downloader.sites.missav import SiteMissAV, MissAVBrowser, _unpack_js_eval
+from jav_downloader.sites.missav import SiteMissAV, _unpack_js_eval
 
 
 def test_validate_accepts_video_pages():
@@ -63,26 +62,3 @@ def test_unpack_returns_none_on_non_packer():
     assert _unpack_js_eval('just some normal <script> here') is None
 
 
-def test_page_url_pagination():
-    assert MissAVBrowser.page_url('https://missav.ai/dm539/new', 1) == 'https://missav.ai/dm539/new'
-    assert MissAVBrowser.page_url('https://missav.ai/dm539/new', 3) == 'https://missav.ai/dm539/new?page=3'
-    assert MissAVBrowser.page_url('https://missav.ai/x?a=1', 2) == 'https://missav.ai/x?a=1&page=2'
-
-
-def test_listing_fetch_rejects_404_grid_page(monkeypatch):
-    response = SimpleNamespace(
-        status_code=404,
-        content=b'<div class="grid"><div><a href="/ad-123">ad</a></div></div>',
-        url='https://missav.ai/genres/not-found',
-    )
-
-    def fake_fetch(_scraper, _url, _site, validator, **_kwargs):
-        assert validator(response) is False
-        return response, 'missav.ai', 'failed'
-
-    monkeypatch.setattr(MissAVBrowser, '_get_scraper',
-                        classmethod(lambda cls: object()))
-    monkeypatch.setattr(
-        'jav_downloader.sites.missav.fetch_with_mirrors', fake_fetch)
-
-    assert MissAVBrowser.fetch_page(response.url) == []

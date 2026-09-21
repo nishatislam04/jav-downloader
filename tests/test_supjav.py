@@ -52,12 +52,10 @@ from bs4 import BeautifulSoup
 from jav_downloader.sites.base import M3U8Crawler
 from jav_downloader.sites.supjav import (
     SiteSupJav,
-    SupJavBrowser,
     _extract_m3u8,
     _extract_packed_m3u8,
     _extract_title,
     _extract_tv_link,
-    _parse_videos,
     _server_links,
     _streamtape_direct_url,
     _strip_fake_header,
@@ -79,15 +77,6 @@ def test_supjav_validate_url_is_anchored():
     assert SiteSupJav.validate_url('https://supjav.com/ja/12345.html') == '12345'
     assert SiteSupJav.validate_url('https://supjav.com/433866.html/x') is None
     assert SiteSupJav.validate_url('https://jable.tv/videos/x/') is None
-
-
-def test_supjav_page_url():
-    assert SupJavBrowser.page_url('https://supjav.com/category/uncensored-jav', 2) == 'https://supjav.com/category/uncensored-jav/page/2'
-    assert SupJavBrowser.page_url('https://supjav.com/popular?sort=week', 2) == 'https://supjav.com/popular?sort=week&page=2'
-    assert SupJavBrowser.page_url('https://supjav.com/', 2) == 'https://supjav.com/page/2'
-    assert SupJavBrowser.page_url('https://supjav.com/?s=fc2', 2) == 'https://supjav.com/page/2/?s=fc2'
-    base = 'https://supjav.com/category/uncensored-jav'
-    assert SupJavBrowser.page_url(base, 1) == base
 
 
 def test_extract_m3u8_from_urlplay():
@@ -115,30 +104,6 @@ def test_extract_title_from_h1_without_og_title():
     </html>
     ''', 'html.parser')
     assert _extract_title(soup) == 'FC2PPV 4916515 [Limited To 200 Copies...]'
-
-
-def test_parse_videos_uses_real_thumbnail_src_and_ignores_base64_placeholder():
-    soup = BeautifulSoup('''
-    <div class="post">
-      <a href="https://supjav.com/1.html" title="Home"></a>
-      <img class="thumb" src="https://img.supjav.com/home.jpg">
-      <div class="meta">2026/07/12 <span>100 Views</span></div>
-    </div>
-    <div class="post">
-      <a href="https://supjav.com/2.html" title="Category"></a>
-      <img class="thumb" data-original="https://img.supjav.com/category.jpg" src="data:image/png;base64,placeholder">
-    </div>
-    <div class="post">
-      <a href="https://supjav.com/3.html" title="Placeholder"></a>
-      <img class="thumb" src="data:image/png;base64,placeholder">
-    </div>
-    ''', 'html.parser')
-    videos = _parse_videos(soup)
-    assert videos[0]['thumbnail'] == 'https://img.supjav.com/home.jpg'
-    assert videos[0]['date'] == '2026/07/12'
-    assert videos[1]['thumbnail'] == 'https://img.supjav.com/category.jpg'
-    assert videos[1]['date'] == ''
-    assert videos[2]['thumbnail'] == ''
 
 
 def test_strip_fake_header_removes_png_prefix_from_ts():

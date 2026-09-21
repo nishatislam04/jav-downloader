@@ -47,7 +47,6 @@ Supported featured sites: JableTV, MissAV, SupJav, Hanime1, Jav.guru, SpankBang 
 | Site adapters | `src/jav_downloader/sites/` | URL validation, page parsing, stream resolve |
 | Shared infra | `src/jav_downloader/core/` | config, SSL, paths, video identity, migrations |
 | Encoding pipeline | `sites/media_*.py`, `encoding_*.py` | ffprobe → decide → strategy → ffmpeg |
-| CLI | `src/jav_downloader/cli/` | headless batch + entry points |
 | Web API | `src/jav_downloader/web/` | HTTP server, jobs, progress, cleanup |
 | Frontend source | `web/frontend/` | Vite + SolidJS |
 | Frontend shipped | `src/jav_downloader/web/static/` | **Committed** production bundle (Termux has no Node) |
@@ -71,7 +70,7 @@ make web-format       # Biome format (frontend)
 make web-lint         # Biome lint (frontend)
 ```
 
-Python entry points: `jav-downloader-cli`, `jav-web`, `jav` / `jav-downloader`.
+Python entry point: `jav-web` (web UI + API server).
 
 ---
 
@@ -79,7 +78,7 @@ Python entry points: `jav-downloader-cli`, `jav-web`, `jav` / `jav-downloader`.
 
 - Site-specific parsing stays in `sites/` — not `core/` or `web/`
 - Preserve legacy public API typos: `CreateSite`, `is_url_vaildate`, `VaildateUrl` (`# noqa` retained)
-- Preserve CLI options and state migration unless an explicit major-version break is requested
+- Preserve state migration unless an explicit major-version break is requested
 - Never commit: cookies, proxy credentials, API keys, downloaded videos, PII logs, model packs
 - Windows exe releases: GitHub Actions CI only — never attach local builds to releases
 - Frontend static bundle is committed for Termux — runtime must not require Node/npm
@@ -107,7 +106,7 @@ ffprobe (media_probe) → decide_encoding (encoding_decision) → strategy (enco
 Modes: `skip` | `direct_remux` | `software_encode` | hardware (MediaCodec / NVENC / QSV / VAAPI / VideoToolbox).
 
 Capability probe + hardware→software fallback in `encoding_capabilities.py`.
-Web exposes `GET /api/encoding/capabilities`. Encode options today are web/API-first; CLI headless has limited encode flags — check before exposing new ones.
+Web exposes `GET /api/encoding/capabilities`. Encode options are web/API-first.
 
 ---
 
@@ -157,7 +156,6 @@ Web exposes `GET /api/encoding/capabilities`. Encode options today are web/API-f
 
 - More site adapters incoming — follow featured site pattern + tests
 - Encoding pipeline mature (phases 1–10 done) — changes need decision/strategy/capability sync
-- CLI encode parity with web — confirm scope before implementing
 - `docs/android-root-performance-optimization.md` is roadmap-only, not implemented
 
 ---
