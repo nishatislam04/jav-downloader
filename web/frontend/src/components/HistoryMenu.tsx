@@ -8,7 +8,7 @@ import {
   loadHistory,
 } from "../lib/history";
 import ConfirmDialog from "./ConfirmDialog";
-import { HistoryIcon, TrashIcon } from "./IconButton";
+import { CloseIcon, HistoryIcon, TrashIcon } from "./IconButton";
 import { thumbnailSrc } from "./ThumbnailPreview";
 
 type Props = {
@@ -107,43 +107,60 @@ export default function HistoryMenu(props: Props) {
         <HistoryIcon />
       </button>
       <Show when={open()}>
-        <div class="history-dropdown" role="menu">
-          <Show when={entries().length} fallback={<p class="history-empty">No downloads yet</p>}>
-            <For each={entries()}>
-              {(entry) => (
-                <div class="history-item">
-                  <button
-                    type="button"
-                    class="history-item-main"
-                    role="menuitem"
-                    onClick={() => setPendingLoad(entry)}
-                  >
-                    <Show when={entry.thumbnail}>
-                      <img
-                        src={thumbnailSrc(entry.thumbnail)}
-                        alt=""
-                        class="history-item-thumb"
-                        loading="lazy"
-                      />
-                    </Show>
-                    <span class="history-item-body">
-                      <span class="history-item-title">{cropHistoryTitle(entry.title)}</span>
-                      <span class="history-item-when">{formatHistoryWhen(entry.downloadedAt)}</span>
-                    </span>
-                  </button>
-                  <button
-                    type="button"
-                    class="history-item-del"
-                    aria-label="Delete entry"
-                    title="Delete"
-                    onClick={() => removeEntry(entry.id)}
-                  >
-                    <TrashIcon />
-                  </button>
-                </div>
-              )}
-            </For>
-          </Show>
+        <div class="drawer-backdrop" aria-hidden="true" onClick={close} />
+        <div class="history-drawer" role="menu">
+          <div class="history-drawer-head">
+            <p class="history-drawer-title">History</p>
+            <button
+              type="button"
+              class="history-drawer-close"
+              aria-label="Close history"
+              title="Close"
+              onClick={close}
+            >
+              <CloseIcon />
+            </button>
+          </div>
+          <div class="history-drawer-body">
+            <Show when={entries().length} fallback={<p class="history-empty">No downloads yet</p>}>
+              <For each={entries()}>
+                {(entry) => (
+                  <div class="history-item">
+                    <button
+                      type="button"
+                      class="history-item-main"
+                      role="menuitem"
+                      onClick={() => setPendingLoad(entry)}
+                    >
+                      <Show when={entry.thumbnail}>
+                        <img
+                          src={thumbnailSrc(entry.thumbnail)}
+                          alt=""
+                          class="history-item-thumb"
+                          loading="lazy"
+                        />
+                      </Show>
+                      <span class="history-item-body">
+                        <span class="history-item-title">{cropHistoryTitle(entry.title)}</span>
+                        <span class="history-item-when">
+                          {formatHistoryWhen(entry.downloadedAt)}
+                        </span>
+                      </span>
+                    </button>
+                    <button
+                      type="button"
+                      class="history-item-del"
+                      aria-label="Delete entry"
+                      title="Delete"
+                      onClick={() => removeEntry(entry.id)}
+                    >
+                      <TrashIcon />
+                    </button>
+                  </div>
+                )}
+              </For>
+            </Show>
+          </div>
           <Show when={entries().length}>
             <div class="history-footer">
               <button type="button" class="history-clear-btn" onClick={onClearAll}>

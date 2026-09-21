@@ -29,9 +29,9 @@ body {
 }
 
 .shell {
-  max-width: 720px;
+  max-width: 1200px;
   margin: 0 auto;
-  padding: 24px 16px 48px;
+  padding: 24px 24px 48px;
 }
 
 .sticky-dashboard {
@@ -258,8 +258,8 @@ input.input-error,
 .cut-list {
   display: flex;
   flex-direction: column;
-  gap: 14px;
-  margin-top: 12px;
+  gap: 32px;
+  margin-top: 16px;
 }
 
 .cut-range-row {
@@ -1371,23 +1371,83 @@ button.save-apply-btn:not(:disabled):hover {
   color: var(--text);
 }
 
-.history-dropdown {
-  position: absolute;
-  top: calc(100% + 8px);
+/* History: right-side drawer. Backdrop dims the page; panel slides over it. */
+.drawer-backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 55;
+  background: rgba(0, 0, 0, 0.55);
+}
+
+.history-drawer {
+  position: fixed;
+  top: 0;
   right: 0;
-  width: min(420px, calc(100vw - 32px));
-  max-height: 420px;
-  overflow-y: auto;
-  padding: 8px;
+  bottom: 0;
+  z-index: 56;
+  display: flex;
+  flex-direction: column;
+  width: min(90vw, 1200px);
   background: var(--card);
-  border: 1px solid var(--border);
-  border-radius: 12px;
-  box-shadow: 0 16px 40px rgba(0, 0, 0, 0.45);
-  z-index: 30;
+  border-left: 1px solid var(--border);
+  box-shadow: -24px 0 60px rgba(0, 0, 0, 0.45);
+  animation: drawer-in 0.2s ease;
+}
+
+@keyframes drawer-in {
+  from {
+    transform: translateX(24px);
+    opacity: 0;
+  }
+
+  to {
+    transform: translateX(0);
+    opacity: 1;
+  }
+}
+
+.history-drawer-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 14px 18px;
+  border-bottom: 1px solid var(--border);
+}
+
+.history-drawer-title {
+  margin: 0;
+  font-size: 1rem;
+  font-weight: 700;
+}
+
+.history-drawer-close {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 32px;
+  height: 32px;
+  padding: 0;
+  border: none;
+  border-radius: 8px;
+  background: transparent;
+  color: var(--muted);
+  cursor: pointer;
+}
+
+.history-drawer-close:hover {
+  color: var(--text);
+  background: rgba(255, 255, 255, 0.06);
+}
+
+/* Items scroll; footer stays pinned at the drawer bottom */
+.history-drawer-body {
+  flex: 1;
+  overflow-y: auto;
+  padding: 8px 12px;
 }
 
 .history-empty {
-  margin: 8px;
+  margin: 18px;
   color: var(--muted);
   font-size: 0.88rem;
 }
@@ -1485,7 +1545,7 @@ button.save-apply-btn:not(:disabled):hover {
 .history-footer {
   display: flex;
   justify-content: flex-end;
-  padding: 6px 4px 2px;
+  padding: 10px 16px;
   border-top: 1px solid var(--border);
 }
 
@@ -1816,23 +1876,10 @@ button.confirm-danger:hover {
     border-radius: 10px;
   }
 
-  /* History: full-width dropdown */
-  /* Anchor the dropdown to the header so it can span the viewport */
-  .app-header {
-    position: relative;
-  }
-
-  .history-menu,
-  .sites-menu {
-    position: static;
-  }
-
-  .history-dropdown {
-    top: calc(100% + 6px);
-    right: 0;
-    width: calc(100vw - 16px);
-    max-height: 60vh;
-    padding: 6px;
+  /* History drawer: full-bleed on mobile */
+  .history-drawer {
+    width: 100vw;
+    border-left: none;
   }
 
   .sites-dropdown {
