@@ -2113,7 +2113,7 @@ button.confirm-danger:hover {
 }
 
 .summary-body {
-  padding: 4px 16px 14px;
+  padding: 0 16px 16px;
   background: #050608;
   border-top: 1px solid #1f2937;
   font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
@@ -2122,25 +2122,43 @@ button.confirm-danger:hover {
   overflow-x: auto;
 }
 
+.summary-toolbar {
+  display: flex;
+  justify-content: flex-end;
+}
+
+.summary-wrap-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  margin-top: 10px;
+  padding: 4px 10px;
+  border: 1px solid #1f2937;
+  border-radius: 8px;
+  background: transparent;
+  color: var(--muted);
+  font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  font-size: 0.72rem;
+  cursor: pointer;
+}
+
+.summary-wrap-btn:hover,
+.summary-wrap-btn[aria-pressed="true"] {
+  color: var(--accent-2);
+  border-color: var(--accent-2);
+}
+
 .summary-group + .summary-group {
-  margin-top: 14px;
+  margin-top: 26px;
 }
 
 .summary-group-title {
-  margin: 0 0 4px;
-  font-size: 0.68rem;
-  font-weight: 600;
-  letter-spacing: 0.08em;
+  margin: 0 0 10px;
+  font-size: 0.74rem;
+  font-weight: 700;
+  letter-spacing: 0.14em;
   text-transform: uppercase;
-  color: #5a626e;
-}
-
-.summary-row {
-  display: flex;
-  gap: 10px;
-  margin: 0;
-  white-space: pre-wrap;
-  word-break: break-word;
+  color: var(--text);
 }
 
 .summary-key {
@@ -2148,7 +2166,21 @@ button.confirm-danger:hover {
   color: #5a626e;
 }
 
+/* Values stay on one line (scroll) unless wrap is toggled on */
+.summary-row {
+  display: flex;
+  gap: 10px;
+  margin: 0;
+  white-space: pre-wrap;
+}
+
 .summary-val {
   color: #9cdcfe;
   min-width: 0;
+  white-space: nowrap;
+}
+
+.summary-val.wrap {
+  white-space: pre-wrap;
+  word-break: break-all;
 }

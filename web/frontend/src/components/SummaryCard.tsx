@@ -1,10 +1,11 @@
-import { createMemo, For } from "solid-js";
+import { createMemo, createSignal, For } from "solid-js";
 import type { ResolveResult } from "../api";
 import { formatBytes } from "../lib/format";
 import type { AudioSettings, EncodeSettings } from "../lib/persist";
 import { siteFromLabel } from "../lib/sites";
 import { formatDurationSec } from "../lib/time";
 import type { CutRange } from "./EditToolsCard";
+import { ChevronDownIcon, ListIcon, WrapIcon } from "./IconButton";
 
 type SummaryRow = { k: string; v: string };
 type SummaryGroup = { title: string; rows: SummaryRow[] };
@@ -20,6 +21,9 @@ type Props = {
 };
 
 export default function SummaryCard(props: Props) {
+  // Rows stay on one line (horizontal scroll) until wrap is toggled on
+  const [wrapValues, setWrapValues] = createSignal(false);
+
   const videoRows = createMemo<SummaryRow[]>(() => {
     const m = props.meta;
     const rows: SummaryRow[] = [];
@@ -49,7 +53,10 @@ export default function SummaryCard(props: Props) {
       const parts = tiers.map((tier) =>
         tier.label === m.quality ? `\u25B8 ${tier.label}` : tier.label,
       );
-      rows.push({ k: "stream", v: parts.length ? `HLS ${parts.join("  ")}` : "HLS" });
+      rows.push({
+        k: "stream",
+        v: parts.length ? `HLS ${parts.join("  ")}` : "HLS",
+      });
     } else if (m.stream_type === "mp4") {
       rows.push({ k: "stream", v: "MP4 direct" });
     }
@@ -119,25 +126,31 @@ export default function SummaryCard(props: Props) {
     return out;
   });
 
-  const hint = createMemo(() => {
-    const site = siteFromLabel(props.meta.site);
-    const bits = [site?.name || props.meta.site || "", props.meta.quality || ""];
-    return bits.filter(Boolean).join(" \u00B7 ");
-  });
-
   return (
     <section class="card summary-card">
       <details class="summary-details">
         <summary>
-          <span class="summary-caret" aria-hidden="true">
-            &#9656;
+          <span class="card-head-icon" aria-hidden="true">
+            <ListIcon />
           </span>
-          <span class="summary-heading">Download summary</span>
-          <Show when={hint()}>
-            <span class="summary-hint">{hint()}</span>
-          </Show>
+          <span class="summary-heading">Video summary</span>
+          <span class="summary-caret" aria-hidden="true" style={{ "margin-left": "auto" }}>
+            <ChevronDownIcon />
+          </span>
         </summary>
         <div class="summary-body">
+          <div class="summary-toolbar">
+            <button
+              type="button"
+              class="summary-wrap-btn"
+              aria-pressed={wrapValues()}
+              title={wrapValues() ? "Don't wrap long values" : "Wrap long values"}
+              onClick={() => setWrapValues((value) => !value)}
+            >
+              <WrapIcon />
+              {wrapValues() ? "No wrap" : "Wrap"}
+            </button>
+          </div>
           <For each={groups()}>
             {(group) => (
               <div class="summary-group">
@@ -146,7 +159,9 @@ export default function SummaryCard(props: Props) {
                   {(row) => (
                     <p class="summary-row">
                       <span class="summary-key">{row.k}</span>
-                      <span class="summary-val">{row.v}</span>
+                      <span class="summary-val" classList={{ wrap: wrapValues() }}>
+                        {row.v}
+                      </span>
                     </p>
                   )}
                 </For>
