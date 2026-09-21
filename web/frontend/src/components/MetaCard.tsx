@@ -2,6 +2,7 @@ import { Show } from "solid-js";
 import type { ResolveResult } from "../api";
 import { formatBytes } from "../lib/format";
 import { formatDurationSec } from "../lib/time";
+import { ExternalLinkIcon } from "./IconButton";
 import ThumbnailPreview, { thumbnailSrc } from "./ThumbnailPreview";
 
 type Props = {
@@ -30,7 +31,21 @@ export default function MetaCard(props: Props) {
           <ThumbnailPreview src={thumb()} alt={props.meta.title || "Video thumbnail"} />
         </Show>
         <div class="meta-info">
-          <p class="mono meta-title">{props.meta.title || "—"}</p>
+          <p class="mono meta-title">
+            {props.meta.title || "—"}
+            <Show when={props.meta.url}>
+              <a
+                class="meta-title-link"
+                href={props.meta.url}
+                target="_blank"
+                rel="noopener noreferrer"
+                aria-label="Open video page in new tab"
+                title="Open video page in new tab"
+              >
+                <ExternalLinkIcon />
+              </a>
+            </Show>
+          </p>
           <Show when={hasDuration()}>
             <p class="label">Duration</p>
             <p class="mono meta-duration">{duration()}</p>

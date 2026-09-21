@@ -26,7 +26,14 @@ import {
 import ConfirmDialog from "./components/ConfirmDialog";
 import EditToolsCard, { type CutRange, newCutRange, type ToolId } from "./components/EditToolsCard";
 import HistoryMenu from "./components/HistoryMenu";
-import { BrushIcon, CloseIcon, DownloadIcon, PlayIcon, SuccessIcon } from "./components/IconButton";
+import {
+  BrushIcon,
+  CloseIcon,
+  DownloadIcon,
+  PlayIcon,
+  SettingsIcon,
+  SuccessIcon,
+} from "./components/IconButton";
 import MetaCard from "./components/MetaCard";
 import ProgressCard from "./components/ProgressCard";
 import ProgressRing from "./components/ProgressRing";
@@ -804,6 +811,15 @@ export default function App() {
         <div class="header-actions">
           <SupportedSites />
           <HistoryMenu onSelect={(entry) => setUrl(entry.url)} />
+          <button
+            type="button"
+            class="header-icon-btn"
+            aria-label="Settings"
+            title="Settings"
+            onClick={() => {}}
+          >
+            <SettingsIcon />
+          </button>
         </div>
       </header>
 
