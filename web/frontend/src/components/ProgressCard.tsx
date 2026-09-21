@@ -118,16 +118,18 @@ export default function ProgressCard(props: Props) {
   }
 
   const pct = () => props.job.progress_pct || 0;
-  const barWidth = () => {
-    const value = pct();
-    if (value <= 0) return 0;
-    return Math.max(value, 1.5);
-  };
   const isDownloading = () => props.job.status === "downloading";
   const isPaused = () => props.job.status === "paused";
   const isFailed = () => props.job.status === "failed";
   const isCompleted = () => props.job.status === "completed";
-  const canRetry = () => isFailed() && props.job.error !== "Download cancelled";
+  const isCancelled = () => isFailed() && props.job.error === "Download cancelled";
+  const barWidth = () => {
+    if (isCancelled()) return 0;
+    const value = pct();
+    if (value <= 0) return 0;
+    return Math.max(value, 1.5);
+  };
+  const canRetry = () => isFailed() && !isCancelled();
   const showControls = () => isDownloading() || isPaused() || canRetry();
   const outputFile = () => props.job.output_file || "";
   const phaseText = () => formatProgressPhase(props.job);
@@ -206,13 +208,17 @@ export default function ProgressCard(props: Props) {
         </Show>
       </div>
       <div class="progress-body">
-        <div class="bar-track" aria-hidden="true">
-          <div class="bar-fill" style={{ width: `${barWidth()}%` }} />
-        </div>
-        <Show when={phaseText() && !isCompleted()}>
+        <Show when={!isCancelled()}>
+          <div class="bar-track" aria-hidden="true">
+            <div class="bar-fill" style={{ width: `${barWidth()}%` }} />
+          </div>
+        </Show>
+        <Show when={phaseText() && !isCompleted() && !isCancelled()}>
           <p class="progress-phase">{phaseText()}</p>
         </Show>
-        <p class="mono progress-text">{progressText(props.job)}</p>
+        <p class="mono progress-text">
+          {isCancelled() ? "Download cancelled" : progressText(props.job)}
+        </p>
         <Show when={logLines().length > 0}>
           <div class="log-block" classList={{ "log-block-full": logFull() }}>
             <div class="log-block-head">

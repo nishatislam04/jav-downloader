@@ -30,6 +30,7 @@ import { BrushIcon, CloseIcon, DownloadIcon, PlayIcon, SuccessIcon } from "./com
 import MetaCard from "./components/MetaCard";
 import ProgressCard from "./components/ProgressCard";
 import ProgressRing from "./components/ProgressRing";
+import SummaryCard from "./components/SummaryCard";
 import SupportedSites from "./components/SupportedSites";
 import { appendHistory } from "./lib/history";
 import {
@@ -583,17 +584,16 @@ export default function App() {
     setActionBusy(false);
     setBusy(false);
     setDownloadComplete(false);
+    setJob(null);
     if (!sweep.ok) {
       setStatusMessage(sweep.error || "Download cancelled. Cleanup failed.", "error");
       return;
     }
-    if (sweep.removed_files || sweep.removed_dirs) {
-      setStatusMessage(
-        `Download cancelled. Cleaned ${sweep.removed_files} files and ${sweep.removed_dirs} folders.`,
-        "",
-      );
+    if (sweep.removed_dirs) {
+      const label = sweep.removed_dirs === 1 ? "folder" : "folders";
+      setStatusMessage(`Download cancelled. Removed ${sweep.removed_dirs} ${label}.`, "");
     } else {
-      setStatusMessage("Download cancelled. Nothing to clean up.", "");
+      setStatusMessage("Download cancelled.", "");
     }
   }
 
@@ -648,10 +648,7 @@ export default function App() {
       setStatusMessage(result.error || "Could not open file", "error");
       return;
     }
-    setStatusMessage(
-      revealMode() === "open_file" ? "Opening file…" : "Opening folder…",
-      "ok",
-    );
+    setStatusMessage(revealMode() === "open_file" ? "Opening file…" : "Opening folder…", "ok");
   }
 
   function selectTool(tool: ToolId) {
@@ -938,6 +935,15 @@ export default function App() {
               onRememberSavePathChange={handleRememberSavePathChange}
               onSelectTool={selectTool}
               toolBadges={toolBadges()}
+            />
+            <SummaryCard
+              meta={meta()}
+              displayTitle={renameDisplayTitle()}
+              destFolder={meta().dest_folder || defaultDownloadDir()}
+              cuts={cuts()}
+              customTitle={customTitle()}
+              audioSettings={audioSettings()}
+              encodeSettings={encodeSettings()}
             />
           </>
         )}

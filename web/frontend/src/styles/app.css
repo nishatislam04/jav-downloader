@@ -1634,8 +1634,10 @@ button.confirm-danger:hover {
 
 .field-hint-backdrop {
   display: none;
-  /* Dismissal taps must not turn into page scrolls behind the sheet */
+  /* Dismissal taps must not turn into page scrolls or hit controls below */
   touch-action: none;
+  pointer-events: auto;
+  -webkit-tap-highlight-color: transparent;
 }
 
 .field-hint-popover {
@@ -2033,4 +2035,95 @@ button.confirm-danger:hover {
   .time-field label {
     font-size: 0.8rem;
   }
+}
+
+/* Download summary: collapsed terminal-style overview (mirrors .job-log). */
+.summary-card {
+  padding: 0;
+}
+
+.summary-details {
+  overflow: hidden;
+}
+
+.summary-details summary {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 12px 16px;
+  cursor: pointer;
+  user-select: none;
+  list-style: none;
+  color: var(--text-2, #aeb6c2);
+}
+
+.summary-details summary::-webkit-details-marker {
+  display: none;
+}
+
+.summary-caret {
+  font-size: 0.7rem;
+  color: #5a626e;
+  transition: transform 0.15s ease;
+}
+
+.summary-details[open] .summary-caret {
+  transform: rotate(90deg);
+}
+
+.summary-heading {
+  font-size: 0.82rem;
+  font-weight: 600;
+  letter-spacing: 0.02em;
+}
+
+.summary-hint {
+  margin-left: auto;
+  font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  font-size: 0.72rem;
+  color: #5a626e;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.summary-body {
+  padding: 4px 16px 14px;
+  background: #050608;
+  border-top: 1px solid #1f2937;
+  font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  font-size: 0.78rem;
+  line-height: 1.5;
+  overflow-x: auto;
+}
+
+.summary-group + .summary-group {
+  margin-top: 14px;
+}
+
+.summary-group-title {
+  margin: 0 0 4px;
+  font-size: 0.68rem;
+  font-weight: 600;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: #5a626e;
+}
+
+.summary-row {
+  display: flex;
+  gap: 10px;
+  margin: 0;
+  white-space: pre-wrap;
+  word-break: break-word;
+}
+
+.summary-key {
+  flex: 0 0 86px;
+  color: #5a626e;
+}
+
+.summary-val {
+  color: #9cdcfe;
+  min-width: 0;
 }

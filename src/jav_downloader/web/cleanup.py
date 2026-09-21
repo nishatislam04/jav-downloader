@@ -120,7 +120,13 @@ def sweep_dest_folder(dest_folder: str, on_event=None) -> dict:
                         result["freed_bytes"] += size
                         result["removed_dirs"] += 1
             elif os.path.isfile(path):
-                if name.startswith(TEMP_FILE_PREFIXES) or name.endswith(_PART_SUFFIX):
+                remove_file = (
+                    name.startswith(TEMP_FILE_PREFIXES)
+                    or name.endswith(_PART_SUFFIX)
+                    or name == "merged.ts"
+                    or (name.endswith(".ts") and name != "merged.ts")
+                )
+                if remove_file:
                     size = os.path.getsize(path)
                     emit(f"Removing {name} ({_fmt_size(size)})")
                     os.remove(path)
@@ -130,11 +136,15 @@ def sweep_dest_folder(dest_folder: str, on_event=None) -> dict:
             result["skipped"] += 1
             emit(f"Skipped {name}: {exc}")
 
-    if result["removed_files"] or result["removed_dirs"]:
+    if result["removed_dirs"]:
+        label = "folder" if result["removed_dirs"] == 1 else "folders"
         emit(
-            f"Cleanup complete: {result['removed_files']} files, "
-            f"{result['removed_dirs']} folders, "
+            f"Cleanup complete: {result['removed_dirs']} {label}, "
             f"{_fmt_size(result['freed_bytes'])} freed"
+        )
+    elif result["removed_files"]:
+        emit(
+            f"Cleanup complete: {_fmt_size(result['freed_bytes'])} freed"
         )
     else:
         emit("Nothing to clean up")

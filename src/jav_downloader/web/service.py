@@ -780,6 +780,11 @@ def cancel_download(manager: JobManager, job_id: str) -> bool:
             status=JobStatus.FAILED,
             error="Download cancelled",
             speed=0.0,
+            progress_pct=0.0,
+            downloaded=0,
+            total=0,
+            progress_phase="",
+            progress_detail="",
         )
         _job_params.pop(job_id, None)
         _job_store().delete(job_id)
@@ -796,6 +801,11 @@ def cancel_download(manager: JobManager, job_id: str) -> bool:
             status=JobStatus.FAILED,
             error="Download cancelled",
             speed=0.0,
+            progress_pct=0.0,
+            downloaded=0,
+            total=0,
+            progress_phase="",
+            progress_detail="",
         )
         _job_params.pop(job_id, None)
         _job_store().delete(job_id)

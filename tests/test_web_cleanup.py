@@ -70,6 +70,19 @@ def test_sweep_keeps_symlink_escape(tmp_path, tmp_path_factory):
     )
 
 
+def test_sweep_removes_merged_ts_at_top_level(tmp_path):
+    (tmp_path / "merged.ts").write_bytes(b"x" * 20)
+    keep = tmp_path / "finished.mp4"
+    keep.write_bytes(b"x" * 10)
+
+    result = cleanup.sweep_dest_folder(str(tmp_path))
+
+    assert result["ok"] is True
+    assert result["removed_files"] == 1
+    assert not (tmp_path / "merged.ts").exists()
+    assert keep.exists()
+
+
 def test_sweep_missing_dir_reports_error(tmp_path):
     result = cleanup.sweep_dest_folder(str(tmp_path / "nope"))
 

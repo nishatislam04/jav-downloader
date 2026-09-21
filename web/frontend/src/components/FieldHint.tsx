@@ -1,4 +1,5 @@
 import { createEffect, createSignal, type JSX, onCleanup, Show } from "solid-js";
+import { Portal } from "solid-js/web";
 import { InfoIcon } from "./IconButton";
 
 type Props = {
@@ -12,11 +13,14 @@ function supportsHover() {
   );
 }
 
+function isTouchUi() {
+  return !supportsHover();
+}
+
 export default function FieldHint(props: Props) {
   const [open, setOpen] = createSignal(false);
-  let root: HTMLDivElement | undefined;
-  let trigger: HTMLButtonElement | undefined;
   let popover: HTMLDivElement | undefined;
+  let suppressEventsUntil = 0;
 
   function close() {
     setOpen(false);
@@ -26,41 +30,72 @@ export default function FieldHint(props: Props) {
     setOpen((value) => !value);
   }
 
+  function swallowFollowUpInput() {
+    suppressEventsUntil = Date.now() + 450;
+  }
+
+  function dismissFromOverlay(event: Event) {
+    event.preventDefault();
+    event.stopPropagation();
+    swallowFollowUpInput();
+    close();
+  }
+
   createEffect(() => {
     if (!open()) return;
 
-    function onPointerDown(event: PointerEvent) {
-      const target = event.target as Node;
-      if (!root?.contains(target)) {
-        close();
-        return;
-      }
-      // On mobile the full-screen backdrop sits inside root, and touch
-      // taps can cancel click events — so key dismissal off pointerdown
-      // for any tap that is neither the popover nor the trigger.
-      if (!popover?.contains(target) && !trigger?.contains(target)) {
-        close();
-      }
+    function blockGhostInput(event: Event) {
+      if (Date.now() >= suppressEventsUntil) return;
+      event.preventDefault();
+      event.stopPropagation();
+      event.stopImmediatePropagation();
     }
+
+    document.addEventListener("click", blockGhostInput, true);
+    document.addEventListener("pointerup", blockGhostInput, true);
+    onCleanup(() => {
+      document.removeEventListener("click", blockGhostInput, true);
+      document.removeEventListener("pointerup", blockGhostInput, true);
+    });
+  });
+
+  createEffect(() => {
+    if (!open() || isTouchUi()) return;
 
     function onKeyDown(event: KeyboardEvent) {
       if (event.key === "Escape") close();
     }
 
-    document.addEventListener("pointerdown", onPointerDown);
     document.addEventListener("keydown", onKeyDown);
-    onCleanup(() => {
-      document.removeEventListener("pointerdown", onPointerDown);
-      document.removeEventListener("keydown", onKeyDown);
-    });
+    onCleanup(() => document.removeEventListener("keydown", onKeyDown));
   });
+
+  createEffect(() => {
+    if (!open() || !isTouchUi()) return;
+
+    function onKeyDown(event: KeyboardEvent) {
+      if (event.key === "Escape") {
+        swallowFollowUpInput();
+        close();
+      }
+    }
+
+    document.addEventListener("keydown", onKeyDown);
+    onCleanup(() => document.removeEventListener("keydown", onKeyDown));
+  });
+
+  const popoverContent = () => (
+    <>
+      <p class="field-hint-title">{props.label}</p>
+      <div class="field-hint-body">{props.children}</div>
+    </>
+  );
 
   return (
     // biome-ignore lint/a11y/noStaticElementInteractions: hover-only wrapper; all interaction is on the trigger button
     <div
       class="field-hint"
       classList={{ "field-hint-open": open() }}
-      ref={root}
       onMouseEnter={() => {
         if (supportsHover()) setOpen(true);
       }}
@@ -71,7 +106,6 @@ export default function FieldHint(props: Props) {
       <button
         type="button"
         class="field-hint-trigger"
-        ref={trigger}
         aria-label={`About ${props.label}`}
         aria-expanded={open()}
         onClick={(event) => {
@@ -82,16 +116,39 @@ export default function FieldHint(props: Props) {
         <InfoIcon />
       </button>
       <Show when={open()}>
-        <div class="field-hint-backdrop" aria-hidden="true" onClick={close} />
-        <div
-          class="field-hint-popover"
-          ref={popover}
-          role="tooltip"
-          id={`field-hint-${props.label.replace(/\s+/g, "-").toLowerCase()}`}
+        <Show
+          when={isTouchUi()}
+          fallback={
+            <div
+              class="field-hint-popover"
+              ref={popover}
+              role="tooltip"
+              id={`field-hint-${props.label.replace(/\s+/g, "-").toLowerCase()}`}
+            >
+              {popoverContent()}
+            </div>
+          }
         >
-          <p class="field-hint-title">{props.label}</p>
-          <div class="field-hint-body">{props.children}</div>
-        </div>
+          <Portal mount={document.body}>
+            <div
+              class="field-hint-backdrop"
+              aria-hidden="true"
+              onPointerDown={dismissFromOverlay}
+              onClick={dismissFromOverlay}
+            />
+            <div
+              class="field-hint-popover"
+              ref={popover}
+              role="dialog"
+              aria-modal="true"
+              aria-label={props.label}
+              id={`field-hint-${props.label.replace(/\s+/g, "-").toLowerCase()}`}
+              onPointerDown={(event) => event.stopPropagation()}
+            >
+              {popoverContent()}
+            </div>
+          </Portal>
+        </Show>
       </Show>
     </div>
   );
