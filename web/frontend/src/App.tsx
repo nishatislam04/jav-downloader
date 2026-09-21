@@ -720,11 +720,7 @@ export default function App() {
 
   const canDownload = createMemo(
     () =>
-      !!resolved()?.ok &&
-      !cutValidation() &&
-      !busy() &&
-      !resolving() &&
-      job()?.status !== "paused",
+      !!resolved()?.ok && !cutValidation() && !busy() && !resolving() && job()?.status !== "paused",
   );
 
   // After completion, editing the title means the on-disk file no longer

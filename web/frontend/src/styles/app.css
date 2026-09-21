@@ -510,11 +510,18 @@ button:disabled {
   color: var(--muted);
 }
 
+/* Meta title hard-wraps around 80ch on wide screens */
 .meta-title {
   margin: 0;
   font-size: 1.05rem;
   line-height: 1.5;
   word-break: break-word;
+}
+
+@media (min-width: 1024px) {
+  .meta-title {
+    max-width: 82ch;
+  }
 }
 
 .meta-title-link {
@@ -687,10 +694,10 @@ button:disabled {
 
 .bar-track {
   height: 10px;
-  background: #0c0e13;
+  background: rgba(255, 255, 255, 0.08);
   border-radius: 999px;
   overflow: hidden;
-  border: 1px solid var(--border);
+  border: none;
 }
 
 .bar-fill {
@@ -706,10 +713,15 @@ button:disabled {
   justify-content: space-between;
   gap: 12px;
   margin-bottom: 12px;
+  padding-bottom: 10px;
+  border-bottom: 1px solid var(--border);
 }
 
 .progress-head .label {
   margin: 0;
+  font-size: 1.05rem;
+  font-weight: 700;
+  color: var(--text);
 }
 
 .progress-head-left {
@@ -1036,8 +1048,8 @@ button.tool-sidebar-btn {
   overflow-y: auto;
   padding: 12px 14px;
   border-radius: 10px;
-  border: 1px solid #1f2937;
-  background: #050608;
+  border: none;
+  background: transparent;
   font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
   font-size: 0.78rem;
   line-height: 1.5;
@@ -1422,21 +1434,21 @@ button.save-apply-btn:not(:disabled):hover {
 }
 
 .history-drawer-head {
-  display: grid;
-  grid-template-columns: 32px 1fr 32px;
+  display: flex;
   align-items: center;
+  gap: 12px;
   padding: 14px 18px;
   border-bottom: 1px solid var(--border);
 }
 
 .history-drawer-title {
   margin: 0;
-  text-align: center;
   font-size: 1rem;
   font-weight: 700;
 }
 
 .history-drawer-close {
+  margin-left: auto;
   display: inline-flex;
   align-items: center;
   justify-content: center;
@@ -2161,7 +2173,7 @@ button.confirm-danger:hover {
   cursor: pointer;
   user-select: none;
   list-style: none;
-  color: var(--text-2, #aeb6c2);
+  color: var(--text);
 }
 
 .summary-details summary::-webkit-details-marker {
@@ -2186,8 +2198,8 @@ button.confirm-danger:hover {
 
 .summary-body {
   padding: 0 16px 16px;
-  background: #050608;
-  border-top: 1px solid #1f2937;
+  background: transparent;
+  border-top: none;
   font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
   font-size: 0.78rem;
   line-height: 1.5;
