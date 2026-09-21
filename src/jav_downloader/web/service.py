@@ -183,10 +183,27 @@ def _site_resolve_extras(site) -> dict:
 
     populate_hls_tiers(site)
     size_bytes, size_exact = estimate_output_size(site)
-    return {
+    extras = {
         "output_size_bytes": size_bytes,
         "output_size_exact": bool(size_exact) if size_bytes else False,
     }
+    if getattr(site, "_direct_url", None):
+        extras["stream_type"] = "mp4"
+    elif getattr(site, "_m3u8url", None):
+        extras["stream_type"] = "hls"
+    tiers = getattr(site, "_hls_tiers", None) or []
+    if tiers:
+        extras["hls_tiers"] = [
+            {
+                "id": tier.get("id"),
+                "label": tier.get("label"),
+                "height": tier.get("height"),
+                "bandwidth": tier.get("bandwidth"),
+                "pref": tier.get("pref"),
+            }
+            for tier in tiers
+        ]
+    return extras
 
 
 def set_job_store_dest(dest_folder: str) -> None:
@@ -567,7 +584,10 @@ def _run_download(
                     job_id,
                     status=JobStatus.PAUSED,
                     speed=0.0,
+                    progress_phase="Paused",
+                    progress_detail="",
                 )
+                manager.notify_change()
                 return
 
             output = (
@@ -664,32 +684,68 @@ def start_download(
     return job
 
 
-def pause_download(manager: JobManager, job_id: str) -> bool:
-    """Pause an active download without deleting partial files.
+def _resume_params(job_id: str) -> dict | None:
+    params = _job_params.get(job_id)
+    if isinstance(params, dict) and params.get("url"):
+        return params
+    _jobs, params_by_id = _job_store().load()
+    params = params_by_id.get(job_id)
+    if isinstance(params, dict) and params.get("url"):
+        _job_params[job_id] = params
+        return params
+    return None
 
-    Pausing an already-paused job succeeds without touching a crawler:
-    the pause may arrive after the worker unwound and deregistered.
-    """
+
+def pause_download(manager: JobManager, job_id: str) -> bool:
+    """Pause an active download without deleting partial files."""
     job = manager.get(job_id)
-    if job is None or job.status == JobStatus.PAUSED:
-        return job is not None
+    if job is None:
+        return False
+    if job.status == JobStatus.PAUSED:
+        return True
+    if job.status != JobStatus.DOWNLOADING:
+        return False
+
     with _active_lock:
         site = _active_downloads.get(job_id)
-    if site is None:
-        return False
-    site.pause_download()
-    manager.update(job_id, status=JobStatus.PAUSED, speed=0.0)
+    if site is not None:
+        site.pause_download()
+    manager.update(
+        job_id,
+        status=JobStatus.PAUSED,
+        speed=0.0,
+        progress_phase="Paused",
+        progress_detail="",
+    )
+    manager.notify_change()
     return True
 
 
 def resume_download(manager: JobManager, job_id: str) -> bool:
     """Continue a paused download from partial files when possible."""
+    with _active_lock:
+        if job_id in _active_downloads:
+            return False
+
     job = manager.get(job_id)
-    if job is None or job.status != JobStatus.PAUSED:
+    if job is None:
         return False
-    params = _job_params.get(job_id)
+    if job.status == JobStatus.DOWNLOADING:
+        return False
+    if job.status != JobStatus.PAUSED:
+        return False
+
+    params = _resume_params(job_id)
     if params is None:
         return False
+
+    manager.update(
+        job_id,
+        status=JobStatus.DOWNLOADING,
+        speed=0.0,
+        error="",
+        progress_phase="Downloading",
+    )
     thread = threading.Thread(
         target=_run_download,
         args=(
@@ -726,6 +782,8 @@ def cancel_download(manager: JobManager, job_id: str) -> bool:
             speed=0.0,
         )
         _job_params.pop(job_id, None)
+        _job_store().delete(job_id)
+        manager.notify_change()
         return True
     job = manager.get(job_id)
     if job is not None and job.status in (
@@ -740,5 +798,7 @@ def cancel_download(manager: JobManager, job_id: str) -> bool:
             speed=0.0,
         )
         _job_params.pop(job_id, None)
+        _job_store().delete(job_id)
+        manager.notify_change()
         return True
     return False

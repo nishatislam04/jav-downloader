@@ -62,13 +62,37 @@ def test_resume_download_requires_paused_job():
     assert service.resume_download(manager, job.id) is True
 
 
-def test_pause_download_is_idempotent_when_worker_gone():
+def test_pause_download_is_idempotent_when_already_paused():
     manager = JobManager()
     job = manager.create("https://example.test/video")
     manager.update(job.id, status=JobStatus.PAUSED)
 
-    # No site registered (worker already unwound) — pause still succeeds.
     assert service.pause_download(manager, job.id) is True
+
+
+def test_pause_download_marks_paused_when_worker_already_gone():
+    manager = JobManager()
+    job = manager.create("https://example.test/video")
+    manager.update(job.id, status=JobStatus.DOWNLOADING)
+
+    assert service.pause_download(manager, job.id) is True
+    assert manager.get(job.id).status == JobStatus.PAUSED
+
+
+def test_resume_download_rejects_active_worker():
+    manager = JobManager()
+    job = manager.create("https://example.test/video")
+    manager.update(job.id, status=JobStatus.PAUSED)
+    service._job_params[job.id] = {
+        "url": job.url,
+        "dest": "/tmp",
+        "cut_start": None,
+        "cut_end": None,
+    }
+    service._active_downloads[job.id] = FakeSite()
+
+    assert service.resume_download(manager, job.id) is False
+    service._active_downloads.pop(job.id, None)
 
 
 def test_restore_saved_jobs_registers_params():

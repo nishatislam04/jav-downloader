@@ -17,6 +17,17 @@ class JobStatus(str, Enum):
     FAILED = "failed"
 
 
+# Progress ticks must not overwrite these statuses.
+_PROGRESS_LOCKED_STATUSES = frozenset(
+    {
+        JobStatus.PAUSED,
+        JobStatus.COMPLETED,
+        JobStatus.FAILED,
+        JobStatus.PENDING,
+    }
+)
+
+
 @dataclass
 class Job:
     id: str
@@ -182,20 +193,28 @@ class JobManager:
         progress_phase: str | None = None,
         progress_detail: str | None = None,
     ) -> None:
-        pct = (downloaded / total * 100.0) if total > 0 else 0.0
-        fields = {
-            "downloaded": downloaded,
-            "total": total,
-            "speed": speed,
-            "progress_pct": round(pct, 2),
-            "progress_unit": progress_unit,
-            "status": JobStatus.DOWNLOADING,
-        }
-        if progress_phase is not None:
-            fields["progress_phase"] = progress_phase
-        if progress_detail is not None:
-            fields["progress_detail"] = progress_detail
-        self.update(job_id, **fields)
+        with self._lock:
+            job = self._jobs.get(job_id)
+            if job is None:
+                return
+            pct = (downloaded / total * 100.0) if total > 0 else 0.0
+            job.downloaded = downloaded
+            job.total = total
+            job.progress_pct = round(pct, 2)
+            job.progress_unit = progress_unit
+            if progress_phase is not None:
+                job.progress_phase = progress_phase
+            if progress_detail is not None:
+                job.progress_detail = progress_detail
+            # Never let stale worker progress clobber a paused job back to downloading.
+            if job.status not in _PROGRESS_LOCKED_STATUSES:
+                job.status = JobStatus.DOWNLOADING
+                job.speed = speed
+            elif job.status == JobStatus.PAUSED:
+                job.speed = 0.0
+            job.updated_at = time.time()
+            snapshot = list(self._jobs.values())
+        self._notify_with(snapshot)
 
     def set_phase(self, job_id: str, phase: str, detail: str = "") -> None:
         self.update(

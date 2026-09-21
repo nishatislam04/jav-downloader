@@ -1173,7 +1173,7 @@ class M3U8Crawler:
                     rem_str = f"{remain_time:.0f}秒"
                 speed_str = f"{speed/1024:.0f} KB/s" if speed < 1024*1024 else f"{speed/1024/1024:.1f} MB/s"
                 print(f'\r下載中: {done}/{self._job_total} 片段 | {speed_str} | 剩餘 {rem_str}  ', end='', flush=True)
-                if self._progress_callback:
+                if self._progress_callback and not self._stop_requested():
                     self._progress_callback(done, self._job_total, speed)
             return True
         except Exception:

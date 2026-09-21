@@ -530,6 +530,7 @@ export default function App() {
 
   async function handlePause(jobId: string) {
     setActionBusy(true);
+    if (pollTimer) clearInterval(pollTimer);
     const data = await pauseJob(jobId);
     setActionBusy(false);
     if (!data.ok || !data.job) {
