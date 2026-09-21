@@ -1,0 +1,40 @@
+---
+description: Site adapter conventions for crawlers and URL parsers
+globs: src/jav_downloader/sites/**/*.py
+alwaysApply: false
+---
+
+# Site Adapter Rules
+
+## New featured site
+
+1. Class in `sites/<name>.py`
+2. Register in `FEATURED_SITE_CLASSES` in `sites/__init__.py`
+3. Add `tests/test_<name>.py` with mocked HTML fixtures
+4. Update README supported-sites table (when user-facing)
+
+## Required methods
+
+- `validate_url(url)` — classmethod, registry lookup
+- `is_url_vaildate()` — instance check after resolve (**keep typo**)
+- Download entry via `start_download()` or site-specific path
+
+## Patterns
+
+- HLS → extend `M3U8Crawler` in `base.py`
+- Direct MP4 → follow `direct_mp4.py` / `spankbang.py` / `hanime1.py`
+- Multi-server embeds → mirror fallback like `javguru.py`
+- Legacy URL-only → `sites/legacy/`, not featured list
+
+## Workers & network
+
+- MissAV: respect auto worker caps
+- SupJav / Hanime1: max 4 ranged connections
+- Headers from `core.config` — never hardcode user cookies/tokens
+- Use `curl_cffi` when available (see `base.py` import pattern)
+
+## Tests
+
+- Mock page HTML — no live HTTP in unit tests
+- Assert `validate_url`, key parse paths, stream URL extraction
+- Site CDN changes are common — regression tests are mandatory

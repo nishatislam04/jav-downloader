@@ -1,0 +1,52 @@
+---
+description: SolidJS frontend conventions (not React)
+globs: web/frontend/**/*.{ts,tsx,css}
+alwaysApply: false
+---
+
+# Frontend Rules — SolidJS
+
+**This is SolidJS, not React.** No `useState`, `useEffect`, or React hooks.
+
+## Tooling
+
+- Vite 6 + SolidJS 1.9
+- **Biome** for lint/format — `make web-format`, `make web-lint` (not ESLint/Prettier)
+
+## Structure
+
+```
+web/frontend/src/
+  App.tsx           main page
+  api.ts            all fetch/API calls
+  components/       UI pieces
+  lib/persist.ts    localStorage keys (encode settings)
+  lib/format.ts     bytes/speed/progress helpers
+  styles/app.css    global styles
+```
+
+## Encode UI
+
+- `EditToolsCard.tsx` — encode tool tab; advanced section is opt-in
+- Settings persist: `jav-downloader-encode-settings`, `jav-downloader-remember-encode`
+- Tooltips via `FieldHint` for technical controls
+
+## Dev vs production
+
+- Dev: `make web-api` (:8765) + `make web-dev` (:5173, proxies `/api`)
+- Production: `make web-build` → output to `src/jav_downloader/web/static/`
+
+## After any UI change
+
+```bash
+make web-build
+git add src/jav_downloader/web/static/
+```
+
+Termux users have no Node — committed static bundle is required.
+
+## Constraints
+
+- Keep UI lightweight for mobile/Termux
+- Do not add heavy frontend dependencies without good reason
+- Never edit files under `src/jav_downloader/web/static/` directly

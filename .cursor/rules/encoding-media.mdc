@@ -1,0 +1,40 @@
+---
+description: Encoding, ffprobe, and media post-processing pipeline
+globs: src/jav_downloader/sites/{media_*,encoding_*,audio_*}.py
+alwaysApply: false
+---
+
+# Encoding / Media Post Rules
+
+## Pipeline (do not bypass)
+
+```
+post_process_media() → probe (media_probe) → decide_encoding() → strategy.build_cmd() → ffmpeg
+```
+
+- Decision logic: `encoding_decision.py` — do not inline in `media_post.py`
+- ffmpeg args: `encoding_strategies.py` — do not duplicate command builders
+- Capabilities: `encoding_capabilities.py` — hardware must probe + fallback to software
+
+## ffmpeg conventions
+
+- Discovery: `base.locate_ffmpeg()` (companion binary → PATH → imageio_ffmpeg)
+- Progress: `-progress pipe:1`, `site._progress_phase('Encoding', detail)`, map via `progress_phase.py`
+- Process tracking: `site._ffmpeg_proc` — killed on cancel/pause
+- Temp dirs: `jav-remux-*`, `jav-encode-*` under destination folder
+
+## Platform defaults
+
+- Termux: preset `veryfast`, detect via `TERMUX_VERSION` or Termux path
+- Desktop: preset `medium`
+- Hardware: MediaCodec (Android), NVENC/QSV/VAAPI/VideoToolbox (desktop) with validation
+
+## Tests
+
+- Use `DummySite` + `MediaInfo` fixtures (`test_encoding_decision.py`)
+- Mock ffprobe JSON — no real video files or ffmpeg runs in unit tests
+- Cleanup covered in `test_web_cleanup.py` for `jav-encode-*` temps
+
+## Before changing encode behavior
+
+Read `docs/encoding-architecture.md`. Sync web API (`service.py`), capabilities endpoint, and `EditToolsCard.tsx` if user-facing.

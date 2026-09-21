@@ -1,0 +1,36 @@
+---
+description: Python web server, jobs, and API layer
+globs: src/jav_downloader/web/**/*.py
+alwaysApply: false
+---
+
+# Web Backend Rules
+
+## Layer separation
+
+- `server.py` — HTTP routing/static serve only
+- `service.py` — resolve/download API, encode option mapping
+- `jobs.py` — background download workers, worker limits
+- `job_store.py` — job persistence; preserve migration paths
+- `progress_phase.py` — log line → UI phase labels
+- `cleanup.py` — temp file cleanup (`jav-remux-*`, `jav-encode-*`)
+
+## Encode options flow
+
+API JSON fields → `_encode_options_from_mapping()` in `service.py` → `M3U8Crawler.__init__` → `media_post.apply_encode_options()` → `site._encode_*` runtime attrs.
+
+Keep `GET /api/encoding/capabilities` in sync with `encoding_capabilities.py`.
+
+## Static assets
+
+Production UI served from `src/jav_downloader/web/static/`.
+Source lives in `web/frontend/` — rebuild with `make web-build`, never hand-edit bundled assets.
+
+## Termux / bind
+
+- `make start` sets `WEB_HOST=0.0.0.0` when `TERMUX_VERSION` is set
+- Default `DOWNLOAD_DIR=~/storage/downloads` on Termux
+
+## Tests
+
+- `test_web.py`, `test_web_service.py`, `test_job_store.py`, `test_web_cleanup.py`, `test_progress_phase.py`

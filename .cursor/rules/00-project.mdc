@@ -1,0 +1,43 @@
+---
+description: Core project constraints for JAV Downloader (always on)
+alwaysApply: true
+---
+
+# JAV Downloader — Core Rules
+
+Read `AGENTS.md` at repo root first. This repo is developed with **Cursor (ACP in Zed)** and **Zed Agent (freebuff2api / GLM 3.1)** — both must follow the same constraints.
+
+## Stack
+
+- Python 3.10+ backend (`src/jav_downloader/`)
+- SolidJS + Vite frontend (`web/frontend/` → built to `src/jav_downloader/web/static/`)
+- pytest test suite (`tests/`)
+
+## Where code belongs
+
+- Site parsing → `src/jav_downloader/sites/`
+- Shared config/network/migrations → `src/jav_downloader/core/`
+- Web HTTP/jobs → `src/jav_downloader/web/`
+- CLI → `src/jav_downloader/cli/`
+
+## Never
+
+- Break legacy API: `CreateSite`, `is_url_vaildate`, `VaildateUrl`
+- Commit secrets, cookies, videos, or PII logs
+- Require Node at runtime (Termux ships pre-built static UI)
+- Refactor unrelated code in the same change
+- Create commits/PRs/docs unless explicitly asked
+
+## Always
+
+- Run `make test` before considering work done
+- Keep diffs small and verifiable (especially for GLM 3.1 sessions)
+- Check `CONTRIBUTING.md` before PR-worthy changes
+- Kill ffmpeg subprocesses on cancel (`site._ffmpeg_proc`)
+
+## Commands
+
+```bash
+make install && make test
+make web-build   # after frontend changes
+```

@@ -1,0 +1,45 @@
+---
+description: pytest conventions and test patterns
+globs: tests/**/*.py
+alwaysApply: false
+---
+
+# Test Rules
+
+## Run
+
+```bash
+make test
+# or
+.venv/bin/python -m pytest tests -q
+```
+
+## Principles
+
+- **Mock over live** — HTML fixtures, ffprobe JSON, `DummySite` objects
+- **No network** in unit tests — site CDNs change; fixtures stay stable
+- **No real ffmpeg** encode or video files in unit tests
+- **Regression required** for crawler changes and user-visible bug fixes
+
+## Patterns
+
+- Site tests: `tests/test_<site>.py` — `validate_url`, parse paths, stream extraction
+- Encoding: `tests/test_encoding_*.py` — `DummySite` + `MediaInfo` fixtures
+- Web: `tests/test_web*.py` — API, job store, cleanup, progress phases
+- Bootstrap: `conftest.py` adds `src/` to `sys.path`
+
+## DummySite example
+
+```python
+class DummySite:
+    pass
+
+site = DummySite()
+site._encode_enabled = True
+site._encode_codec = 'h264'
+# ... set attrs the module under test reads
+```
+
+## Before PR
+
+Full suite green. Do not skip tests for "small" parser fixes — those break most often.
