@@ -1,9 +1,9 @@
 import { createMemo, createSignal, For } from "solid-js";
 import type { ResolveResult } from "../api";
 import { formatBytes } from "../lib/format";
+import { movieInformationDetails, onlineStreamDetails } from "../lib/metaDetails";
 import type { AudioSettings, EncodeSettings } from "../lib/persist";
 import { siteFromLabel } from "../lib/sites";
-import { movieInformationDetails, onlineStreamDetails } from "../lib/metaDetails";
 import { formatDurationSec } from "../lib/time";
 import type { CutRange } from "./EditToolsCard";
 import { ChevronDownIcon, ListIcon, WrapIcon } from "./IconButton";

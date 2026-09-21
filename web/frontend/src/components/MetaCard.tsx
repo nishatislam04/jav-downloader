@@ -1,11 +1,7 @@
-import { createMemo, Show } from "solid-js";
+import { createMemo, For, Show } from "solid-js";
 import type { ResolveResult } from "../api";
 import { formatBytes } from "../lib/format";
-import {
-  formatMetaLine,
-  movieInformationDetails,
-  onlineStreamDetails,
-} from "../lib/metaDetails";
+import { featuredMovieDetails, onlineStreamDetails } from "../lib/metaDetails";
 import { formatDurationSec } from "../lib/time";
 import { ExternalLinkIcon } from "./IconButton";
 import ThumbnailPreview, { thumbnailSrc } from "./ThumbnailPreview";
@@ -28,8 +24,8 @@ export default function MetaCard(props: Props) {
   };
   const sizeLabel = () => (props.meta.output_size_exact ? "Size" : "Est. size");
   const sizeText = () => formatBytes(props.meta.output_size_bytes ?? 0);
-  const movieLine = createMemo(() => formatMetaLine(movieInformationDetails(props.meta)));
-  const onlineLine = createMemo(() => formatMetaLine(onlineStreamDetails(props.meta)));
+  const movieLine = createMemo(() => featuredMovieDetails(props.meta));
+  const onlineLine = createMemo(() => onlineStreamDetails(props.meta));
 
   return (
     <section class="card meta">
@@ -53,11 +49,29 @@ export default function MetaCard(props: Props) {
               </a>
             </Show>
           </p>
-          <Show when={movieLine()}>
-            <p class="meta-extra-line">{movieLine()}</p>
+          <Show when={movieLine().length}>
+            <div class="meta-details-group">
+              <For each={movieLine()}>
+                {(row) => (
+                  <div class="meta-detail-row">
+                    <span class="meta-detail-key">{row.k}</span>
+                    <span class="meta-detail-val">{row.v}</span>
+                  </div>
+                )}
+              </For>
+            </div>
           </Show>
-          <Show when={onlineLine()}>
-            <p class="meta-extra-line meta-extra-line--online">{onlineLine()}</p>
+          <Show when={onlineLine().length}>
+            <div class="meta-details-group meta-details-group--online">
+              <For each={onlineLine()}>
+                {(row) => (
+                  <div class="meta-detail-row">
+                    <span class="meta-detail-key">{row.k}</span>
+                    <span class="meta-detail-val">{row.v}</span>
+                  </div>
+                )}
+              </For>
+            </div>
           </Show>
           <Show when={hasDuration()}>
             <p class="label">Duration</p>

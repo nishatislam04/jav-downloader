@@ -23,6 +23,9 @@ export function onlineStreamDetails(meta: ResolveResult): MetaDetail[] {
   return rows;
 }
 
-export function formatMetaLine(details: MetaDetail[]): string {
-  return details.map((row) => `${row.k}: ${row.v}`).join(" · ");
+export function featuredMovieDetails(meta: ResolveResult): MetaDetail[] {
+  const rows: MetaDetail[] = [];
+  if (meta.release_date?.trim()) rows.push({ k: "released", v: meta.release_date.trim() });
+  if (meta.actresses?.length) rows.push({ k: "actress", v: meta.actresses.join(", ") });
+  return rows;
 }

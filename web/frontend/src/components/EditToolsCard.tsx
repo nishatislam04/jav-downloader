@@ -19,6 +19,7 @@ import {
   splitCutFieldError,
   validateCutRange,
 } from "../lib/time";
+import ConfirmDialog from "./ConfirmDialog";
 import FieldHint from "./FieldHint";
 import {
   AudioIcon,
@@ -118,6 +119,12 @@ export default function EditToolsCard(props: Props) {
   const [pathError, setPathError] = createSignal("");
   const [draftPath, setDraftPath] = createSignal(props.savePath);
   const [collapsed, setCollapsed] = createSignal(false);
+  const [pendingRemoveCut, setPendingRemoveCut] = createSignal<{
+    id: string;
+    index: number;
+    start: string;
+    end: string;
+  } | null>(null);
 
   createEffect(() => {
     setDraftPath(props.savePath);
@@ -156,6 +163,21 @@ export default function EditToolsCard(props: Props) {
     }
     return total > 0 ? formatDurationHuman(total) : "";
   });
+
+  function requestRemoveCut(id: string, index: number, start: string, end: string) {
+    // Only confirm when the cut actually holds timestamps
+    if (start.trim() || end.trim()) {
+      setPendingRemoveCut({ id, index, start, end });
+      return;
+    }
+    props.onRemoveCut(id);
+  }
+
+  function confirmRemoveCut() {
+    const cut = pendingRemoveCut();
+    setPendingRemoveCut(null);
+    if (cut) props.onRemoveCut(cut.id);
+  }
 
   return (
     <section class="card edit-tools">
@@ -257,7 +279,9 @@ export default function EditToolsCard(props: Props) {
                                   type="button"
                                   class="cut-remove-btn"
                                   aria-label={`Remove cut ${index + 1}`}
-                                  onClick={() => props.onRemoveCut(cut().id)}
+                                  onClick={() =>
+                                    requestRemoveCut(cut().id, index, cut().start, cut().end)
+                                  }
                                 >
                                   ×
                                 </button>
@@ -986,6 +1010,7 @@ export default function EditToolsCard(props: Props) {
                         spellcheck={false}
                         placeholder="/home/you/Documents/jav"
                         value={draftPath()}
+                        ref={(el) => queueMicrotask(() => el.focus())}
                         onInput={(event) => {
                           setDraftPath(event.currentTarget.value);
                           setPathError("");
@@ -1027,6 +1052,15 @@ export default function EditToolsCard(props: Props) {
             </Show>
           </div>
         </div>
+      </Show>
+      <Show when={pendingRemoveCut()}>
+        <ConfirmDialog
+          title={`Remove Cut ${pendingRemoveCut()!.index + 1}?`}
+          message={`${pendingRemoveCut()!.start} → ${pendingRemoveCut()!.end}`}
+          confirmLabel="Remove"
+          onConfirm={confirmRemoveCut}
+          onCancel={() => setPendingRemoveCut(null)}
+        />
       </Show>
     </section>
   );
