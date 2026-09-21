@@ -1,19 +1,19 @@
 # JAV Downloader — Agent Instructions
 
-Shared project instructions for **Zed Agent** (freebuff2api / GLM 3.1) and **Cursor via ACP** in Zed.
+Shared project instructions for **Zed Agent** (freebuff2api / GLM 5.3 Flash) and **Cursor via ACP** in Zed.
 
 ## Agent setup in this repo
 
 | Agent | How it runs | What it reads |
 |-------|-------------|---------------|
-| **Zed Agent** | Native panel, freebuff2api → mostly GLM 3.1 | This file (`AGENTS.md`) |
+| **Zed Agent** | Native panel, freebuff2api → GLM 5.3 Flash | This file (`AGENTS.md`) |
 | **Cursor (ACP)** | External agent inside Zed | This file + `.cursor/rules/*.mdc` (file-scoped) |
 | **Skills** | On-demand (`/skill-name` in Zed) | `.agents/skills/*/SKILL.md` |
 
 Project `AGENTS.md` overrides personal `~/.config/zed/AGENTS.md` on conflicts.
 Cursor ACP may also load `.cursorrules` / `.rules` if present — prefer this file as source of truth.
 
-**GLM 3.1 note:** Keep instructions concrete and file-specific. Prefer small, verifiable diffs over large refactors. When unsure, read the target module first.
+**GLM 5.3 Flash note:** Keep instructions concrete and file-specific. One task per turn when possible. Prefer small, verifiable diffs; read the target module before editing. For multi-file work, list touched paths up front.
 
 ---
 
@@ -159,7 +159,7 @@ Web exposes `GET /api/encoding/capabilities`. Encode options today are web/API-f
 | Check Termux + Windows impact | Assume desktop-only |
 | Kill ffmpeg on cancel | Orphan subprocesses |
 | Read encoding-architecture.md before encoding work | Invent a new pipeline |
-| Small focused diffs (good for GLM 3.1) | Large unsolicited refactors |
+| Small focused diffs (good for GLM 5.3 Flash) | Large unsolicited refactors |
 
 ---
 

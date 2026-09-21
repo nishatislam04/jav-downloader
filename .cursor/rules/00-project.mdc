@@ -5,7 +5,7 @@ alwaysApply: true
 
 # JAV Downloader — Core Rules
 
-Read `AGENTS.md` at repo root first. This repo is developed with **Cursor (ACP in Zed)** and **Zed Agent (freebuff2api / GLM 3.1)** — both must follow the same constraints.
+Read `AGENTS.md` at repo root first. This repo is developed with **Cursor (ACP in Zed)** and **Zed Agent (freebuff2api / GLM 5.3 Flash)** — both must follow the same constraints.
 
 ## Stack
 
@@ -31,7 +31,7 @@ Read `AGENTS.md` at repo root first. This repo is developed with **Cursor (ACP i
 ## Always
 
 - Run `make test` before considering work done
-- Keep diffs small and verifiable (especially for GLM 3.1 sessions)
+- Keep diffs small and verifiable; one task per turn when using GLM 5.3 Flash
 - Check `CONTRIBUTING.md` before PR-worthy changes
 - Kill ffmpeg subprocesses on cancel (`site._ffmpeg_proc`)
 
