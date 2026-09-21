@@ -16,7 +16,6 @@ except ImportError:
 from bs4 import BeautifulSoup
 
 from jav_downloader.core import config
-from jav_downloader.i18n import sites as site_i18n
 from jav_downloader.sites.base import (
     MirrorsBlockedError,
     get_resolution_pref,
@@ -459,7 +458,7 @@ class Hanime1Browser:
     @classmethod
     def fetch_categories(cls):
         return [{
-            'name': site_i18n.loc(site_i18n.CATEGORY_I18N, url, name),
+            'name': name,
             'url': url,
             'count': 0,
         } for name, url in cls.CATEGORIES]

@@ -11,7 +11,6 @@ except ImportError:
     _use_cffi = False
 from jav_downloader.sites.base import *
 from bs4 import BeautifulSoup
-from jav_downloader.i18n import sites as site_i18n
 
 
 def _unpack_js_eval(script_text):
@@ -172,7 +171,7 @@ class MissAVBrowser:
         """
         cats = []
         for name, url in cls.CATEGORIES:
-            localized_name = site_i18n.loc(site_i18n.CATEGORY_I18N, url, name)
+            localized_name = name
             if lang:
                 # Insert language prefix: .../dm296/en/today-hot
                 url = re.sub(r'(/dm\d+/)', rf'\1{lang}/', url)

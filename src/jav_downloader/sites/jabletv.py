@@ -11,7 +11,6 @@ except ImportError:
 import threading as _threading
 from jav_downloader.sites.base import *
 from bs4 import BeautifulSoup
-from jav_downloader.i18n import sites as site_i18n
 
 
 _browser_scraper = None
@@ -25,14 +24,10 @@ def _make_scraper():
 
 
 def _apply_jable_lang(scraper):
-    """Set JableTV's kt_rt_lang cookie from the current UI language so titles/listings/
-    categories come back in en/jp (empty -> default Traditional Chinese). Applies to both
-    jable.tv and the fs1.app mirror. Safe/idempotent; tolerates curl_cffi or cloudscraper."""
-    try:
-        from jav_downloader.i18n.locales import T
-        val = T('jable_lang') or ''
-    except Exception:
-        val = ''
+    """Set JableTV's kt_rt_lang cookie (empty = site default, Traditional Chinese).
+    Applies to both jable.tv and the fs1.app mirror. Safe/idempotent; tolerates
+    curl_cffi or cloudscraper."""
+    val = ''
     for dom in ('.jable.tv', '.fs1.app'):
         try:
             scraper.cookies.set('kt_rt_lang', val, domain=dom)
@@ -308,7 +303,7 @@ class JableTVBrowser:
     @classmethod
     def fetch_categories(cls):
         """Return homepage sections + dynamic categories from /categories/."""
-        cats = [{'name': site_i18n.loc(site_i18n.CATEGORY_I18N, url, name),
+        cats = [{'name': name,
                  'url': url, 'count': 0, 'section': True}
                 for name, url in cls.HOMEPAGE_SECTIONS]
         try:
@@ -333,7 +328,7 @@ class JableTVBrowser:
                         r'\d[\d,]*\s*(?:部影片|videos?)', '', name,
                         flags=re.I).strip()
                     slug = href.rstrip('/').split('/')[-1]
-                    cats.append({'name': site_i18n.loc(site_i18n.CATEGORY_I18N, href, name),
+                    cats.append({'name': name,
                                  'slug': slug, 'url': href, 'count': count})
         except Exception:
             pass

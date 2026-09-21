@@ -18,7 +18,6 @@ from jav_downloader.sites.base import *
 from jav_downloader.sites.base import _get_session
 from jav_downloader.sites.missav import _unpack_js_eval
 from bs4 import BeautifulSoup
-from jav_downloader.i18n import sites as site_i18n
 from jav_downloader.core import config
 
 
@@ -567,7 +566,7 @@ class SupJavBrowser:
 
     @classmethod
     def fetch_categories(cls, lang=''):
-        return [{'name': site_i18n.loc(site_i18n.CATEGORY_I18N, u, n),
+        return [{'name': n,
                  'url': cls._with_lang(u, lang), 'count': 0}
                 for n, u in cls.CATEGORIES]
 
