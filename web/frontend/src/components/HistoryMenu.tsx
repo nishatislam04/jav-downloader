@@ -38,8 +38,11 @@ export default function HistoryMenu(props: Props) {
 
   function onDocClick(event: MouseEvent) {
     const target = event.target as Node | null;
+    // Confirm-dialog cancel unmounts the clicked button mid-click; the bubbling
+    // event then carries a detached node, which must not close the drawer.
+    if (!target?.isConnected) return;
     const root = document.getElementById("history-menu-root");
-    if (root && target && !root.contains(target)) {
+    if (root && !root.contains(target)) {
       close();
     }
   }
@@ -77,8 +80,8 @@ export default function HistoryMenu(props: Props) {
     } else {
       setEntries(clearHistory());
     }
+    // Drawer stays open so more entries can be managed.
     setPending(null);
-    close();
   }
 
   function cancelPending() {
@@ -141,7 +144,7 @@ export default function HistoryMenu(props: Props) {
                         />
                       </Show>
                       <span class="history-item-body">
-                        <span class="history-item-title">{cropHistoryTitle(entry.title)}</span>
+                        <span class="history-item-title">{entry.title.trim() || "Untitled"}</span>
                         <span class="history-item-when">
                           {formatHistoryWhen(entry.downloadedAt)}
                         </span>

@@ -970,12 +970,14 @@ export default function EditToolsCard(props: Props) {
                       spellcheck={false}
                       placeholder={props.meta.title || "Video title"}
                       value={props.customTitle}
+                      ref={(el) => queueMicrotask(() => el.focus())}
                       onInput={(event) => props.onCustomTitleChange(event.currentTarget.value)}
                     />
                   </Show>
 
                   <Show when={toolId() === "save"}>
                     <div class="save-path-field">
+                      <FolderIcon />
                       <input
                         id="save-path"
                         type="text"
