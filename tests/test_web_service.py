@@ -136,3 +136,72 @@ def test_job_elapsed_sec_falls_back_to_created_at():
     job.completed_at = 130.5
 
     assert job.elapsed_sec == pytest.approx(30.5)
+
+
+def _config_site(**attrs):
+    class _Site:
+        def dest_folder(self):
+            return attrs.get("dest", "/tmp/dl")
+
+    site = _Site()
+    for key, value in attrs.items():
+        if key != "dest":
+            setattr(site, key, value)
+    return site
+
+
+def test_config_log_lines_defaults():
+    site = _config_site(_max_workers=8, _filename_mode="original")
+    lines = service._config_log_lines(site)
+
+    assert "[config] dest: /tmp/dl" in lines
+    assert any(line.startswith("[config] resolution: ") for line in lines)
+    assert "[config] filename_mode: original" in lines
+    assert "[config] workers: 8" in lines
+    assert "[config] encode: off" in lines
+    assert not any(line.startswith("[config] cuts:") for line in lines)
+    assert not any(line.startswith("[config] audio_options:") for line in lines)
+
+
+def test_config_log_lines_full_encode_audio_cuts():
+    site = _config_site(
+        _encode_enabled=True,
+        _encode_codec="h264",
+        _encode_crf=23,
+        _encode_preset="veryfast",
+        _encode_threads=4,
+        _encode_max_height=1080,
+        _encode_output_mode="remux",
+        _cut_ranges=[(60.0, 120.0), (300.0, None)],
+        _audio_mute=True,
+        _audio_fade=False,
+        _audio_loudnorm=True,
+        _audio_bitrate=128,
+        _audio_volume=1.5,
+    )
+    lines = service._config_log_lines(site, output_title="My Title")
+
+    assert "[config] encode: on" in lines
+    assert "[config] encode_options: codec=h264, crf=23, preset=veryfast, threads=4, max_height=1080, output_mode=remux" in lines
+    assert not any(line.startswith("[config] encode_hw:") for line in lines)
+    assert "[config] cuts: 0:01:00-0:02:00, 0:05:00-end" in lines
+    assert "[config] output_title: My Title" in lines
+    assert "[config] audio_options: mute=on, fade=off, loudnorm=on, bitrate=128, volume=1.5" in lines
+
+
+def test_config_log_lines_hardware_engine_details():
+    site = _config_site(
+        _encode_enabled=True,
+        _encode_codec="h264",
+        _encode_engine="mediacodec",
+        _encode_hardware_bitrate_kbps=4000,
+        _encode_hardware_gop=240,
+        _encode_hardware_bitrate_mode="vbr",
+    )
+    lines = service._config_log_lines(site)
+
+    hw = next(line for line in lines if line.startswith("[config] encode_hw:"))
+    assert "engine=mediacodec" in hw
+    assert "bitrate_kbps=4000" in hw
+    assert "gop=240" in hw
+    assert "bitrate_mode=vbr" in hw
