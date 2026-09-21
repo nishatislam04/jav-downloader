@@ -34,10 +34,13 @@ _stub_runtime_dependency('cloudscraper', _cloudscraper_stub)
 _stub_runtime_dependency('m3u8', _m3u8_stub)
 
 from jav_downloader.sites import javguru as javguru_mod
+from jav_downloader.sites.base import DownloadIncompleteError
 from bs4 import BeautifulSoup
 
 from jav_downloader.sites.javguru import (
     SiteJavGuru,
+    _absolutize_stream_url,
+    _extract_page_metadata,
     _extract_thumbnail,
     _format_resolve_errors,
     _gateway_url_from_config,
@@ -238,6 +241,66 @@ def test_get_url_infos_uses_first_working_server(monkeypatch):
     assert crawler._imageUrl == 'https://example.test/poster.jpg'
     assert crawler._extra_headers['Referer'] == 'https://javclan.com/'
     assert crawler._extra_headers['Origin'] == 'https://javclan.com'
+
+
+def test_absolutize_stream_url_uses_embed_origin():
+    url = _absolutize_stream_url(
+        '/stream/demo/master.m3u8', 'https://javclan.com/e/demo123')
+    assert url == 'https://javclan.com/stream/demo/master.m3u8'
+
+
+def test_extract_page_metadata_from_movie_information_block():
+    html = """
+    <h2>Movie Information:</h2>
+    <ul>
+      <li><strong>Code: </strong>DAZD-306</li>
+      <li><strong>Release Date: </strong>2026-08-25</li>
+      <li><strong>Studio:</strong> <a href="/maker/das/">Das !</a></li>
+      <li><strong>Tags: </strong><a href="/tag/blowjob/">Blowjob</a></li>
+      <li class="w1"><strong>Actress:</strong> <a href="/actress/a/">Aizawa Miyu</a></li>
+    </ul>
+    <h2>Online stream:</h2>
+    <div class="jav555">
+      <span class="javstats">10,166 views</span>
+      <span class="thedate">Posted: September 6, 2026</span>
+    </div>
+    """
+    soup = BeautifulSoup(html, 'html.parser')
+    meta = _extract_page_metadata(soup)
+    assert meta['code'] == 'DAZD-306'
+    assert meta['release_date'] == '2026-08-25'
+    assert meta['studio'] == 'Das !'
+    assert meta['tags'] == ['Blowjob']
+    assert meta['actresses'] == ['Aizawa Miyu']
+    assert meta['views_label'] == '10,166 views'
+    assert meta['posted'] == 'September 6, 2026'
+
+
+def test_start_download_does_not_rotate_mirrors_on_incomplete(monkeypatch):
+    crawler = SiteJavGuru.__new__(SiteJavGuru)
+    crawler.silence = True
+    crawler._m3u8url = 'https://cdn.example/master.m3u8'
+    crawler._active_stream_label = 'TV'
+    crawler._emit_job_log = lambda message: None
+    calls = {'resolve': 0}
+
+    def fake_super_start_download(self):
+        raise DownloadIncompleteError(4)
+
+    def fake_resolve(scraper, skip_labels=None):
+        calls['resolve'] += 1
+        return False
+
+    monkeypatch.setattr(
+        javguru_mod.M3U8Crawler,
+        'start_download',
+        fake_super_start_download,
+    )
+    monkeypatch.setattr(crawler, '_resolve_from_page', fake_resolve)
+
+    with pytest.raises(DownloadIncompleteError):
+        SiteJavGuru.start_download(crawler)
+    assert calls['resolve'] == 0
 
 
 def test_voe_decrypt_payload_roundtrip():

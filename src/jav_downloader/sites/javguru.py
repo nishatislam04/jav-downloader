@@ -21,6 +21,7 @@ from bs4 import BeautifulSoup
 
 from jav_downloader.core import config
 from jav_downloader.sites.base import (
+    DownloadIncompleteError,
     M3U8Crawler,
     MirrorsBlockedError,
     fetch_with_mirrors,
@@ -135,6 +136,19 @@ def _stream_redirect_url(gateway_url):
     if not token:
         return None
     return f'https://jav.guru/searcho/?{param[0]}r={token[::-1]}'
+
+
+def _absolutize_stream_url(url, base_url):
+    text = str(url or '').strip().replace('\\/', '/')
+    if not text:
+        return text
+    if text.startswith('http'):
+        return text
+    if text.startswith('/'):
+        origin = _embed_origin(base_url)
+        if origin:
+            return f'{origin}{text}'
+    return text
 
 
 def _embed_origin(embed_url):
@@ -315,6 +329,78 @@ def _extract_thumbnail(soup, html_text):
             if src.startswith('http'):
                 return src
     return None
+
+
+def _li_field_label(li):
+    strong = li.find('strong')
+    if not strong:
+        return None
+    return re.sub(r'\s+', ' ', strong.get_text(' ', strip=True)).strip(': ').lower()
+
+
+def _li_link_texts(li):
+    return [a.get_text(' ', strip=True) for a in li.find_all('a') if a.get_text(strip=True)]
+
+
+def _extract_page_metadata(soup):
+    meta = {}
+    heading = None
+    for tag in soup.find_all('h2'):
+        if 'movie information' in tag.get_text(' ', strip=True).lower():
+            heading = tag
+            break
+    if heading:
+        ul = heading.find_next('ul')
+        if ul:
+            for li in ul.find_all('li', recursive=False):
+                label = _li_field_label(li)
+                if not label:
+                    continue
+                links = _li_link_texts(li)
+                text = re.sub(r'\s+', ' ', li.get_text(' ', strip=True))
+                if label == 'code':
+                    meta['code'] = text.split(':', 1)[-1].strip()
+                elif label.startswith('release date'):
+                    meta['release_date'] = text.split(':', 1)[-1].strip()
+                elif label == 'studio':
+                    meta['studio'] = links[0] if links else text.split(':', 1)[-1].strip()
+                elif label == 'label':
+                    meta['label'] = links[0] if links else text.split(':', 1)[-1].strip()
+                elif label.startswith('tags'):
+                    meta['tags'] = links
+                elif label.startswith('actress'):
+                    meta['actresses'] = links
+
+    posted = soup.select_one('.jav555 .thedate')
+    if posted:
+        meta['posted'] = re.sub(
+            r'^Posted:\s*', '', posted.get_text(' ', strip=True), flags=re.I).strip()
+    views = soup.select_one('.jav555 .javstats')
+    if views:
+        match = re.search(r'([\d,.]+(?:k|m)?)\s*views', views.get_text(' ', strip=True), re.I)
+        if match:
+            meta['views_label'] = f"{match.group(1)} views"
+    return meta
+
+
+def _apply_page_metadata(site, soup):
+    meta = _extract_page_metadata(soup)
+    if meta.get('code'):
+        site._jav_code = meta['code']
+    if meta.get('release_date'):
+        site._jav_release_date = meta['release_date']
+    if meta.get('studio'):
+        site._jav_studio = meta['studio']
+    if meta.get('label'):
+        site._jav_label = meta['label']
+    if meta.get('tags'):
+        site._jav_tags = meta['tags']
+    if meta.get('actresses'):
+        site._jav_actresses = meta['actresses']
+    if meta.get('posted'):
+        site._jav_posted = meta['posted']
+    if meta.get('views_label'):
+        site._views_label = meta['views_label']
 
 
 def _headers_for_origin(origin):
@@ -608,7 +694,8 @@ def _resolve_javclan(scraper, embed_url):
     if _is_cf_interstitial(resp):
         raise MirrorsBlockedError(_BLOCKED_MSG)
     final_origin = _embed_origin(str(getattr(resp, 'url', embed_url) or embed_url)) or origin
-    playlist = _playlist_from_html(resp.text)
+    playlist = _absolutize_stream_url(
+        _playlist_from_html(resp.text), str(getattr(resp, 'url', embed_url) or embed_url))
     if not playlist:
         return None
     return 'hls', playlist, _headers_for_origin(final_origin)
@@ -724,8 +811,11 @@ class SiteJavGuru(M3U8Crawler):
             raise Exception("此影片沒有可用的 STREAM 來源（版面改版？）")
 
         self._available_stream_labels = list(servers.keys())
+        self._emit_job_log(
+            f'Found STREAM mirrors: {", ".join(self._available_stream_labels)}')
         self._targetName = _extract_title(soup, html_text)
         self._imageUrl = _extract_thumbnail(soup, html_text)
+        _apply_page_metadata(self, soup)
 
         self._direct_url = None
         self._direct_referer = None
@@ -781,6 +871,7 @@ class SiteJavGuru(M3U8Crawler):
                 continue
 
             kind, stream_url, extra = resolved
+            stream_url = _absolutize_stream_url(stream_url, embed_url)
             if kind == 'mp4' or (kind == 'hls' and not _looks_like_hls_url(stream_url)):
                 if not _probe_direct_url(scraper, stream_url, extra):
                     _reject(label, f'{embed_host}: direct URL unavailable')
@@ -829,12 +920,15 @@ class SiteJavGuru(M3U8Crawler):
                 if self._m3u8url:
                     return super().start_download()
                 raise Exception('no stream configured')
+            except DownloadIncompleteError:
+                raise
             except Exception as exc:
                 last_error = exc
                 label = getattr(self, '_active_stream_label', None)
                 if label:
                     tried.add(label)
-                self._emit_job_log(f'STREAM {label or "?"} failed: {exc}')
+                detail = str(exc).strip() or exc.__class__.__name__
+                self._emit_job_log(f'STREAM {label or "?"} failed: {detail}')
                 with _make_scraper() as scraper:
                     if not self._resolve_from_page(scraper, skip_labels=tried):
                         break
@@ -845,5 +939,7 @@ class SiteJavGuru(M3U8Crawler):
                         flush=True,
                     )
         if last_error is not None:
+            detail = str(last_error).strip() or last_error.__class__.__name__
+            self._emit_job_log(f'All stream mirrors failed: {detail}')
             raise last_error
         raise Exception('no stream configured')
