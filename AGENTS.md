@@ -86,7 +86,7 @@ Python entry points: `jav-downloader-cli`, `jav-web`, `jav` / `jav-downloader`.
 
 Download complete → optional `post_process_media()`:
 
-```
+```text
 ffprobe (media_probe) → decide_encoding (encoding_decision) → strategy (encoding_strategies) → ffmpeg
 ```
 
@@ -124,7 +124,7 @@ Web exposes `GET /api/encoding/capabilities`. Encode options today are web/API-f
 - Run: `make test` or `.venv/bin/python -m pytest tests -q`
 - Mock over live: HTML fixtures, ffprobe JSON, `DummySite` objects (see `test_encoding_decision.py`)
 - Naming: `test_<site>.py`, `test_encoding_*.py`, `test_web*.py`
-- Bug fix or crawler change = regression test required (see `CONTRIBUTING.md`)
+- Bug fix or crawler change = regression test required
 - No real network, ffmpeg encode, or downloaded segments in unit tests
 
 ---

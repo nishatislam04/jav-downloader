@@ -25,7 +25,7 @@ keywords = [
 classifiers = [
   "Development Status :: 5 - Production/Stable",
   "License :: OSI Approved :: Apache Software License",
-  "Operating System :: Microsoft :: Windows",
+  "Operating System :: POSIX :: Linux",
   "Programming Language :: Python :: 3",
   "Programming Language :: Python :: 3.10",
   "Programming Language :: Python :: 3.11",
@@ -38,8 +38,8 @@ Releases = "https://github.com/nishatislam04/jav-downloader/releases"
 Issues = "https://github.com/nishatislam04/jav-downloader/issues"
 
 [project.scripts]
-jav = "jav_downloader.cli.main:main"
-jav-downloader = "jav_downloader.cli.main:main"
+jav = "jav_downloader.cli.headless:main"
+jav-downloader = "jav_downloader.cli.headless:main"
 jav-downloader-cli = "jav_downloader.cli.headless:main"
 jav-web = "jav_downloader.web.server:main"
 
