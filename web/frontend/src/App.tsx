@@ -389,7 +389,15 @@ export default function App() {
 
   function confirmClear() {
     setPendingClear(false);
+    if (pollTimer) clearInterval(pollTimer);
+    pollTimer = undefined;
     setUrl("");
+    setResolved(null);
+    setResolving(false);
+    setResolvePhase("");
+    setParseCancelled(false);
+    clearTransientState();
+    resetEditTools();
     urlInput?.focus();
   }
 

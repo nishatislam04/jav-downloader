@@ -79,7 +79,41 @@ def test_pause_download_marks_paused_when_worker_already_gone():
     assert manager.get(job.id).status == JobStatus.PAUSED
 
 
-def test_resume_download_rejects_active_worker():
+def test_pause_download_appends_log_immediately():
+    manager = JobManager()
+    job = manager.create("https://example.test/video")
+    manager.update(job.id, status=JobStatus.DOWNLOADING)
+
+    assert service.pause_download(manager, job.id) is True
+    assert any("Download paused" in line for line in manager.get(job.id).log)
+
+
+def test_resume_download_waits_for_pause_worker():
+    import threading
+
+    manager = JobManager()
+    job = manager.create("https://example.test/video")
+    manager.update(job.id, status=JobStatus.PAUSED)
+    service._job_params[job.id] = {
+        "url": job.url,
+        "dest": "/tmp",
+        "cut_start": None,
+        "cut_end": None,
+    }
+    service._active_downloads[job.id] = FakeSite()
+
+    def drain():
+        import time
+
+        time.sleep(0.25)
+        service._active_downloads.pop(job.id, None)
+
+    threading.Thread(target=drain, daemon=True).start()
+    assert service.resume_download(manager, job.id) is True
+
+
+def test_resume_download_times_out_when_worker_never_drains(monkeypatch):
+    monkeypatch.setattr(service, "_PAUSE_DRAIN_TIMEOUT", 0.35)
     manager = JobManager()
     job = manager.create("https://example.test/video")
     manager.update(job.id, status=JobStatus.PAUSED)
@@ -211,6 +245,12 @@ def test_config_log_lines_full_encode_audio_cuts():
     assert "[config] cuts: 0:01:00-0:02:00, 0:05:00-end" in lines
     assert "[config] output_title: My Title" in lines
     assert "[config] audio_options: mute=on, fade=off, loudnorm=on, bitrate=128, volume=1.5" in lines
+
+
+def test_config_log_lines_end_only_cut():
+    site = _config_site(_cut_ranges=[(None, 120.0)])
+    lines = service._config_log_lines(site)
+    assert "[config] cuts: 0:00:00-0:02:00" in lines
 
 
 def test_config_log_lines_hardware_engine_details():

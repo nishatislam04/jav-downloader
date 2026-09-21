@@ -450,13 +450,10 @@ def post_process_media(site, src_path: str, duration_sec: float | None = None) -
         _log_encoding_decision(site, decision, media_info)
 
         if decision.mode == MODE_SKIP:
-            if needs_audio_processing(site):
-                post_process_audio(site, src_path, duration_sec)
-            return src_path
+            return finalize_processed_output(site, src_path, duration_sec)
 
         if decision.mode == MODE_DIRECT_REMUX:
-            post_process_audio(site, src_path, duration_sec)
-            return src_path
+            return finalize_processed_output(site, src_path, duration_sec)
 
         dst_path, mode = _encode_destination_path(src_path, site)
         dest_dir = os.path.dirname(dst_path) or os.getcwd()
@@ -529,13 +526,35 @@ def post_process_media(site, src_path: str, duration_sec: float | None = None) -
             cb(size, size, 0.0, 'bytes')
         return final_path
 
-    # Audio-only (video copy)
-    post_process_audio(site, src_path, duration_sec)
-    return src_path
+    return finalize_processed_output(site, src_path, duration_sec)
 
 
-def post_process_audio(site, src_path: str, duration_sec: float | None = None) -> None:
-    """Rewrite src_path in place for audio strip/process (video copy)."""
+def finalize_processed_output(
+        site, src_path: str, duration_sec: float | None = None) -> str:
+    """Apply audio processing; honor encode output_mode when set."""
+    if not needs_audio_processing(site):
+        return src_path
+    mode = normalize_encode_output_mode(getattr(site, '_encode_output_mode', None))
+    if mode == 'replace':
+        post_process_audio(site, src_path, duration_sec)
+        return src_path
+    dst_path, mode = _encode_destination_path(src_path, site)
+    post_process_audio(site, src_path, duration_sec, dst_path=dst_path)
+    if mode == 'keep_both':
+        site._encoded_output_path = dst_path
+        return dst_path
+    _safe_remove(src_path)
+    site._encoded_output_path = dst_path
+    return dst_path
+
+
+def post_process_audio(
+        site,
+        src_path: str,
+        duration_sec: float | None = None,
+        *,
+        dst_path: str | None = None) -> None:
+    """Rewrite audio to dst_path or in-place (video copy)."""
     if not needs_audio_processing(site):
         return
     if not src_path or not os.path.isfile(src_path):
@@ -568,4 +587,4 @@ def post_process_audio(site, src_path: str, duration_sec: float | None = None) -
         _safe_remove(temp_path)
         detail = (proc.stderr or proc.stdout or '').strip() or f'ffmpeg exit {proc.returncode}'
         raise Exception(f'Audio processing failed: {detail}')
-    os.replace(temp_path, src_path)
+    os.replace(temp_path, dst_path or src_path)

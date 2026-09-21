@@ -32,6 +32,29 @@ def test_encode_destination_keep_both():
     assert path == '/tmp/video [h264-crf23].mp4'
 
 
+def test_finalize_processed_output_keep_both(tmp_path, monkeypatch):
+    site = DummySite()
+    site._encode_output_mode = "keep_both"
+    site._encode_codec = "h264"
+    site._encode_crf = 28
+    site._encode_max_height = 480
+    site._audio_mute = True
+    src = tmp_path / "video.mp4"
+    src.write_bytes(b"original")
+    captured = {}
+
+    def fake_audio(site, src_path, duration_sec=None, *, dst_path=None):
+        captured["dst"] = dst_path
+        with open(dst_path, "wb") as handle:
+            handle.write(b"processed")
+
+    monkeypatch.setattr(media_post, "post_process_audio", fake_audio)
+    out = media_post.finalize_processed_output(site, str(src))
+    assert src.read_bytes() == b"original"
+    assert "[h264-crf28-480p]" in out
+    assert captured["dst"] == out
+
+
 def test_apply_encode_options_sets_flags():
     site = DummySite()
     media_post.apply_encode_options(

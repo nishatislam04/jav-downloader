@@ -21,7 +21,19 @@ from jav_downloader.web.progress_phase import phase_from_log
 _active_downloads: dict[str, object] = {}
 _active_lock = threading.Lock()
 _job_params: dict[str, dict] = {}
+_PAUSE_DRAIN_TIMEOUT = 45.0
 _job_store_instance: JobStore | None = None
+
+
+def _wait_for_worker_idle(job_id: str, timeout: float = _PAUSE_DRAIN_TIMEOUT) -> bool:
+    """Wait until a pause worker exits _active_downloads."""
+    deadline = time.time() + timeout
+    while time.time() < deadline:
+        with _active_lock:
+            if job_id not in _active_downloads:
+                return True
+        time.sleep(0.15)
+    return False
 
 
 def _log_stamp() -> str:
@@ -337,7 +349,7 @@ def resolve_url(
 
 def _format_hms(seconds):
     """Format seconds as H:MM:SS for the config log block."""
-    total = max(0, int(float(seconds)))
+    total = max(0, int(float(seconds or 0)))
     return f"{total // 3600}:{total % 3600 // 60:02d}:{total % 60:02d}"
 
 
@@ -444,13 +456,14 @@ def _run_download(
     audio_mute: bool = False,
     audio_bitrate: int | None = None,
     audio_volume: float | None = None,
+    is_resume: bool = False,
     **encode_kwargs,
 ) -> None:
     manager.update(
         job_id,
         status=JobStatus.DOWNLOADING,
         error="",
-        progress_phase="Preparing",
+        progress_phase="Resuming" if is_resume else "Preparing",
         progress_detail="",
     )
     try:
@@ -507,9 +520,12 @@ def _run_download(
 
         site._job_log = _on_log
         site._progress_phase = _on_phase
-        _on_log("Preparing download…")
-        for _config_line in _config_log_lines(site, output_title):
-            _on_log(_config_line)
+        if is_resume:
+            _on_log("Resuming download…")
+        else:
+            _on_log("Preparing download…")
+            for _config_line in _config_log_lines(site, output_title):
+                _on_log(_config_line)
         stream_label = getattr(site, "_active_stream_label", None)
         if stream_label:
             _on_log(f"Using stream mirror: {stream_label}")
@@ -579,7 +595,6 @@ def _run_download(
             _on_log("Starting transfer…")
             site.start_download()
             if getattr(site, "_pause_job", False):
-                _on_log("Download paused")
                 manager.update(
                     job_id,
                     status=JobStatus.PAUSED,
@@ -710,6 +725,7 @@ def pause_download(manager: JobManager, job_id: str) -> bool:
         site = _active_downloads.get(job_id)
     if site is not None:
         site.pause_download()
+    manager.append_log(job_id, f"[{_log_stamp()}] Download paused")
     manager.update(
         job_id,
         status=JobStatus.PAUSED,
@@ -723,16 +739,15 @@ def pause_download(manager: JobManager, job_id: str) -> bool:
 
 def resume_download(manager: JobManager, job_id: str) -> bool:
     """Continue a paused download from partial files when possible."""
-    with _active_lock:
-        if job_id in _active_downloads:
-            return False
-
     job = manager.get(job_id)
     if job is None:
         return False
     if job.status == JobStatus.DOWNLOADING:
         return False
     if job.status != JobStatus.PAUSED:
+        return False
+
+    if not _wait_for_worker_idle(job_id):
         return False
 
     params = _resume_params(job_id)
@@ -761,6 +776,7 @@ def resume_download(manager: JobManager, job_id: str) -> bool:
         kwargs={
             **_audio_options_from_mapping(params),
             **_encode_options_from_mapping(params),
+            "is_resume": True,
         },
         name=f"jav-web-{job_id}-resume",
         daemon=True,
