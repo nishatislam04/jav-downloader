@@ -104,6 +104,7 @@ export default function App() {
   const [actionBusy, setActionBusy] = createSignal(false);
   const [hasResolvedOnce, setHasResolvedOnce] = createSignal(false);
   const [downloadComplete, setDownloadComplete] = createSignal(false);
+  const [completedRename, setCompletedRename] = createSignal("");
   const [serverCutError, setServerCutError] = createSignal("");
   const [pendingClear, setPendingClear] = createSignal(false);
   const [cleanupJobId, setCleanupJobId] = createSignal<string | null>(null);
@@ -182,6 +183,7 @@ export default function App() {
     setServerCutError("");
     setJob(null);
     setDownloadComplete(false);
+    setCompletedRename("");
     setBusy(false);
     setStatusMessage("", "");
   }
@@ -510,6 +512,7 @@ export default function App() {
           downloadedAt: Date.now(),
         });
         setDownloadComplete(true);
+        setCompletedRename(customTitle().trim());
         setStatusMessage("", "");
         setBusy(false);
         if (pollTimer) clearInterval(pollTimer);
@@ -699,6 +702,12 @@ export default function App() {
     () => !!resolved()?.ok && !cutValidation() && !busy() && !resolving(),
   );
 
+  // After completion, editing the title means the on-disk file no longer
+  // matches the form — drop the success badge back to the download button.
+  const showSuccess = createMemo(
+    () => downloadComplete() && completedRename() === customTitle().trim(),
+  );
+
   const showStartParse = createMemo(() => {
     const value = url().trim();
     return (
@@ -864,7 +873,7 @@ export default function App() {
             }}
           />
           <Show
-            when={downloadComplete()}
+            when={showSuccess()}
             fallback={
               <Show
                 when={busy()}
