@@ -653,6 +653,11 @@ export default function App() {
   }
 
   async function handleDownload() {
+    const paused = job();
+    if (paused?.status === "paused") {
+      await handleResume(paused.id);
+      return;
+    }
     await startDownloadJob();
   }
 
@@ -714,7 +719,12 @@ export default function App() {
   });
 
   const canDownload = createMemo(
-    () => !!resolved()?.ok && !cutValidation() && !busy() && !resolving(),
+    () =>
+      !!resolved()?.ok &&
+      !cutValidation() &&
+      !busy() &&
+      !resolving() &&
+      job()?.status !== "paused",
   );
 
   // After completion, editing the title means the on-disk file no longer

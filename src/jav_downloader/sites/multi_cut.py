@@ -5,6 +5,7 @@
 from __future__ import annotations
 
 import os
+import re
 import subprocess
 import tempfile
 import time
@@ -79,6 +80,30 @@ def _stream_source(site):
 
 def _header_blob(referer):
     return f'Referer: {referer}\r\n'
+
+
+def _clip_file_valid(path):
+    try:
+        return os.path.isfile(path) and os.path.getsize(path) > 0
+    except OSError:
+        return False
+
+
+def _multicut_workdir(site, dest_dir, prefix):
+    saved = getattr(site, '_multicut_workdir', None)
+    if saved and os.path.isdir(saved):
+        return saved
+    job_id = getattr(site, '_web_job_id', None) or getattr(site, '_dirName', 'clip')
+    safe = re.sub(r'[^\w.-]+', '_', str(job_id))
+    workdir = os.path.join(dest_dir, f'{prefix}{safe}')
+    os.makedirs(workdir, exist_ok=True)
+    site._multicut_workdir = workdir
+    return workdir
+
+
+def _discard_multicut_workdir(site):
+    """Remove staging dir on success/cancel; keep it when paused."""
+    return bool(getattr(site, '_cancel_job', False))
 
 
 def _range_duration(start_sec, end_sec):
@@ -252,17 +277,25 @@ def run_hls_multi_cut(site):
     label = getattr(site, 'direct_site_name', None) or site.__class__.__name__
     dest_dir = os.path.dirname(out) or os.getcwd()
     os.makedirs(dest_dir, exist_ok=True)
-    workdir = tempfile.mkdtemp(prefix='jav-hlsmulticut-', dir=dest_dir)
+    workdir = _multicut_workdir(site, dest_dir, 'jav-hlsmulticut-')
     emit = getattr(site, '_emit_job_log', None)
     if emit:
         emit(f'Clip staging folder: {workdir}')
     clip_paths = []
+    discard_workdir = True
     try:
         for index, (start_sec, end_sec) in enumerate(cut_ranges):
             if _stop_requested(site):
+                discard_workdir = _discard_multicut_workdir(site)
                 return False
             clip_path = os.path.join(workdir, f'clip_{index:02d}.mp4')
+            if _clip_file_valid(clip_path):
+                if emit:
+                    emit(f'Clip {index + 1}: reusing completed clip')
+                clip_paths.append(clip_path)
+                continue
             if not _download_hls_clip(site, start_sec, end_sec, clip_path, index):
+                discard_workdir = _discard_multicut_workdir(site)
                 return False
             clip_paths.append(clip_path)
 
@@ -278,15 +311,18 @@ def run_hls_multi_cut(site):
         post_process_media(
             site, out, _total_clip_length(site, cut_ranges) or getattr(site, '_duration_sec', None))
     finally:
-        for path in clip_paths:
-            _safe_remove(path)
-        if emit:
-            emit(f'Removing merge staging folder {workdir}')
-        try:
-            import shutil
-            shutil.rmtree(workdir, ignore_errors=True)
-        except Exception:
-            pass
+        if discard_workdir:
+            for path in clip_paths:
+                _safe_remove(path)
+            if emit:
+                emit(f'Removing merge staging folder {workdir}')
+            try:
+                import shutil
+                shutil.rmtree(workdir, ignore_errors=True)
+            except Exception:
+                pass
+        elif emit:
+            emit(f'Clip staging folder kept for resume: {workdir}')
 
     _emit_hls_multicut_progress(site, out)
     print(f'\n下載完成: {os.path.basename(out)}', flush=True)
@@ -334,8 +370,12 @@ def run_stream_multi_cut(site):
     label = getattr(site, 'direct_site_name', None) or site.__class__.__name__
     dest_dir = os.path.dirname(out) or os.getcwd()
     os.makedirs(dest_dir, exist_ok=True)
-    workdir = tempfile.mkdtemp(prefix='jav-multicut-', dir=dest_dir)
+    workdir = _multicut_workdir(site, dest_dir, 'jav-multicut-')
+    emit = getattr(site, '_emit_job_log', None)
+    if emit:
+        emit(f'Clip staging folder: {workdir}')
     clip_paths = []
+    discard_workdir = True
     total_clip_len = _total_clip_length(site, cut_ranges)
     estimated_total = 0
     if getattr(site, '_direct_url', None):
@@ -349,11 +389,18 @@ def run_stream_multi_cut(site):
     try:
         for index, (start_sec, end_sec) in enumerate(cut_ranges):
             if _stop_requested(site):
+                discard_workdir = _discard_multicut_workdir(site)
                 return False
             clip_path = os.path.join(workdir, f'clip_{index:02d}.mp4')
+            if _clip_file_valid(clip_path):
+                if emit:
+                    emit(f'Clip {index + 1}: reusing completed clip')
+                clip_paths.append(clip_path)
+                continue
             ok, _stderr = _extract_clip(
                 site, ffmpeg, input_url, referer, start_sec, end_sec, clip_path, label, index)
             if not ok:
+                discard_workdir = _discard_multicut_workdir(site)
                 return False
             clip_paths.append(clip_path)
             downloaded = sum(os.path.getsize(path) for path in clip_paths if os.path.exists(path))
@@ -372,13 +419,18 @@ def run_stream_multi_cut(site):
         post_process_media(
             site, out, total_clip_len or getattr(site, '_duration_sec', None))
     finally:
-        for path in clip_paths:
-            _safe_remove(path)
-        try:
-            import shutil
-            shutil.rmtree(workdir, ignore_errors=True)
-        except Exception:
-            pass
+        if discard_workdir:
+            for path in clip_paths:
+                _safe_remove(path)
+            if emit:
+                emit(f'Removing merge staging folder {workdir}')
+            try:
+                import shutil
+                shutil.rmtree(workdir, ignore_errors=True)
+            except Exception:
+                pass
+        elif emit:
+            emit(f'Clip staging folder kept for resume: {workdir}')
 
     _emit_hls_multicut_progress(site, out)
     print(f'\n下載完成: {os.path.basename(out)}', flush=True)

@@ -492,6 +492,12 @@ def _run_download(
             )
             return
 
+        site._web_job_id = job_id
+        if is_resume:
+            saved_workdir = (_job_params.get(job_id) or {}).get("multicut_workdir")
+            if saved_workdir:
+                site._multicut_workdir = saved_workdir
+
         try:
             _apply_output_title(site, output_title)
         except OSError as exc:
@@ -595,6 +601,11 @@ def _run_download(
             _on_log("Starting transfer…")
             site.start_download()
             if getattr(site, "_pause_job", False):
+                workdir = getattr(site, "_multicut_workdir", None)
+                if workdir:
+                    params = dict(_job_params.get(job_id) or {})
+                    params["multicut_workdir"] = workdir
+                    _job_params[job_id] = params
                 manager.update(
                     job_id,
                     status=JobStatus.PAUSED,
