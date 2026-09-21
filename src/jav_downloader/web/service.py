@@ -215,6 +215,23 @@ def _site_resolve_extras(site) -> dict:
             }
             for tier in tiers
         ]
+    if getattr(site, '_jav_code', None):
+        extras['code'] = site._jav_code
+    if getattr(site, '_jav_release_date', None):
+        extras['release_date'] = site._jav_release_date
+    if getattr(site, '_jav_studio', None):
+        extras['studio'] = site._jav_studio
+    if getattr(site, '_jav_label', None):
+        extras['label'] = site._jav_label
+    if getattr(site, '_jav_tags', None):
+        extras['tags'] = list(site._jav_tags)
+    if getattr(site, '_jav_actresses', None):
+        extras['actresses'] = list(site._jav_actresses)
+    if getattr(site, '_jav_posted', None):
+        extras['posted'] = site._jav_posted
+    mirrors = getattr(site, '_available_stream_labels', None)
+    if mirrors:
+        extras['stream_mirrors'] = list(mirrors)
     return extras
 
 
@@ -623,6 +640,9 @@ def _run_download(
             if os.path.isfile(output):
                 size = os.path.getsize(output)
                 _on_log(f"Saving as {os.path.basename(output)}")
+                original = site._get_video_savename()
+                if original != output and os.path.isfile(original):
+                    _on_log(f"Original kept: {os.path.basename(original)}")
                 _on_log(f"Complete: {output}")
                 manager.update(
                     job_id,
