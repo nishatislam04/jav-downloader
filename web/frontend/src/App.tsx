@@ -672,10 +672,19 @@ export default function App() {
   async function handleReveal(path: string) {
     const result = await revealFile(path);
     if (!result.ok) {
-      setStatusMessage(result.error || "Could not open file", "error");
+      const detail = result.error || "Could not open file";
+      setStatusMessage(
+        `${detail} (Browser cannot open local files; Termux must launch a player.)`,
+        "error",
+      );
       return;
     }
-    setStatusMessage(revealMode() === "open_file" ? "Opening file…" : "Opening folder…", "ok");
+    setStatusMessage(
+      revealMode() === "open_file"
+        ? "Opening in a video app… switch apps if nothing appears"
+        : "Opening folder…",
+      "ok",
+    );
   }
 
   function selectTool(tool: ToolId) {

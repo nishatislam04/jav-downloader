@@ -1,3 +1,5 @@
+from pathlib import Path
+
 import pytest
 
 from jav_downloader.web import reveal as reveal_mod
@@ -181,6 +183,14 @@ def test_is_termux_like_detects_prefix(monkeypatch):
 def test_reveal_mode_on_termux(monkeypatch):
     monkeypatch.setattr(reveal_mod, "is_termux_like", lambda: True)
     assert reveal_mod.reveal_mode() == "open_file"
+
+
+def test_android_open_paths_maps_shared_download_to_termux_home(monkeypatch):
+    monkeypatch.setenv("HOME", "/data/data/com.termux/files/home")
+    target = Path("/storage/emulated/0/Download/clip.mp4")
+    paths = reveal_mod._android_open_paths(target)
+    assert paths[0] == target.resolve()
+    assert Path("/data/data/com.termux/files/home/storage/downloads/clip.mp4") in paths
 
 
 def test_reveal_mode_on_desktop(monkeypatch):

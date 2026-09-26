@@ -7,7 +7,11 @@ import os
 import shutil
 import subprocess
 import sys
+import time
 from pathlib import Path
+
+# Required when starting VIEW intents from jav-web (background, browser in foreground).
+_ANDROID_NEW_TASK_FLAG = "268435456"
 
 _TERMUX_STORAGE_MAP = {
     "downloads": "Download",
@@ -67,6 +71,20 @@ def _android_open_paths(target: Path) -> list[Path]:
     resolved = target.resolve()
     candidates.append(resolved)
 
+    emu = Path("/storage/emulated/0")
+    try:
+        rel_emu = resolved.relative_to(emu)
+    except ValueError:
+        rel_emu = None
+    if rel_emu and rel_emu.parts:
+        top = rel_emu.parts[0]
+        rest = rel_emu.parts[1:]
+        for storage_key, mapped_name in _TERMUX_STORAGE_MAP.items():
+            if top == mapped_name:
+                home_alias = Path.home() / "storage" / storage_key / Path(*rest)
+                candidates.append(home_alias)
+                break
+
     storage_root = Path.home() / "storage"
     try:
         rel = resolved.relative_to(storage_root)
@@ -83,14 +101,18 @@ def _android_open_paths(target: Path) -> list[Path]:
     return list(dict.fromkeys(candidates))
 
 
-def _run_command(cmd: list[str], *, env: dict[str, str] | None = None) -> None:
+def _run_command(
+        cmd: list[str],
+        *,
+        env: dict[str, str] | None = None,
+        new_session: bool = True) -> None:
     try:
         proc = subprocess.run(
             cmd,
             capture_output=True,
             text=True,
             timeout=30,
-            start_new_session=True,
+            start_new_session=new_session,
             env=env or os.environ,
         )
     except FileNotFoundError as exc:
@@ -144,8 +166,39 @@ def _am_view(path: Path, mime: str) -> None:
         _file_uri(path),
         "-t",
         mime,
+        "-f",
+        _ANDROID_NEW_TASK_FLAG,
     ]
-    _run_command(cmd, env=_termux_env())
+    _run_command(cmd, env=_termux_env(), new_session=False)
+
+
+def _raise_termux_for_external_intent() -> None:
+    """Best-effort: Android often blocks VIEW from background (browser + jav-web)."""
+    am = _am_binary()
+    if am is None:
+        return
+    env = _termux_env()
+    for activity in (
+        "com.termux/.app.TermuxActivity",
+        "com.termux/.HomeActivity",
+    ):
+        try:
+            _run_command(
+                [
+                    am,
+                    "start",
+                    "-n",
+                    activity,
+                    "-f",
+                    _ANDROID_NEW_TASK_FLAG,
+                ],
+                env=env,
+                new_session=False,
+            )
+            time.sleep(0.15)
+            return
+        except ValueError:
+            continue
 
 
 def _termux_open(target: Path) -> None:
@@ -153,6 +206,7 @@ def _termux_open(target: Path) -> None:
     if not binary:
         raise ValueError("termux-open not found — run: pkg install termux-tools")
 
+    _raise_termux_for_external_intent()
     env = _termux_env()
     mime = _guess_mime_type(target)
     errors: list[str] = []
@@ -168,7 +222,7 @@ def _termux_open(target: Path) -> None:
         ]
         for cmd in attempts:
             try:
-                _run_command(cmd, env=env)
+                _run_command(cmd, env=env, new_session=False)
                 return
             except ValueError as exc:
                 errors.append(f"{' '.join(cmd)}: {exc}")
@@ -181,9 +235,11 @@ def _termux_open(target: Path) -> None:
                 errors.append(f"am VIEW {candidate}: {exc}")
 
     hint = (
-        "Could not open file on Android. Enable "
-        "'Allow external apps' in Termux settings, run termux-reload-settings, "
-        "and ensure termux-setup-storage was granted."
+        "Could not open file on Android. The browser cannot open local files "
+        "directly — Termux must launch a video app. Enable Termux "
+        "'Allow external apps' and 'Draw over other apps' (Settings → Apps → "
+        "Termux), run termux-setup-storage and termux-reload-settings, or "
+        "open the file from Termux with: termux-open <path>"
     )
     detail = "; ".join(errors[-3:]) if errors else "unknown error"
     raise ValueError(f"{hint} ({detail})")
