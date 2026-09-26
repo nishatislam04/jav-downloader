@@ -8,6 +8,7 @@ import ThumbnailPreview, { thumbnailSrc } from "./ThumbnailPreview";
 
 type Props = {
   meta: ResolveResult;
+  showThumbnail?: boolean;
 };
 
 export default function MetaCard(props: Props) {
@@ -30,7 +31,7 @@ export default function MetaCard(props: Props) {
   return (
     <section class="card meta">
       <div class="meta-row">
-        <Show when={thumb()}>
+        <Show when={props.showThumbnail !== false && thumb()}>
           <ThumbnailPreview src={thumb()} alt={props.meta.title || "Video thumbnail"} />
         </Show>
         <div class="meta-info">

@@ -1,10 +1,11 @@
-import { createEffect, createSignal, For, onCleanup, Show } from "solid-js";
+import { createEffect, createMemo, createSignal, For, onCleanup, Show } from "solid-js";
 import {
   clearHistoryOnServer,
   deleteHistoryOnServer,
   formatHistoryWhen,
   groupHistoryEntries,
   type HistoryEntry,
+  type HistoryGroup,
   HISTORY_PAGE_SIZE,
   historyStatusLabel,
   loadHistoryFromServer,
@@ -34,6 +35,10 @@ export default function HistoryMenu(props: Props) {
   const [detailId, setDetailId] = createSignal<string | null>(null);
 
   let drawerBody: HTMLDivElement | undefined;
+  let scrollIdleTimer: ReturnType<typeof setTimeout> | undefined;
+  let silentInFlight = false;
+  let refreshQueued = false;
+  let groupCache = new Map<string, HistoryGroup>();
 
   function entryFieldsMatch(a: HistoryEntry, b: HistoryEntry): boolean {
     return (
@@ -46,21 +51,66 @@ export default function HistoryMenu(props: Props) {
     );
   }
 
-  function mergeEntryList(current: HistoryEntry[], fresh: HistoryEntry[]): HistoryEntry[] {
+  function mergeSilentUpdate(
+    current: HistoryEntry[],
+    fresh: HistoryEntry[],
+  ): HistoryEntry[] | null {
+    const freshIds = new Set(fresh.map((entry) => entry.id));
     const byId = new Map(current.map((entry) => [entry.id, entry]));
-    return fresh.map((entry) => {
+    const head = fresh.map((entry) => {
       const prev = byId.get(entry.id);
       if (prev && entryFieldsMatch(prev, entry)) return prev;
       return prev ? { ...prev, ...entry } : entry;
     });
+    const tail = current.filter((entry) => !freshIds.has(entry.id));
+    const merged = [...head, ...tail];
+    if (merged.length === current.length && merged.every((entry, index) => entry === current[index])) {
+      return null;
+    }
+    return merged;
   }
 
-  function withScrollPreserved(apply: () => void) {
-    const top = drawerBody?.scrollTop ?? 0;
-    apply();
-    requestAnimationFrame(() => {
-      if (drawerBody) drawerBody.scrollTop = top;
+  function stableGroupHistory(list: HistoryEntry[]) {
+    const raw = groupHistoryEntries(list);
+    const nextCache = new Map<string, (typeof raw)[number]>();
+    const out = raw.map((group) => {
+      const prev = groupCache.get(group.url);
+      if (
+        prev &&
+        prev.latest === group.latest &&
+        prev.count === group.count &&
+        prev.runs.length === group.runs.length &&
+        prev.runs.every((run, index) => run === group.runs[index])
+      ) {
+        nextCache.set(group.url, prev);
+        return prev;
+      }
+      nextCache.set(group.url, group);
+      return group;
     });
+    groupCache = nextCache;
+    return out;
+  }
+
+  const groupedList = createMemo(() => stableGroupHistory(entries()));
+
+  function hasInProgressEntries(list: HistoryEntry[]): boolean {
+    return list.some((entry) => {
+      const status = (entry.status || "").toLowerCase();
+      return status === "downloading" || status === "pending" || status === "paused";
+    });
+  }
+
+  function onDrawerScroll() {
+    refreshQueued = true;
+    if (scrollIdleTimer) clearTimeout(scrollIdleTimer);
+    scrollIdleTimer = setTimeout(() => {
+      scrollIdleTimer = undefined;
+      if (refreshQueued && open()) {
+        refreshQueued = false;
+        void refreshSilent();
+      }
+    }, 450);
   }
 
   async function refreshInitial() {
@@ -76,16 +126,35 @@ export default function HistoryMenu(props: Props) {
   }
 
   async function refreshSilent() {
-    const current = entries();
-    const limit = Math.max(current.length, HISTORY_PAGE_SIZE);
-    const page = await loadHistoryFromServer(0, limit);
-    withScrollPreserved(() => {
-      setTotal(page.total);
-      const head = mergeEntryList(current.slice(0, page.entries.length), page.entries);
-      const tail = current.length > page.entries.length ? current.slice(page.entries.length) : [];
-      setEntries([...head, ...tail]);
-      setHasMore(head.length + tail.length < page.total);
-    });
+    if (scrollIdleTimer !== undefined) {
+      refreshQueued = true;
+      return;
+    }
+    if (silentInFlight) {
+      refreshQueued = true;
+      return;
+    }
+    silentInFlight = true;
+    try {
+      const current = entries();
+      const limit = Math.max(current.length, HISTORY_PAGE_SIZE);
+      const page = await loadHistoryFromServer(0, limit);
+      if (scrollIdleTimer !== undefined) {
+        refreshQueued = true;
+        return;
+      }
+      const merged = mergeSilentUpdate(current, page.entries);
+      if (page.total !== total()) setTotal(page.total);
+      const loaded = merged ?? current;
+      setHasMore(loaded.length < page.total);
+      if (merged) setEntries(merged);
+    } finally {
+      silentInFlight = false;
+      if (refreshQueued && scrollIdleTimer === undefined) {
+        refreshQueued = false;
+        void refreshSilent();
+      }
+    }
   }
 
   async function refreshAppend() {
@@ -95,9 +164,7 @@ export default function HistoryMenu(props: Props) {
       const page = await loadHistoryFromServer(offset, HISTORY_PAGE_SIZE);
       setTotal(page.total);
       setHasMore(page.hasMore);
-      withScrollPreserved(() => {
-        setEntries([...entries(), ...page.entries]);
-      });
+      setEntries([...entries(), ...page.entries]);
     } finally {
       setLoadingMore(false);
     }
@@ -146,11 +213,15 @@ export default function HistoryMenu(props: Props) {
     document.addEventListener("click", onDocClick);
     document.addEventListener("keydown", onDocKeyDown);
     const timer = window.setInterval(() => {
+      if (!hasInProgressEntries(entries())) return;
       void refreshSilent();
-    }, 5000);
+    }, 8000);
     onCleanup(() => {
       document.removeEventListener("click", onDocClick);
       document.removeEventListener("keydown", onDocKeyDown);
+      if (scrollIdleTimer) clearTimeout(scrollIdleTimer);
+      scrollIdleTimer = undefined;
+      refreshQueued = false;
       window.clearInterval(timer);
     });
   });
@@ -229,9 +300,6 @@ export default function HistoryMenu(props: Props) {
     );
   }
 
-  const flatList = () => entries();
-  const groupedList = () => groupHistoryEntries(entries());
-
   return (
     <div id="history-menu-root" class="history-menu">
       <button
@@ -270,14 +338,14 @@ export default function HistoryMenu(props: Props) {
               <CloseIcon />
             </button>
           </div>
-          <div class="history-drawer-body" ref={drawerBody}>
+          <div class="history-drawer-body" ref={drawerBody} onScroll={onDrawerScroll}>
             <Show
               when={entries().length > 0 || !loading()}
               fallback={<p class="history-empty">Loading…</p>}
             >
               <Show when={entries().length} fallback={<p class="history-empty">No downloads yet</p>}>
                 <Show when={!groupByUrl()}>
-                  <For each={flatList()}>{(entry) => renderEntry(entry)}</For>
+                  <For each={entries()}>{(entry) => renderEntry(entry)}</For>
                 </Show>
                 <Show when={groupByUrl()}>
                   <For each={groupedList()}>

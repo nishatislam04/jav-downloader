@@ -100,7 +100,16 @@ class WebHandler(BaseHTTPRequestHandler):
                     "platform": "termux" if is_termux_like() else "desktop",
                     "reveal_mode": reveal_mode(),
                     **service.history_health_fields(),
+                    "settings": service.get_app_settings(),
                 },
+            )
+            return
+
+        if path == "/api/settings":
+            _json_response(
+                self,
+                HTTPStatus.OK,
+                {"ok": True, "settings": service.get_app_settings()},
             )
             return
 
@@ -286,6 +295,14 @@ class WebHandler(BaseHTTPRequestHandler):
                 HTTPStatus.OK if result.get("ok") else HTTPStatus.UNPROCESSABLE_ENTITY
             )
             _json_response(self, status, result)
+            return
+
+        if path == "/api/settings":
+            _json_response(
+                self,
+                HTTPStatus.OK,
+                service.update_app_settings(payload),
+            )
             return
 
         if path == "/api/history/import":

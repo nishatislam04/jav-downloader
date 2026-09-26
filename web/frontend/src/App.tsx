@@ -20,6 +20,7 @@ import {
   resolveUrl,
   resumeJob,
   revealFile,
+  saveSettings,
   startDownload,
   validateFolder,
 } from "./api";
@@ -31,13 +32,13 @@ import {
   CloseIcon,
   DownloadIcon,
   PlayIcon,
-  SettingsIcon,
   SuccessIcon,
 } from "./components/IconButton";
 import MetaCard from "./components/MetaCard";
 import ProgressCard from "./components/ProgressCard";
 import ProgressRing from "./components/ProgressRing";
 import SummaryCard from "./components/SummaryCard";
+import SettingsDrawer from "./components/SettingsDrawer";
 import SupportedSites from "./components/SupportedSites";
 import { importLocalHistoryOnce } from "./lib/history";
 import {
@@ -117,6 +118,8 @@ export default function App() {
   const [cleanupJobId, setCleanupJobId] = createSignal<string | null>(null);
   const [historyRefreshKey, setHistoryRefreshKey] = createSignal(0);
   const [historyDbWarning, setHistoryDbWarning] = createSignal("");
+  const [hideThumbnails, setHideThumbnails] = createSignal(false);
+  const [settingsSaving, setSettingsSaving] = createSignal(false);
 
   let urlInput: HTMLInputElement | undefined;
   let pollTimer: ReturnType<typeof setInterval> | undefined;
@@ -146,6 +149,9 @@ export default function App() {
     }
     if (health.history_last_error) {
       setHistoryDbWarning(health.history_last_error);
+    }
+    if (health.settings && "hide_thumbnails" in health.settings) {
+      setHideThumbnails(Boolean(health.settings.hide_thumbnails));
     }
 
     if (rememberSavePath()) {
@@ -689,6 +695,19 @@ export default function App() {
     );
   }
 
+  async function handleHideThumbnailsChange(checked: boolean) {
+    setHideThumbnails(checked);
+    setSettingsSaving(true);
+    try {
+      const result = await saveSettings({ hide_thumbnails: checked });
+      if (result.settings?.hide_thumbnails !== undefined) {
+        setHideThumbnails(Boolean(result.settings.hide_thumbnails));
+      }
+    } finally {
+      setSettingsSaving(false);
+    }
+  }
+
   function selectTool(tool: ToolId) {
     setActiveTool(tool);
     if (tool === "rename" && !customTitle().trim()) {
@@ -840,15 +859,11 @@ export default function App() {
               History save issue — check server log
             </p>
           </Show>
-          <button
-            type="button"
-            class="header-icon-btn"
-            aria-label="Settings"
-            title="Settings"
-            onClick={() => {}}
-          >
-            <SettingsIcon />
-          </button>
+          <SettingsDrawer
+            hideThumbnails={hideThumbnails()}
+            saving={settingsSaving()}
+            onHideThumbnailsChange={handleHideThumbnailsChange}
+          />
         </div>
       </header>
 
@@ -971,7 +986,7 @@ export default function App() {
       <Show when={resolvedMeta()}>
         {(meta) => (
           <>
-            <MetaCard meta={meta()} />
+            <MetaCard meta={meta()} showThumbnail={!hideThumbnails()} />
             <EditToolsCard
               meta={meta()}
               durationSec={durationSec()}

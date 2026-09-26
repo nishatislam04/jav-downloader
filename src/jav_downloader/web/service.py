@@ -14,6 +14,7 @@ from jav_downloader.sites.base import (
     _truncate_target_name,
 )
 from jav_downloader.web.history_store import HistoryStore
+from jav_downloader.web.settings_store import SettingsStore
 from jav_downloader.web.job_store import JobStore
 from jav_downloader.web.jobs import Job, JobManager, JobStatus
 from jav_downloader.web.paths import default_download_dir, validate_dest_folder
@@ -25,6 +26,7 @@ _job_params: dict[str, dict] = {}
 _PAUSE_DRAIN_TIMEOUT = 45.0
 _job_store_instance: JobStore | None = None
 _history_store_instance: HistoryStore | None = None
+_settings_store_instance: SettingsStore | None = None
 
 
 def _wait_for_worker_idle(job_id: str, timeout: float = _PAUSE_DRAIN_TIMEOUT) -> bool:
@@ -284,6 +286,13 @@ def _history_store() -> HistoryStore:
     if _history_store_instance is None:
         _history_store_instance = HistoryStore()
     return _history_store_instance
+
+
+def _settings_store() -> SettingsStore:
+    global _settings_store_instance
+    if _settings_store_instance is None:
+        _settings_store_instance = SettingsStore()
+    return _settings_store_instance
 
 
 def persist_job_snapshot(jobs) -> None:
@@ -965,3 +974,14 @@ def import_history_entries(entries: list) -> dict:
         return {"ok": False, "error": "entries must be a list"}
     count = _history_store().import_menu_entries(entries)
     return {"ok": True, "imported": count}
+
+
+def get_app_settings() -> dict:
+    return _settings_store().get_all()
+
+
+def update_app_settings(patch: dict) -> dict:
+    if not isinstance(patch, dict):
+        return {"ok": False, "error": "settings must be an object"}
+    settings = _settings_store().update(patch)
+    return {"ok": True, "settings": settings}

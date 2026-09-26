@@ -1410,12 +1410,14 @@ button.save-apply-btn:not(:disabled):hover {
 }
 
 .history-menu,
-.sites-menu {
+.sites-menu,
+.settings-menu {
   position: relative;
 }
 
 .history-menu-btn,
 .sites-menu-btn,
+.settings-menu-btn,
 .header-icon-btn {
   display: inline-flex;
   align-items: center;
@@ -1434,12 +1436,15 @@ button.save-apply-btn:not(:disabled):hover {
 .history-menu-btn.active,
 .sites-menu-btn:hover,
 .sites-menu-btn.active,
+.settings-menu-btn:hover,
+.settings-menu-btn.active,
 .header-icon-btn:hover {
   border-color: var(--accent-2);
 }
 
 .history-menu-btn.active,
-.sites-menu-btn.active {
+.sites-menu-btn.active,
+.settings-menu-btn.active {
   color: var(--accent-2);
 }
 
@@ -1540,7 +1545,8 @@ button.save-apply-btn:not(:disabled):hover {
 }
 
 .history-drawer,
-.sites-drawer {
+.sites-drawer,
+.settings-drawer {
   position: fixed;
   top: 0;
   right: 0;
@@ -1556,7 +1562,8 @@ button.save-apply-btn:not(:disabled):hover {
 }
 
 .history-drawer-head,
-.sites-drawer-head {
+.sites-drawer-head,
+.settings-drawer-head {
   display: flex;
   align-items: center;
   gap: 12px;
@@ -1565,14 +1572,16 @@ button.save-apply-btn:not(:disabled):hover {
 }
 
 .history-drawer-title,
-.sites-drawer-title {
+.sites-drawer-title,
+.settings-drawer-title {
   margin: 0;
   font-size: 1rem;
   font-weight: 700;
 }
 
 .history-drawer-close,
-.sites-drawer-close {
+.sites-drawer-close,
+.settings-drawer-close {
   margin-left: auto;
   display: inline-flex;
   align-items: center;
@@ -1588,16 +1597,33 @@ button.save-apply-btn:not(:disabled):hover {
 }
 
 .history-drawer-close:hover,
-.sites-drawer-close:hover {
+.sites-drawer-close:hover,
+.settings-drawer-close:hover {
   color: var(--text);
   background: rgba(255, 255, 255, 0.06);
 }
 
 .history-drawer-body,
-.sites-drawer-body {
+.sites-drawer-body,
+.settings-drawer-body {
   flex: 1;
   overflow-y: auto;
   padding: 8px 12px;
+}
+
+.settings-row {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  padding: 12px 8px;
+  font-size: 0.92rem;
+  line-height: 1.4;
+  cursor: pointer;
+}
+
+.settings-row input {
+  margin-top: 3px;
+  flex-shrink: 0;
 }
 
 .sites-drawer-head .sites-count {
@@ -2206,7 +2232,8 @@ button.confirm-danger:hover {
 
   /* Side drawers: full-bleed on mobile */
   .history-drawer,
-  .sites-drawer {
+  .sites-drawer,
+  .settings-drawer {
     width: 100vw;
     border-left: none;
   }

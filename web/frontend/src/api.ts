@@ -78,6 +78,10 @@ async function request<T>(path: string, options: RequestInit = {}): Promise<T> {
   return data;
 }
 
+export type AppSettings = {
+  hide_thumbnails?: boolean;
+};
+
 export function fetchHealth() {
   return request<{
     ok: boolean;
@@ -87,7 +91,24 @@ export function fetchHealth() {
     history_db?: string;
     history_ok?: boolean;
     history_last_error?: string | null;
+    settings?: AppSettings;
   }>("/api/health");
+}
+
+export function fetchSettings() {
+  return request<{ ok: boolean; settings?: AppSettings; error?: string }>(
+    "/api/settings",
+  );
+}
+
+export function saveSettings(settings: AppSettings) {
+  return request<{ ok: boolean; settings?: AppSettings; error?: string }>(
+    "/api/settings",
+    {
+      method: "POST",
+      body: JSON.stringify(settings),
+    },
+  );
 }
 
 export function fetchEncodingCapabilities() {

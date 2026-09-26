@@ -63,9 +63,46 @@ def test_health_endpoint(tmp_path, monkeypatch):
         assert resp.status == 200
         assert body['ok'] is True
         assert body['download_dir'] == str(tmp_path.resolve())
+        assert body['settings']['hide_thumbnails'] is False
     finally:
         server.shutdown()
         server.server_close()
+
+
+def test_settings_endpoint(tmp_path, monkeypatch):
+    monkeypatch.setenv('DOWNLOAD_DIR', str(tmp_path))
+    from jav_downloader.web import service
+    from jav_downloader.web.settings_store import SettingsStore
+
+    service._settings_store_instance = SettingsStore(appdata=tmp_path / 'appdata')
+
+    server = ThreadingHTTPServer(('127.0.0.1', 0), WebHandler)
+    host, port = server.server_address
+    thread = threading.Thread(target=server.serve_forever, daemon=True)
+    thread.start()
+    try:
+        conn = HTTPConnection(host, port, timeout=5)
+        conn.request('GET', '/api/settings')
+        resp = conn.getresponse()
+        body = json.loads(resp.read().decode('utf-8'))
+        assert resp.status == 200
+        assert body['settings']['hide_thumbnails'] is False
+
+        payload = json.dumps({'hide_thumbnails': True}).encode('utf-8')
+        conn.request(
+            'POST',
+            '/api/settings',
+            body=payload,
+            headers={'Content-Type': 'application/json'},
+        )
+        resp = conn.getresponse()
+        body = json.loads(resp.read().decode('utf-8'))
+        assert resp.status == 200
+        assert body['settings']['hide_thumbnails'] is True
+    finally:
+        server.shutdown()
+        server.server_close()
+        service._settings_store_instance = None
 
 
 def test_validate_folder_endpoint(tmp_path, monkeypatch):
