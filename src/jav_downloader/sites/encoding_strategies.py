@@ -261,7 +261,10 @@ def build_software_video_args(
     if codec == 'hevc':
         args.extend(['-c:v', 'libx265', '-crf', str(crf), '-preset', preset])
     else:
-        args.extend(['-c:v', 'libx264', '-crf', str(crf), '-preset', preset])
+        args.extend([
+            '-c:v', 'libx264', '-crf', str(crf), '-preset', preset,
+            '-g', '60', '-keyint_min', '60', '-sc_threshold', '0',
+        ])
     args.extend(_software_vbr_cap_args(site))
     return args
 
@@ -311,15 +314,11 @@ def build_encode_command(
 def encode_strategy_label(strategy: str, site) -> str:
     if strategy == STRATEGY_HARDWARE:
         codec = normalize_encode_codec(getattr(site, '_encode_codec', None))
-        _, spec, _ = resolve_hardware_encoder(codec, validate=False)
-        encoder = spec.encoder_name if spec else 'hardware'
-        backend = spec.backend_id if spec else 'unknown'
         max_height = normalize_encode_max_height(getattr(site, '_encode_max_height', None))
         bitrate = default_hardware_bitrate_kbps(max_height)
         height_label = f'{max_height}p' if max_height > 0 else 'original'
-        return (
-            f'{encoder} ({backend}) {bitrate}k · {height_label} · '
-            f'gop {default_gop_size(None)}')
+        codec_label = 'H.265' if codec == 'hevc' else 'H.264'
+        return f'Hardware {codec_label} · {height_label} · {bitrate}k'
     preset = resolved_encode_preset(site)
     codec = normalize_encode_codec(getattr(site, '_encode_codec', None))
     crf = effective_encode_crf(site)
