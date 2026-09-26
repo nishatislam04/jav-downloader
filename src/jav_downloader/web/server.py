@@ -113,7 +113,14 @@ class WebHandler(BaseHTTPRequestHandler):
             return
 
         if path.startswith("/api/jobs/"):
-            job_id = path.rsplit("/", 1)[-1]
+            from jav_downloader.web.file_stream import serve_job_output
+            from jav_downloader.web.jobs import JobStatus
+
+            suffix = path[len("/api/jobs/") :]
+            if "/" in suffix:
+                job_id, sub = suffix.split("/", 1)
+            else:
+                job_id, sub = suffix, ""
             job = MANAGER.get(job_id)
             if job is None:
                 _json_response(
@@ -123,6 +130,30 @@ class WebHandler(BaseHTTPRequestHandler):
                         "ok": False,
                         "error": "Job not found",
                     },
+                )
+                return
+            if sub == "media":
+                if job.status != JobStatus.COMPLETED:
+                    _json_response(
+                        self,
+                        HTTPStatus.BAD_REQUEST,
+                        {"ok": False, "error": "Job not completed"},
+                    )
+                    return
+                try:
+                    serve_job_output(self, job)
+                except OSError as exc:
+                    _json_response(
+                        self,
+                        HTTPStatus.INTERNAL_SERVER_ERROR,
+                        {"ok": False, "error": str(exc)},
+                    )
+                return
+            if sub:
+                _json_response(
+                    self,
+                    HTTPStatus.NOT_FOUND,
+                    {"ok": False, "error": "Not found"},
                 )
                 return
             _json_response(self, HTTPStatus.OK, {"ok": True, "job": job.to_dict()})
