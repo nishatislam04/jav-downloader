@@ -33,24 +33,82 @@ export default function HistoryMenu(props: Props) {
   const [pending, setPending] = createSignal<PendingDelete | null>(null);
   const [detailId, setDetailId] = createSignal<string | null>(null);
 
-  async function refresh(append = false) {
-    const offset = append ? entries().length : 0;
-    if (append) setLoadingMore(true);
-    else setLoading(true);
+  let drawerBody: HTMLDivElement | undefined;
+
+  function entryFieldsMatch(a: HistoryEntry, b: HistoryEntry): boolean {
+    return (
+      a.url === b.url &&
+      a.title === b.title &&
+      a.thumbnail === b.thumbnail &&
+      a.status === b.status &&
+      a.downloadedAt === b.downloadedAt &&
+      a.updatedAt === b.updatedAt
+    );
+  }
+
+  function mergeEntryList(current: HistoryEntry[], fresh: HistoryEntry[]): HistoryEntry[] {
+    const byId = new Map(current.map((entry) => [entry.id, entry]));
+    return fresh.map((entry) => {
+      const prev = byId.get(entry.id);
+      if (prev && entryFieldsMatch(prev, entry)) return prev;
+      return prev ? { ...prev, ...entry } : entry;
+    });
+  }
+
+  function withScrollPreserved(apply: () => void) {
+    const top = drawerBody?.scrollTop ?? 0;
+    apply();
+    requestAnimationFrame(() => {
+      if (drawerBody) drawerBody.scrollTop = top;
+    });
+  }
+
+  async function refreshInitial() {
+    setLoading(true);
     try {
+      const page = await loadHistoryFromServer(0, HISTORY_PAGE_SIZE);
+      setTotal(page.total);
+      setHasMore(page.hasMore);
+      setEntries(page.entries);
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  async function refreshSilent() {
+    const current = entries();
+    const limit = Math.max(current.length, HISTORY_PAGE_SIZE);
+    const page = await loadHistoryFromServer(0, limit);
+    withScrollPreserved(() => {
+      setTotal(page.total);
+      const head = mergeEntryList(current.slice(0, page.entries.length), page.entries);
+      const tail = current.length > page.entries.length ? current.slice(page.entries.length) : [];
+      setEntries([...head, ...tail]);
+      setHasMore(head.length + tail.length < page.total);
+    });
+  }
+
+  async function refreshAppend() {
+    setLoadingMore(true);
+    try {
+      const offset = entries().length;
       const page = await loadHistoryFromServer(offset, HISTORY_PAGE_SIZE);
       setTotal(page.total);
       setHasMore(page.hasMore);
-      setEntries(append ? [...entries(), ...page.entries] : page.entries);
+      withScrollPreserved(() => {
+        setEntries([...entries(), ...page.entries]);
+      });
     } finally {
-      setLoading(false);
       setLoadingMore(false);
     }
   }
 
   function toggle() {
-    void refresh(false);
-    setOpen((value) => !value);
+    const next = !open();
+    setOpen(next);
+    if (!next) return;
+    if (entries().length === 0) void refreshInitial();
+    else void refreshSilent();
   }
 
   function close() {
@@ -88,7 +146,7 @@ export default function HistoryMenu(props: Props) {
     document.addEventListener("click", onDocClick);
     document.addEventListener("keydown", onDocKeyDown);
     const timer = window.setInterval(() => {
-      void refresh(false);
+      void refreshSilent();
     }, 5000);
     onCleanup(() => {
       document.removeEventListener("click", onDocClick);
@@ -99,7 +157,7 @@ export default function HistoryMenu(props: Props) {
 
   createEffect(() => {
     props.refreshKey;
-    if (open()) void refresh(false);
+    if (open()) void refreshSilent();
   });
 
   function removeEntry(id: string) {
@@ -212,8 +270,11 @@ export default function HistoryMenu(props: Props) {
               <CloseIcon />
             </button>
           </div>
-          <div class="history-drawer-body">
-            <Show when={!loading()} fallback={<p class="history-empty">Loading…</p>}>
+          <div class="history-drawer-body" ref={drawerBody}>
+            <Show
+              when={entries().length > 0 || !loading()}
+              fallback={<p class="history-empty">Loading…</p>}
+            >
               <Show when={entries().length} fallback={<p class="history-empty">No downloads yet</p>}>
                 <Show when={!groupByUrl()}>
                   <For each={flatList()}>{(entry) => renderEntry(entry)}</For>
@@ -249,7 +310,7 @@ export default function HistoryMenu(props: Props) {
                     type="button"
                     class="history-load-more"
                     disabled={loadingMore()}
-                    onClick={() => void refresh(true)}
+                    onClick={() => void refreshAppend()}
                   >
                     {loadingMore() ? "Loading…" : `Load more (${entries().length}/${total()})`}
                   </button>
