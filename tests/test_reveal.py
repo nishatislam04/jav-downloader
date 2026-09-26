@@ -66,7 +66,9 @@ def test_reveal_in_file_manager_uses_termux_open_on_android(monkeypatch, tmp_pat
     )
 
     reveal_mod.reveal_in_file_manager(str(target))
-    assert launched[0] == [binary, str(target.resolve())]
+    assert launched[0][0] == binary
+    assert launched[0][-1] == str(target.resolve())
+    assert "--chooser" in launched[0]
 
 
 def test_reveal_in_file_manager_android_without_termux_open(monkeypatch, tmp_path):

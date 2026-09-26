@@ -216,9 +216,9 @@ def _termux_open(target: Path) -> None:
             continue
         path_text = str(candidate)
         attempts: list[list[str]] = [
+            [binary, "--chooser", "--view", "--content-type", mime, path_text],
+            [binary, "--view", "--content-type", mime, path_text],
             [binary, path_text],
-            [binary, "--content-type", mime, path_text],
-            [binary, "--chooser", "--content-type", mime, path_text],
         ]
         for cmd in attempts:
             try:
