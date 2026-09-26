@@ -32,6 +32,29 @@ def test_hardware_unavailable_when_no_encoders_listed(monkeypatch):
     assert 'no hardware encoder listed' in (reason or '')
 
 
+def test_mediacodec_trusted_when_listed_on_android(monkeypatch):
+    monkeypatch.setattr(encoding_capabilities, 'is_android_like', lambda: True)
+    monkeypatch.setattr(
+        encoding_capabilities,
+        'list_ffmpeg_encoders',
+        lambda *a, **k: frozenset({'h264_mediacodec', 'hevc_mediacodec'}),
+    )
+    monkeypatch.setattr(
+        encoding_capabilities,
+        '_probe_mediacodec_encoder',
+        lambda *a, **k: False,
+    )
+    encoding_capabilities.clear_capability_cache()
+
+    ok, spec, reason = encoding_capabilities.resolve_hardware_encoder(
+        'h264', validate=True)
+    assert ok is True
+    assert spec is not None
+    assert spec.encoder_name == 'h264_mediacodec'
+    assert reason is None
+    assert encoding_capabilities.validation_probe_passed(spec) is False
+
+
 def test_resolve_desktop_nvenc(monkeypatch):
     monkeypatch.setattr(encoding_capabilities, 'is_android_like', lambda: False)
     monkeypatch.setattr(
