@@ -1,6 +1,6 @@
 import { createEffect, createSignal, For, onCleanup, Show } from "solid-js";
 import { SITES, type SiteInfo, siteFaviconSrc } from "../lib/sites";
-import { ExternalLinkIcon, GlobeIcon } from "./IconButton";
+import { CloseIcon, ExternalLinkIcon, GlobeIcon } from "./IconButton";
 
 function SiteFavicon(props: { site: SiteInfo }) {
   const [failed, setFailed] = createSignal(false);
@@ -33,8 +33,9 @@ export default function SupportedSites() {
 
   function onDocClick(event: MouseEvent) {
     const target = event.target as Node | null;
+    if (!target?.isConnected) return;
     const root = document.getElementById("sites-menu-root");
-    if (root && target && !root.contains(target)) {
+    if (root && !root.contains(target)) {
       close();
     }
   }
@@ -75,34 +76,46 @@ export default function SupportedSites() {
         <GlobeIcon />
       </button>
       <Show when={open()}>
-        <div class="sites-dropdown" role="menu">
-          <div class="sites-header">
-            <span class="sites-title">Supported sites</span>
+        <div class="drawer-backdrop" aria-hidden="true" onClick={close} />
+        <div class="sites-drawer" role="menu">
+          <div class="sites-drawer-head">
+            <p class="sites-drawer-title">Supported sites</p>
             <span class="sites-count" title="Total supported sites">
               {SITES.length}
             </span>
+            <button
+              type="button"
+              class="sites-drawer-close"
+              aria-label="Close supported sites"
+              title="Close"
+              onClick={close}
+            >
+              <CloseIcon />
+            </button>
           </div>
-          <div class="sites-list">
-            <For each={SITES}>
-              {(site) => (
-                <button
-                  type="button"
-                  class="site-row"
-                  role="menuitem"
-                  aria-label={`Open ${site.name} in a new tab`}
-                  onClick={() => openSite(site)}
-                >
-                  <SiteFavicon site={site} />
-                  <span class="site-info">
-                    <span class="site-name">{site.name}</span>
-                    <span class="site-domain">{site.domain}</span>
-                  </span>
-                  <span class="site-open">
-                    <ExternalLinkIcon />
-                  </span>
-                </button>
-              )}
-            </For>
+          <div class="sites-drawer-body">
+            <div class="sites-list">
+              <For each={SITES}>
+                {(site) => (
+                  <button
+                    type="button"
+                    class="site-row"
+                    role="menuitem"
+                    aria-label={`Open ${site.name} in a new tab`}
+                    onClick={() => openSite(site)}
+                  >
+                    <SiteFavicon site={site} />
+                    <span class="site-info">
+                      <span class="site-name">{site.name}</span>
+                      <span class="site-domain">{site.domain}</span>
+                    </span>
+                    <span class="site-open">
+                      <ExternalLinkIcon />
+                    </span>
+                  </button>
+                )}
+              </For>
+            </div>
           </div>
         </div>
       </Show>
