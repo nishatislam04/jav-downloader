@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import json
 import os
+import shutil
 import sqlite3
 import threading
 import time
@@ -42,16 +43,37 @@ CREATE TABLE IF NOT EXISTS download_records (
 );
 CREATE INDEX IF NOT EXISTS idx_download_records_updated
     ON download_records(updated_at DESC);
+CREATE TABLE IF NOT EXISTS download_log_lines (
+    record_id TEXT NOT NULL,
+    seq INTEGER NOT NULL,
+    line TEXT NOT NULL,
+    PRIMARY KEY (record_id, seq)
+);
+CREATE INDEX IF NOT EXISTS idx_download_log_record
+    ON download_log_lines(record_id, seq);
 """
 
 _TERMINAL = frozenset({JobStatus.COMPLETED, JobStatus.FAILED})
 _FLUSH_SEC = 2.0
+_backup_done_for: set[str] = set()
 
 
 def history_db_path(appdata: str | os.PathLike | None = None) -> str:
     root = product_data_dir(appdata, migrate=True)
     root.mkdir(parents=True, exist_ok=True)
     return str(root / "history.sqlite")
+
+
+def _lines_to_append(db_lines: list[str], memory_lines: list[str]) -> list[str]:
+    if not memory_lines:
+        return []
+    max_overlap = min(len(db_lines), len(memory_lines))
+    for overlap in range(max_overlap, -1, -1):
+        if overlap == 0:
+            return list(memory_lines)
+        if db_lines[-overlap:] == memory_lines[:overlap]:
+            return list(memory_lines[overlap:])
+    return list(memory_lines)
 
 
 class HistoryStore:
@@ -61,17 +83,49 @@ class HistoryStore:
         self._path = history_db_path(appdata)
         self._lock = threading.Lock()
         self._last_flush: dict[str, float] = {}
+        self._last_error: str = ""
+        self._backup_once()
         self._init_db()
 
     @property
     def path(self) -> str:
         return self._path
 
+    @property
+    def last_error(self) -> str:
+        return self._last_error
+
+    def health_snapshot(self) -> dict:
+        return {
+            "history_db": self._path,
+            "history_ok": not self._last_error,
+            "history_last_error": self._last_error or None,
+        }
+
+    def _note_error(self, exc: BaseException) -> None:
+        self._last_error = str(exc)
+
+    def _clear_error(self) -> None:
+        self._last_error = ""
+
+    def _backup_once(self) -> None:
+        if self._path in _backup_done_for:
+            return
+        _backup_done_for.add(self._path)
+        if not os.path.isfile(self._path):
+            return
+        backup_path = f"{self._path}.bak"
+        try:
+            shutil.copy2(self._path, backup_path)
+        except OSError as exc:
+            self._note_error(exc)
+
     def _connect(self) -> sqlite3.Connection:
         conn = sqlite3.connect(self._path, timeout=10.0)
         conn.row_factory = sqlite3.Row
         conn.execute("PRAGMA journal_mode=WAL")
         conn.execute("PRAGMA synchronous=NORMAL")
+        conn.execute("PRAGMA foreign_keys=ON")
         return conn
 
     def _init_db(self) -> None:
@@ -81,8 +135,44 @@ class HistoryStore:
             try:
                 conn.executescript(_SCHEMA)
                 conn.commit()
+                self._migrate_log_json_to_lines(conn)
+                conn.commit()
+                self._clear_error()
+            except (OSError, sqlite3.Error) as exc:
+                self._note_error(exc)
             finally:
                 conn.close()
+
+    def _migrate_log_json_to_lines(self, conn: sqlite3.Connection) -> None:
+        rows = conn.execute(
+            "SELECT id, log_json FROM download_records WHERE log_json != '[]'"
+        ).fetchall()
+        for row in rows:
+            record_id = str(row["id"])
+            count = conn.execute(
+                "SELECT COUNT(*) FROM download_log_lines WHERE record_id = ?",
+                (record_id,),
+            ).fetchone()[0]
+            if count:
+                continue
+            try:
+                log = json.loads(row["log_json"] or "[]")
+            except ValueError:
+                log = []
+            if not isinstance(log, list) or not log:
+                continue
+            for seq, line in enumerate(log):
+                conn.execute(
+                    """
+                    INSERT INTO download_log_lines (record_id, seq, line)
+                    VALUES (?, ?, ?)
+                    """,
+                    (record_id, seq, str(line)),
+                )
+            conn.execute(
+                "UPDATE download_records SET log_json = '[]' WHERE id = ?",
+                (record_id,),
+            )
 
     def _downloaded_at(self, job: Job) -> float:
         if job.status == JobStatus.COMPLETED and job.completed_at > 0:
@@ -90,6 +180,43 @@ class HistoryStore:
         if job.updated_at > 0:
             return float(job.updated_at)
         return float(job.created_at or time.time())
+
+    def _fetch_log_lines(self, conn: sqlite3.Connection, record_id: str) -> list[str]:
+        rows = conn.execute(
+            """
+            SELECT line FROM download_log_lines
+            WHERE record_id = ?
+            ORDER BY seq
+            """,
+            (record_id,),
+        ).fetchall()
+        return [str(row["line"]) for row in rows]
+
+    def _append_log_lines(
+        self, conn: sqlite3.Connection, record_id: str, new_lines: list[str]
+    ) -> None:
+        if not new_lines:
+            return
+        start = conn.execute(
+            "SELECT COALESCE(MAX(seq), -1) FROM download_log_lines WHERE record_id = ?",
+            (record_id,),
+        ).fetchone()[0]
+        seq = int(start) + 1
+        for line in new_lines:
+            conn.execute(
+                """
+                INSERT INTO download_log_lines (record_id, seq, line)
+                VALUES (?, ?, ?)
+                """,
+                (record_id, seq, str(line)),
+            )
+            seq += 1
+
+    def _sync_job_log(self, conn: sqlite3.Connection, record_id: str, job: Job) -> None:
+        memory_lines = [str(line) for line in list(job.log)]
+        db_lines = self._fetch_log_lines(conn, record_id)
+        to_add = _lines_to_append(db_lines, memory_lines)
+        self._append_log_lines(conn, record_id, to_add)
 
     def upsert_job(self, job: Job, meta: dict | None = None) -> None:
         status = (
@@ -115,7 +242,7 @@ class HistoryStore:
             job.progress_phase or "",
             job.progress_detail or "",
             job.error or "",
-            json.dumps(list(job.log), ensure_ascii=False),
+            "[]",
             json.dumps(meta_payload, ensure_ascii=False),
             float(job.created_at or 0),
             float(job.started_at or 0),
@@ -156,7 +283,6 @@ class HistoryStore:
                             progress_phase=excluded.progress_phase,
                             progress_detail=excluded.progress_detail,
                             error=excluded.error,
-                            log_json=excluded.log_json,
                             meta_json=excluded.meta_json,
                             created_at=excluded.created_at,
                             started_at=excluded.started_at,
@@ -169,11 +295,13 @@ class HistoryStore:
                         """,
                         row,
                     )
+                    self._sync_job_log(conn, job.id, job)
                     conn.commit()
+                    self._clear_error()
                 finally:
                     conn.close()
-            except OSError:
-                pass
+            except (OSError, sqlite3.Error) as exc:
+                self._note_error(exc)
 
     def upsert_jobs_throttled(
         self, jobs: list[Job], params_by_id: dict[str, dict] | None = None
@@ -190,13 +318,28 @@ class HistoryStore:
             meta = params_by_id.get(job.id)
             self.upsert_job(job, meta if isinstance(meta, dict) else None)
 
+    def count_records(self) -> int:
+        with self._lock:
+            try:
+                conn = self._connect()
+            except (OSError, sqlite3.Error) as exc:
+                self._note_error(exc)
+                return 0
+            try:
+                return int(
+                    conn.execute("SELECT COUNT(*) FROM download_records").fetchone()[0]
+                )
+            finally:
+                conn.close()
+
     def list_records(self, limit: int = 1000, offset: int = 0) -> list[dict]:
         limit = max(1, min(int(limit), 10000))
         offset = max(0, int(offset))
         with self._lock:
             try:
                 conn = self._connect()
-            except OSError:
+            except (OSError, sqlite3.Error) as exc:
+                self._note_error(exc)
                 return []
             try:
                 rows = conn.execute(
@@ -223,28 +366,42 @@ class HistoryStore:
             for row in rows
         ]
 
+    def list_page(self, limit: int = 1000, offset: int = 0) -> dict:
+        entries = self.list_records(limit=limit, offset=offset)
+        total = self.count_records()
+        return {
+            "entries": entries,
+            "total": total,
+            "has_more": offset + len(entries) < total,
+        }
+
     def get_record(self, record_id: str) -> dict | None:
         with self._lock:
             try:
                 conn = self._connect()
-            except OSError:
+            except (OSError, sqlite3.Error) as exc:
+                self._note_error(exc)
                 return None
             try:
                 row = conn.execute(
                     "SELECT * FROM download_records WHERE id = ?",
                     (record_id,),
                 ).fetchone()
+                if row is None:
+                    return None
+                log = self._fetch_log_lines(conn, str(row["id"]))
+                if not log:
+                    try:
+                        legacy = json.loads(row["log_json"] or "[]")
+                        if isinstance(legacy, list):
+                            log = [str(item) for item in legacy]
+                    except ValueError:
+                        log = []
             finally:
                 conn.close()
-        if row is None:
-            return None
-        return self._row_to_full_dict(row)
+        return self._row_to_full_dict(row, log)
 
-    def _row_to_full_dict(self, row: sqlite3.Row) -> dict:
-        try:
-            log = json.loads(row["log_json"] or "[]")
-        except ValueError:
-            log = []
+    def _row_to_full_dict(self, row: sqlite3.Row, log: list[str]) -> dict:
         try:
             meta = json.loads(row["meta_json"] or "{}")
         except ValueError:
@@ -266,7 +423,7 @@ class HistoryStore:
             "progress_phase": row["progress_phase"] or "",
             "progress_detail": row["progress_detail"] or "",
             "error": row["error"] or "",
-            "log": log if isinstance(log, list) else [],
+            "log": log,
             "meta": meta if isinstance(meta, dict) else {},
             "created_at": float(row["created_at"] or 0),
             "started_at": float(row["started_at"] or 0),
@@ -283,15 +440,21 @@ class HistoryStore:
             try:
                 conn = self._connect()
                 try:
+                    conn.execute(
+                        "DELETE FROM download_log_lines WHERE record_id = ?",
+                        (record_id,),
+                    )
                     cur = conn.execute(
                         "DELETE FROM download_records WHERE id = ?",
                         (record_id,),
                     )
                     conn.commit()
+                    self._clear_error()
                     return cur.rowcount > 0
                 finally:
                     conn.close()
-            except OSError:
+            except (OSError, sqlite3.Error) as exc:
+                self._note_error(exc)
                 return False
 
     def clear_all(self) -> None:
@@ -299,13 +462,15 @@ class HistoryStore:
             try:
                 conn = self._connect()
                 try:
+                    conn.execute("DELETE FROM download_log_lines")
                     conn.execute("DELETE FROM download_records")
                     conn.commit()
                     self._last_flush.clear()
+                    self._clear_error()
                 finally:
                     conn.close()
-            except OSError:
-                pass
+            except (OSError, sqlite3.Error) as exc:
+                self._note_error(exc)
 
     def import_menu_entries(self, entries: list[dict]) -> int:
         """Import legacy browser history rows (id, url, title, thumbnail, downloadedAt)."""

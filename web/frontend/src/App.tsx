@@ -115,6 +115,8 @@ export default function App() {
   const [serverCutError, setServerCutError] = createSignal("");
   const [pendingClear, setPendingClear] = createSignal(false);
   const [cleanupJobId, setCleanupJobId] = createSignal<string | null>(null);
+  const [historyRefreshKey, setHistoryRefreshKey] = createSignal(0);
+  const [historyDbWarning, setHistoryDbWarning] = createSignal("");
 
   let urlInput: HTMLInputElement | undefined;
   let pollTimer: ReturnType<typeof setInterval> | undefined;
@@ -141,6 +143,9 @@ export default function App() {
     setDefaultDownloadDir(downloadDir);
     if (health.reveal_mode === "open_file" || health.reveal_mode === "show_in_folder") {
       setRevealMode(health.reveal_mode);
+    }
+    if (health.history_last_error) {
+      setHistoryDbWarning(health.history_last_error);
     }
 
     if (rememberSavePath()) {
@@ -528,15 +533,18 @@ export default function App() {
         setCompletedRename(customTitle().trim());
         setStatusMessage("", "");
         setBusy(false);
+        setHistoryRefreshKey((n) => n + 1);
         if (pollTimer) clearInterval(pollTimer);
       } else if (data.job.status === "failed") {
         setStatusMessage(data.job.error || "Download failed", "error");
         setBusy(false);
         setDownloadComplete(false);
+        setHistoryRefreshKey((n) => n + 1);
         if (pollTimer) clearInterval(pollTimer);
       } else if (data.job.status === "paused") {
         setBusy(false);
         setStatusMessage("Download paused.", "");
+        setHistoryRefreshKey((n) => n + 1);
         if (pollTimer) clearInterval(pollTimer);
       }
     };
@@ -823,7 +831,15 @@ export default function App() {
         </div>
         <div class="header-actions">
           <SupportedSites />
-          <HistoryMenu onSelect={(entry) => setUrl(entry.url)} />
+          <HistoryMenu
+            refreshKey={historyRefreshKey()}
+            onSelect={(entry) => setUrl(entry.url)}
+          />
+          <Show when={historyDbWarning()}>
+            <p class="history-db-warning" title={historyDbWarning()}>
+              History save issue — check server log
+            </p>
+          </Show>
           <button
             type="button"
             class="header-icon-btn"

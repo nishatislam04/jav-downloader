@@ -928,8 +928,22 @@ def cancel_download(manager: JobManager, job_id: str) -> bool:
 
 
 def list_history(limit: int = 1000, offset: int = 0) -> dict:
-    entries = _history_store().list_records(limit=limit, offset=offset)
-    return {"ok": True, "entries": entries}
+    page = _history_store().list_page(limit=limit, offset=offset)
+    return {"ok": True, **page}
+
+
+def get_history_record(record_id: str) -> dict:
+    record_id = str(record_id or "").strip()
+    if not record_id:
+        return {"ok": False, "error": "Record id is required"}
+    record = _history_store().get_record(record_id)
+    if record is None:
+        return {"ok": False, "error": "Record not found"}
+    return {"ok": True, "record": record}
+
+
+def history_health_fields() -> dict:
+    return _history_store().health_snapshot()
 
 
 def delete_history_record(record_id: str) -> dict:

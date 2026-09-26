@@ -1,5 +1,5 @@
-import json
 import sqlite3
+from pathlib import Path
 
 from jav_downloader.web.history_store import HistoryStore, history_db_path
 from jav_downloader.web.jobs import Job, JobStatus
@@ -107,3 +107,37 @@ def test_history_db_path_under_appdata(tmp_path):
     path = history_db_path(tmp_path)
     assert path.endswith("history.sqlite")
     assert "JAV Downloader" in path or str(tmp_path) in path
+
+
+def test_log_lines_append_incrementally(tmp_path):
+    store = HistoryStore(appdata=tmp_path)
+    job = Job(id="log", url="https://example.test/log", status=JobStatus.DOWNLOADING)
+    job.log = ["first"]
+    store.upsert_job(job)
+    job.log = ["first", "second"]
+    store.upsert_job(job)
+    full = store.get_record("log")
+    assert full["log"] == ["first", "second"]
+
+
+def test_list_page_reports_total(tmp_path):
+    store = HistoryStore(appdata=tmp_path)
+    for index in range(3):
+        store.upsert_job(
+            Job(id=str(index), url=f"https://example.test/{index}", status=JobStatus.COMPLETED)
+        )
+    page = store.list_page(limit=2, offset=0)
+    assert page["total"] == 3
+    assert len(page["entries"]) == 2
+    assert page["has_more"] is True
+
+
+def test_backup_creates_bak_file(tmp_path):
+    from jav_downloader.web import history_store as hs
+
+    hs._backup_done_for.clear()
+    HistoryStore(appdata=tmp_path)
+    db = Path(history_db_path(tmp_path))
+    hs._backup_done_for.clear()
+    HistoryStore(appdata=tmp_path)
+    assert Path(f"{db}.bak").is_file()

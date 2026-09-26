@@ -99,6 +99,7 @@ class WebHandler(BaseHTTPRequestHandler):
                     "download_dir": default_download_dir(),
                     "platform": "termux" if is_termux_like() else "desktop",
                     "reveal_mode": reveal_mode(),
+                    **service.history_health_fields(),
                 },
             )
             return
@@ -106,6 +107,14 @@ class WebHandler(BaseHTTPRequestHandler):
         if path == "/api/encoding/capabilities":
             _json_response(self, HTTPStatus.OK, service.encoding_capabilities_payload())
             return
+
+        if path.startswith("/api/history/"):
+            record_id = unquote(path[len("/api/history/") :].strip("/"))
+            if record_id and record_id not in ("import", "delete"):
+                result = service.get_history_record(record_id)
+                status = HTTPStatus.OK if result.get("ok") else HTTPStatus.NOT_FOUND
+                _json_response(self, status, result)
+                return
 
         if path == "/api/history":
             qs = parse_qs(parsed.query)
@@ -469,6 +478,13 @@ def main(argv: list[str] | None = None) -> int:
     # jobs from the previous run so Resume survives server restarts.
     service.set_job_store_dest(download_dir)
     MANAGER.set_persistence(service.persist_job_snapshot)
+    history_health = service.history_health_fields()
+    if history_health.get("history_last_error"):
+        print(
+            "[jav-web] History database warning: "
+            f"{history_health['history_last_error']}",
+            flush=True,
+        )
     restored = service.restore_saved_jobs(MANAGER)
     if restored:
         print(f"Restored {restored} paused job(s) from last run.", flush=True)

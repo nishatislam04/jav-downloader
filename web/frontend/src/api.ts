@@ -84,6 +84,9 @@ export function fetchHealth() {
     download_dir?: string;
     platform?: "termux" | "desktop";
     reveal_mode?: "open_file" | "show_in_folder";
+    history_db?: string;
+    history_ok?: boolean;
+    history_last_error?: string | null;
   }>("/api/health");
 }
 
@@ -209,13 +212,45 @@ export type HistoryEntry = {
   updatedAt?: number;
 };
 
-export function fetchHistory(limit = 5000, offset = 0) {
+export type HistoryRecord = HistoryEntry & {
+  site?: string;
+  dest_folder?: string;
+  output_file?: string;
+  downloaded?: number;
+  total?: number;
+  speed?: number;
+  progress_pct?: number;
+  progress_unit?: string;
+  progress_phase?: string;
+  progress_detail?: string;
+  error?: string;
+  log?: string[];
+  meta?: Record<string, unknown>;
+  created_at?: number;
+  started_at?: number;
+  completed_at?: number;
+  elapsed_sec?: number;
+  download_phase_sec?: number;
+  encode_phase_sec?: number;
+};
+
+export function fetchHistory(limit = 40, offset = 0) {
   const qs = new URLSearchParams({
     limit: String(limit),
     offset: String(offset),
   });
-  return request<{ ok: boolean; entries?: HistoryEntry[]; error?: string }>(
-    `/api/history?${qs.toString()}`,
+  return request<{
+    ok: boolean;
+    entries?: HistoryEntry[];
+    total?: number;
+    has_more?: boolean;
+    error?: string;
+  }>(`/api/history?${qs.toString()}`);
+}
+
+export function fetchHistoryRecord(id: string) {
+  return request<{ ok: boolean; record?: HistoryRecord; error?: string }>(
+    `/api/history/${encodeURIComponent(id)}`,
   );
 }
 

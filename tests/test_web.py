@@ -179,3 +179,34 @@ def test_history_list_endpoint(tmp_path, monkeypatch):
         server.shutdown()
         server.server_close()
         service._history_store_instance = None
+
+
+def test_history_record_endpoint(tmp_path, monkeypatch):
+    monkeypatch.setenv('DOWNLOAD_DIR', str(tmp_path))
+    from jav_downloader.web import service
+    from jav_downloader.web.history_store import HistoryStore
+    from jav_downloader.web.jobs import Job, JobStatus
+
+    service._history_store_instance = HistoryStore(appdata=tmp_path / 'appdata')
+    store = service._history_store_instance
+    job = Job(id='detail', url='https://example.test/d', status=JobStatus.FAILED)
+    job.log = ['oops']
+    job.error = 'failed'
+    store.upsert_job(job)
+
+    server = ThreadingHTTPServer(('127.0.0.1', 0), WebHandler)
+    host, port = server.server_address
+    thread = threading.Thread(target=server.serve_forever, daemon=True)
+    thread.start()
+    try:
+        conn = HTTPConnection(host, port, timeout=5)
+        conn.request('GET', '/api/history/detail')
+        resp = conn.getresponse()
+        body = json.loads(resp.read().decode('utf-8'))
+        assert resp.status == 200
+        assert body['record']['error'] == 'failed'
+        assert body['record']['log'] == ['oops']
+    finally:
+        server.shutdown()
+        server.server_close()
+        service._history_store_instance = None
