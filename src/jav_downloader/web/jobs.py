@@ -50,6 +50,8 @@ class Job:
     created_at: float = field(default_factory=time.time)
     started_at: float = 0.0
     completed_at: float = 0.0
+    download_phase_sec: float = 0.0
+    encode_phase_sec: float = 0.0
     updated_at: float = field(default_factory=time.time)
 
     @property
@@ -83,6 +85,8 @@ class Job:
             "started_at": self.started_at,
             "completed_at": self.completed_at,
             "elapsed_sec": self.elapsed_sec,
+            "download_phase_sec": self.download_phase_sec,
+            "encode_phase_sec": self.encode_phase_sec,
             "updated_at": self.updated_at,
         }
 

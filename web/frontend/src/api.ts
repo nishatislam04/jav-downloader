@@ -55,6 +55,8 @@ export type Job = {
   started_at?: number;
   completed_at?: number;
   elapsed_sec?: number;
+  download_phase_sec?: number;
+  encode_phase_sec?: number;
   updated_at?: number;
 };
 

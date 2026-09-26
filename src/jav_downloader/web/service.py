@@ -374,6 +374,18 @@ def _format_hms(seconds):
     return f"{total // 3600}:{total % 3600 // 60:02d}:{total % 60:02d}"
 
 
+def _format_phase_duration(seconds: float) -> str:
+    """Short human duration for download/encode phase log lines."""
+    total = max(0, int(round(float(seconds or 0))))
+    if total < 60:
+        return f"{total} sec"
+    minutes, secs = divmod(total, 60)
+    if minutes < 60:
+        return f"{minutes} min {secs} sec" if secs else f"{minutes} min"
+    hours, rem = divmod(minutes, 60)
+    return f"{hours} hr {rem} min" if rem else f"{hours} hr"
+
+
 def _yes_no(value):
     return "on" if value else "off"
 
@@ -535,10 +547,41 @@ def _run_download(
             dest_folder=site.dest_folder() or dest,
         )
 
+        _phase_times: dict[str, float | None] = {
+            "transfer_at": None,
+            "encode_at": None,
+        }
+
         def _on_log(message: str) -> None:
+            now = time.time()
+            if message == "Starting transfer…":
+                _phase_times["transfer_at"] = now
             stamp = _log_stamp()
             line = f"[{stamp}] {message}"
             manager.append_log(job_id, line)
+            if message.startswith("Merging segments into MP4"):
+                started = _phase_times.get("transfer_at")
+                if started:
+                    elapsed = now - float(started)
+                    manager.update(job_id, download_phase_sec=elapsed)
+                    manager.append_log(
+                        job_id,
+                        f"[{_log_stamp()}] Download phase: "
+                        f"{_format_phase_duration(elapsed)}",
+                    )
+            if message.startswith("Encoding…"):
+                if _phase_times.get("encode_at") is None:
+                    _phase_times["encode_at"] = now
+            if message.startswith("Saving as"):
+                encode_at = _phase_times.get("encode_at")
+                if encode_at:
+                    elapsed = now - float(encode_at)
+                    manager.update(job_id, encode_phase_sec=elapsed)
+                    manager.append_log(
+                        job_id,
+                        f"[{_log_stamp()}] Encode phase: "
+                        f"{_format_phase_duration(elapsed)}",
+                    )
             parsed = phase_from_log(message)
             if parsed:
                 phase, detail = parsed

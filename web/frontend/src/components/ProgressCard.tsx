@@ -139,6 +139,15 @@ export default function ProgressCard(props: Props) {
   const outputFile = () => props.job.output_file || "";
   const phaseText = () => formatProgressPhase(props.job);
   const totalTime = () => formatDuration(props.job.elapsed_sec);
+  const phaseTimes = () => {
+    const dl = props.job.download_phase_sec ?? 0;
+    const enc = props.job.encode_phase_sec ?? 0;
+    if (dl <= 0 && enc <= 0) return "";
+    const parts: string[] = [];
+    if (dl > 0) parts.push(`download ${formatDuration(dl)}`);
+    if (enc > 0) parts.push(`encode ${formatDuration(enc)}`);
+    return parts.join(" · ");
+  };
 
   // One glanceable glyph for "what is happening right now".
   const statusIcon = (): {
@@ -182,8 +191,13 @@ export default function ProgressCard(props: Props) {
       <div class="progress-head">
         <div class="progress-head-left">
           <p class="label">Progress</p>
-          <Show when={isCompleted() && totalTime()}>
-            <span class="total-time mono">{totalTime()}</span>
+          <Show when={isCompleted() && (totalTime() || phaseTimes())}>
+            <span class="total-time mono">
+              {totalTime()}
+              <Show when={phaseTimes()}>
+                <span class="phase-times"> ({phaseTimes()})</span>
+              </Show>
+            </span>
           </Show>
         </div>
         <Show when={showControls() || (isCompleted() && outputFile() && props.onReveal)}>
