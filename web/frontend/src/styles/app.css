@@ -252,6 +252,17 @@ textarea.title-textarea {
   line-height: 1.45;
 }
 
+.rename-cut-suffix-hint {
+  margin: 8px 0 0;
+  font-size: 0.85rem;
+  color: var(--muted);
+}
+
+.rename-cut-suffix-hint .mono {
+  margin: 0 0.35em;
+  color: var(--text);
+}
+
 input.input-error,
 .time-segments.input-error {
   border-color: #ff8a8a;

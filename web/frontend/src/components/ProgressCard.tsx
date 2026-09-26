@@ -218,14 +218,21 @@ export default function ProgressCard(props: Props) {
                 <span>Play</span>
               </button>
             </Show>
-            <Show when={isCompleted() && outputFile() && props.onReveal}>
+            <Show
+              when={
+                isCompleted() &&
+                outputFile() &&
+                props.onReveal &&
+                props.revealMode !== "open_file"
+              }
+            >
               <button
                 type="button"
                 class="tool-btn subtle reveal-btn"
                 onClick={() => props.onReveal?.(outputFile())}
               >
                 <FolderIcon />
-                <span>{props.revealMode === "open_file" ? "Open file" : "Show in folder"}</span>
+                <span>Show in folder</span>
               </button>
             </Show>
             <Show when={isDownloading() && props.onPause}>

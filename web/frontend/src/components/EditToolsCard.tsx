@@ -63,6 +63,8 @@ type Props = {
   durationSec: number | null;
   cuts: CutRange[];
   customTitle: string;
+  /** Appended to filename when cutting; not part of editable title. */
+  cutFilenameSuffix?: string;
   savePath: string;
   rememberSavePath: boolean;
   activeTool: ToolId | null;
@@ -1019,6 +1021,13 @@ export default function EditToolsCard(props: Props) {
                       ref={(el) => queueMicrotask(() => el.focus())}
                       onInput={(event) => props.onCustomTitleChange(event.currentTarget.value)}
                     />
+                    <Show when={props.cutFilenameSuffix}>
+                      <p class="field-hint rename-cut-suffix-hint">
+                        Filename adds
+                        <span class="mono">{props.cutFilenameSuffix}</span>
+                        (from cut range)
+                      </p>
+                    </Show>
                   </Show>
 
                   <Show when={toolId() === "save"}>

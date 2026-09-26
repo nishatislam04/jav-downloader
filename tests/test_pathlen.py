@@ -26,7 +26,11 @@ def _m3u8_stub():
 _stub_runtime_dependency('cloudscraper', _cloudscraper_stub)
 _stub_runtime_dependency('m3u8', _m3u8_stub)
 
-from jav_downloader.sites.base import M3U8Crawler, _truncate_target_name
+from jav_downloader.sites.base import (
+    M3U8Crawler,
+    _resolve_segment_temp_folder,
+    _truncate_target_name,
+)
 
 
 _TITLES = {}
@@ -147,4 +151,22 @@ def test_dirname_is_capped_for_temp_folder(tmp_path):
     site = _make_site(tmp_path, dirname, 'ABCD-001 title')
 
     assert len(site._dirName) == 80
-    assert site._temp_folder == os.path.join(site.dest_folder(), 'x' * 80)
+    assert site._temp_folder == os.path.join(site.dest_folder(), '.' + 'x' * 80)
+
+
+def test_resolve_segment_temp_prefers_legacy_for_resume(tmp_path):
+    dest = tmp_path / 'downloads'
+    dest.mkdir()
+    legacy = dest / 'abc123'
+    legacy.mkdir()
+    (legacy / '000001.mp4').write_bytes(b'ts')
+
+    assert _resolve_segment_temp_folder(str(dest), 'abc123') == str(legacy)
+
+
+def test_resolve_segment_temp_uses_hidden_when_no_legacy(tmp_path):
+    dest = tmp_path / 'downloads'
+    dest.mkdir()
+
+    assert _resolve_segment_temp_folder(str(dest), 'abc123') == str(
+        dest / '.abc123')

@@ -56,6 +56,18 @@ def test_sweep_removes_workdirs_and_segment_dirs(tmp_path):
     assert mixed.exists(), "mixed-content dirs must never be deleted"
 
 
+def test_sweep_removes_hidden_segment_dir(tmp_path):
+    segdir = tmp_path / ".abc12345"
+    segdir.mkdir()
+    (segdir / "000000.mp4").write_bytes(b"x")
+
+    result = cleanup.sweep_dest_folder(str(tmp_path))
+
+    assert result["ok"] is True
+    assert result["removed_dirs"] == 1
+    assert not segdir.exists()
+
+
 def test_sweep_keeps_symlink_escape(tmp_path, tmp_path_factory):
     outside = tmp_path_factory.mktemp("outside")
     (outside / "jav-encode-evil.mp4").write_bytes(b"x")

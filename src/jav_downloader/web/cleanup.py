@@ -6,8 +6,8 @@ download folder itself (top level):
 - temp workdirs: ``jav-remux-*``, ``jav-multicut-*``, ``jav-hlsmulticut-*``
 - temp media:    ``jav-encode-*.mp4``, ``jav-audio-*.mp4``, ``jav-cut-*.mp4``
 - partial file:  ``*.mp4.part``
-- segment dirs:  a top-level directory whose entries are all ``NNNNNN.mp4``
-  segment files — the HLS temp-folder pattern
+- segment dirs:  a top-level directory (often ``.<video-id>``) whose entries are
+  all ``NNNNNN.mp4`` segment files — the HLS temp-folder pattern
 
 Completed videos, user files, and any folder with mixed content are never
 touched. Every delete target must resolve strictly inside the download

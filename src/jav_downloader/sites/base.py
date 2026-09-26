@@ -106,6 +106,23 @@ def _portable_filename_fits(dest_folder, target_name):
             len(part_name.encode('utf-8')) <= 255)
 
 
+def _segment_temp_basename(dirname):
+    """Hidden folder name for HLS segment files (dot-prefix for file managers)."""
+    return f'.{dirname}'
+
+
+def _resolve_segment_temp_folder(dest_folder, dirname):
+    """Pick segment temp path; reuse legacy visible folder when resuming."""
+    hidden = os.path.join(dest_folder, _segment_temp_basename(dirname))
+    legacy = os.path.join(dest_folder, dirname)
+    try:
+        if os.path.isdir(legacy) and not os.path.isdir(hidden):
+            return legacy
+    except OSError:
+        pass
+    return hidden
+
+
 def _truncate_target_name(name, dest_folder, dirname):
     """Cap both Windows path units and POSIX component bytes, keeping a UID."""
     if _portable_filename_fits(dest_folder, name):
@@ -674,7 +691,8 @@ class M3U8Crawler:
                 self._dest_folder = os.path.join(os.getcwd(), self._dirName)
             else:
                 self._dest_folder = os.path.abspath(savepath)
-            self._temp_folder = os.path.join(self._dest_folder, self._dirName)
+            self._temp_folder = _resolve_segment_temp_folder(
+                self._dest_folder, self._dirName)
 
             self.get_url_infos()
             from jav_downloader.sites.multi_cut import validate_cuts_against_duration
@@ -690,7 +708,8 @@ class M3U8Crawler:
                         self._targetName, self._filename_mode)
                     if len(self._dirName) > 80:
                         self._dirName = self._dirName[:80]
-                        self._temp_folder = os.path.join(self._dest_folder, self._dirName)
+                        self._temp_folder = _resolve_segment_temp_folder(
+                            self._dest_folder, self._dirName)
                     if not self._targetName.strip():
                         self._targetName = (_sanitize_filename(self._dirName)
                                             or 'video')

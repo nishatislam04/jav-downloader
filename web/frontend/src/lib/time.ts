@@ -99,11 +99,11 @@ export function formatCutSuffixTime(totalSec: number): string {
   return `${String(minutes).padStart(2, "0")}${String(seconds).padStart(2, "0")}`;
 }
 
-const CUT_OUTPUT_SUFFIX_RE = /\s+\[(?:\d+cuts|\d{4,6}-(?:\d{4,6}|end))\]$/;
+const CUT_OUTPUT_SUFFIX_GLOBAL_RE = /\s+\[(?:\d+cuts|\d{4,6}-(?:\d{4,6}|end))\]/g;
 
-/** Strip a trailing cut-range suffix from a title, if present. */
+/** Remove cut-range filename suffixes from a title (all occurrences). */
 export function stripCutOutputSuffix(title: string): string {
-  return title.replace(CUT_OUTPUT_SUFFIX_RE, "");
+  return title.replace(CUT_OUTPUT_SUFFIX_GLOBAL_RE, "").trimEnd();
 }
 
 /** Filename suffix appended when cutting (mirrors `M3U8Crawler._cut_output_suffix`). */

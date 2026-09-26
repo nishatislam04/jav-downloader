@@ -684,7 +684,7 @@ export default function App() {
   function selectTool(tool: ToolId) {
     setActiveTool(tool);
     if (tool === "rename" && !customTitle().trim()) {
-      setCustomTitle(resolved()?.title || "");
+      setCustomTitle(stripCutOutputSuffix(resolved()?.title || ""));
     }
   }
 
@@ -960,7 +960,8 @@ export default function App() {
               meta={meta()}
               durationSec={durationSec()}
               cuts={cuts()}
-              customTitle={renameDisplayTitle()}
+              customTitle={customTitle()}
+              cutFilenameSuffix={cutOutputSuffix(cuts(), durationSec())}
               savePath={savePath()}
               rememberSavePath={rememberSavePath()}
               activeTool={activeTool()}
