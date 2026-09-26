@@ -681,7 +681,7 @@ export default function App() {
     }
     setStatusMessage(
       revealMode() === "open_file"
-        ? "Opening in a video app… switch apps if nothing appears"
+        ? "Launched opener — check app switcher for MX Player / chooser"
         : "Opening folder…",
       "ok",
     );

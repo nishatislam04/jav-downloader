@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import mimetypes
 import os
+import shlex
 import shutil
 import subprocess
 import sys
@@ -101,6 +102,12 @@ def _android_open_paths(target: Path) -> list[Path]:
     return list(dict.fromkeys(candidates))
 
 
+def _log_reveal(message: str) -> None:
+    text = str(message or "").strip()
+    if text:
+        print(f"[jav-reveal] {text}", flush=True)
+
+
 def _run_command(
         cmd: list[str],
         *,
@@ -120,9 +127,24 @@ def _run_command(
     except subprocess.TimeoutExpired as exc:
         raise ValueError(f"Timed out running {cmd[0]}") from exc
 
+    if proc.stderr and proc.stderr.strip():
+        _log_reveal(proc.stderr.strip())
+    if proc.stdout and proc.stdout.strip():
+        _log_reveal(proc.stdout.strip())
+
     if proc.returncode != 0:
         detail = (proc.stderr or proc.stdout or "").strip()
         raise ValueError(detail or f"{cmd[0]} exited with code {proc.returncode}")
+
+
+def _run_termux_open_argv(argv: list[str], env: dict[str, str]) -> None:
+    """Run termux-open through a login shell (matches interactive Termux usage)."""
+    bash = os.path.join(_termux_prefix(), 'bin', 'bash')
+    if os.path.isfile(bash):
+        script = 'exec ' + ' '.join(shlex.quote(part) for part in argv)
+        _run_command([bash, '-lc', script], env=env, new_session=False)
+        return
+    _run_command(argv, env=env, new_session=False)
 
 
 def _termux_open_binary() -> str | None:
@@ -195,7 +217,7 @@ def _raise_termux_for_external_intent() -> None:
                 env=env,
                 new_session=False,
             )
-            time.sleep(0.15)
+            time.sleep(0.35)
             return
         except ValueError:
             continue
@@ -222,7 +244,8 @@ def _termux_open(target: Path) -> None:
         ]
         for cmd in attempts:
             try:
-                _run_command(cmd, env=env, new_session=False)
+                _log_reveal(f"try: {' '.join(cmd)}")
+                _run_termux_open_argv(cmd, env)
                 return
             except ValueError as exc:
                 errors.append(f"{' '.join(cmd)}: {exc}")

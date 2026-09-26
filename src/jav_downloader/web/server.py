@@ -196,7 +196,11 @@ class WebHandler(BaseHTTPRequestHandler):
                 )
                 return
             try:
+                from jav_downloader.web.reveal import _log_reveal
+
+                _log_reveal(f"request: {raw_path}")
                 reveal_in_file_manager(raw_path)
+                _log_reveal("completed OK")
             except ValueError as exc:
                 _json_response(
                     self,
