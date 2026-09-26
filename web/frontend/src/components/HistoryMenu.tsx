@@ -346,20 +346,20 @@ export default function HistoryMenu(props: Props) {
             <button
               type="button"
               class="history-view-switch-btn"
-              classList={{ active: !props.groupByUrl }}
-              aria-pressed={!props.groupByUrl}
-              onClick={() => props.onGroupByUrlChange(false)}
-            >
-              Timeline
-            </button>
-            <button
-              type="button"
-              class="history-view-switch-btn"
               classList={{ active: props.groupByUrl }}
               aria-pressed={props.groupByUrl}
               onClick={() => props.onGroupByUrlChange(true)}
             >
               By URL
+            </button>
+            <button
+              type="button"
+              class="history-view-switch-btn"
+              classList={{ active: !props.groupByUrl }}
+              aria-pressed={!props.groupByUrl}
+              onClick={() => props.onGroupByUrlChange(false)}
+            >
+              Timeline
             </button>
           </div>
           <div class="history-drawer-body" ref={drawerBody} onScroll={onDrawerScroll}>
@@ -429,7 +429,6 @@ export default function HistoryMenu(props: Props) {
             title="Load this video?"
             message={`"${cropHistoryTitle(entry().title)}" will be filled into the URL field.`}
             confirmLabel="Load"
-            confirmClass="confirm-cancel"
             onConfirm={confirmLoad}
             onCancel={() => setPendingLoad(null)}
           />

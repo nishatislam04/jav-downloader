@@ -131,7 +131,6 @@ export default function HistoryDetailDialog(props: Props) {
             title="Load this video?"
             message={`"${cropHistoryTitle(rec().title)}" will be filled into the URL field.`}
             confirmLabel="Load"
-            confirmClass="confirm-cancel"
             onConfirm={() => {
               props.onLoadUrl(rec().url);
               setConfirmLoad(false);
