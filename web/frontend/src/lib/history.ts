@@ -1,48 +1,53 @@
+import { clearHistoryApi, deleteHistoryEntry, fetchHistory, importHistoryEntries } from "../api";
+
 export type HistoryEntry = {
   id: string;
   url: string;
   title: string;
   thumbnail: string;
   downloadedAt: number;
+  status?: string;
+  updatedAt?: number;
 };
 
-const STORAGE_KEY = "jav-downloader-history";
-const MAX_ENTRIES = 40;
+const LEGACY_STORAGE_KEY = "jav-downloader-history";
 
-export function loadHistory(): HistoryEntry[] {
-  try {
-    const raw = localStorage.getItem(STORAGE_KEY);
-    if (!raw) return [];
-    const parsed = JSON.parse(raw) as HistoryEntry[];
-    return Array.isArray(parsed) ? parsed : [];
-  } catch {
+export async function loadHistoryFromServer(): Promise<HistoryEntry[]> {
+  const data = await fetchHistory();
+  if (!data.ok || !Array.isArray(data.entries)) {
     return [];
   }
+  return data.entries;
 }
 
-export function saveHistory(entries: HistoryEntry[]): void {
-  localStorage.setItem(STORAGE_KEY, JSON.stringify(entries.slice(0, MAX_ENTRIES)));
+export async function deleteHistoryOnServer(id: string): Promise<HistoryEntry[]> {
+  await deleteHistoryEntry(id);
+  return loadHistoryFromServer();
 }
 
-export function appendHistory(entry: Omit<HistoryEntry, "id">): HistoryEntry[] {
-  const next: HistoryEntry = { ...entry, id: randomId() };
-  const merged = [next, ...loadHistory().filter((item) => item.url !== entry.url)].slice(
-    0,
-    MAX_ENTRIES,
-  );
-  saveHistory(merged);
-  return merged;
+export async function clearHistoryOnServer(): Promise<HistoryEntry[]> {
+  await clearHistoryApi();
+  return loadHistoryFromServer();
 }
 
-export function deleteHistory(id: string): HistoryEntry[] {
-  const merged = loadHistory().filter((item) => item.id !== id);
-  saveHistory(merged);
-  return merged;
-}
-
-export function clearHistory(): HistoryEntry[] {
-  saveHistory([]);
-  return [];
+export async function importLocalHistoryOnce(): Promise<void> {
+  let raw: string | null = null;
+  try {
+    raw = localStorage.getItem(LEGACY_STORAGE_KEY);
+  } catch {
+    return;
+  }
+  if (!raw) return;
+  try {
+    const parsed = JSON.parse(raw) as unknown;
+    if (!Array.isArray(parsed) || parsed.length === 0) return;
+    const result = await importHistoryEntries(parsed as HistoryEntry[]);
+    if (result.ok) {
+      localStorage.removeItem(LEGACY_STORAGE_KEY);
+    }
+  } catch {
+    // Keep legacy data if import fails.
+  }
 }
 
 export function formatHistoryWhen(ms: number): string {
@@ -60,10 +65,12 @@ export function cropHistoryTitle(title: string, max = 72): string {
   return text.length <= max ? text : `${text.slice(0, max - 1)}…`;
 }
 
-// crypto.randomUUID is unavailable on insecure origins (e.g. http://<lan-ip>).
-function randomId(): string {
-  if (typeof crypto !== "undefined" && typeof crypto.randomUUID === "function") {
-    return crypto.randomUUID();
-  }
-  return `id-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 10)}`;
+export function historyStatusLabel(status: string | undefined): string {
+  const value = (status || "").trim().toLowerCase();
+  if (!value || value === "completed") return "";
+  if (value === "failed") return "Failed";
+  if (value === "paused") return "Paused";
+  if (value === "downloading") return "In progress";
+  if (value === "pending") return "Pending";
+  return value;
 }

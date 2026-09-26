@@ -13,6 +13,7 @@ from jav_downloader.sites.base import (
     _sanitize_filename,
     _truncate_target_name,
 )
+from jav_downloader.web.history_store import HistoryStore
 from jav_downloader.web.job_store import JobStore
 from jav_downloader.web.jobs import Job, JobManager, JobStatus
 from jav_downloader.web.paths import default_download_dir, validate_dest_folder
@@ -23,6 +24,7 @@ _active_lock = threading.Lock()
 _job_params: dict[str, dict] = {}
 _PAUSE_DRAIN_TIMEOUT = 45.0
 _job_store_instance: JobStore | None = None
+_history_store_instance: HistoryStore | None = None
 
 
 def _wait_for_worker_idle(job_id: str, timeout: float = _PAUSE_DRAIN_TIMEOUT) -> bool:
@@ -269,12 +271,25 @@ def restore_saved_jobs(manager: JobManager) -> int:
         restored += 1
     if restored:
         manager.restore_jobs(jobs)
+        for job in jobs:
+            params = params_by_id.get(job.id)
+            _history_store().upsert_job(
+                job, params if isinstance(params, dict) else None
+            )
     return restored
+
+
+def _history_store() -> HistoryStore:
+    global _history_store_instance
+    if _history_store_instance is None:
+        _history_store_instance = HistoryStore()
+    return _history_store_instance
 
 
 def persist_job_snapshot(jobs) -> None:
     """JobManager persistence hook: snapshot resumable jobs + params."""
     _job_store().save(jobs, _job_params)
+    _history_store().upsert_jobs_throttled(jobs, _job_params)
 
 
 def _apply_output_title(site, output_title: str | None) -> None:
@@ -910,3 +925,29 @@ def cancel_download(manager: JobManager, job_id: str) -> bool:
         manager.notify_change()
         return True
     return False
+
+
+def list_history(limit: int = 1000, offset: int = 0) -> dict:
+    entries = _history_store().list_records(limit=limit, offset=offset)
+    return {"ok": True, "entries": entries}
+
+
+def delete_history_record(record_id: str) -> dict:
+    record_id = str(record_id or "").strip()
+    if not record_id:
+        return {"ok": False, "error": "Record id is required"}
+    if _history_store().delete(record_id):
+        return {"ok": True}
+    return {"ok": False, "error": "Record not found"}
+
+
+def clear_history_records() -> dict:
+    _history_store().clear_all()
+    return {"ok": True}
+
+
+def import_history_entries(entries: list) -> dict:
+    if not isinstance(entries, list):
+        return {"ok": False, "error": "entries must be a list"}
+    count = _history_store().import_menu_entries(entries)
+    return {"ok": True, "imported": count}

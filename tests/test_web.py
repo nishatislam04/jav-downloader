@@ -149,3 +149,33 @@ def test_resolve_rejects_empty_url(tmp_path, monkeypatch):
     finally:
         server.shutdown()
         server.server_close()
+
+
+def test_history_list_endpoint(tmp_path, monkeypatch):
+    monkeypatch.setenv('DOWNLOAD_DIR', str(tmp_path))
+    from jav_downloader.web import service
+    from jav_downloader.web.history_store import HistoryStore
+    from jav_downloader.web.jobs import Job, JobStatus
+
+    service._history_store_instance = HistoryStore(appdata=tmp_path / 'appdata')
+    store = service._history_store_instance
+    store.upsert_job(
+        Job(id='h1', url='https://example.test/h', status=JobStatus.COMPLETED),
+    )
+
+    server = ThreadingHTTPServer(('127.0.0.1', 0), WebHandler)
+    host, port = server.server_address
+    thread = threading.Thread(target=server.serve_forever, daemon=True)
+    thread.start()
+    try:
+        conn = HTTPConnection(host, port, timeout=5)
+        conn.request('GET', '/api/history?limit=10')
+        resp = conn.getresponse()
+        body = json.loads(resp.read().decode('utf-8'))
+        assert resp.status == 200
+        assert body['ok'] is True
+        assert body['entries'][0]['id'] == 'h1'
+    finally:
+        server.shutdown()
+        server.server_close()
+        service._history_store_instance = None

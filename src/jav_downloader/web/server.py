@@ -107,6 +107,23 @@ class WebHandler(BaseHTTPRequestHandler):
             _json_response(self, HTTPStatus.OK, service.encoding_capabilities_payload())
             return
 
+        if path == "/api/history":
+            qs = parse_qs(parsed.query)
+            try:
+                limit = int(qs.get("limit", ["1000"])[0])
+            except ValueError:
+                limit = 1000
+            try:
+                offset = int(qs.get("offset", ["0"])[0])
+            except ValueError:
+                offset = 0
+            _json_response(
+                self,
+                HTTPStatus.OK,
+                service.list_history(limit=limit, offset=offset),
+            )
+            return
+
         if path == "/api/jobs":
             jobs = [job.to_dict() for job in MANAGER.list_jobs()]
             _json_response(self, HTTPStatus.OK, {"ok": True, "jobs": jobs})
@@ -259,6 +276,36 @@ class WebHandler(BaseHTTPRequestHandler):
             status = (
                 HTTPStatus.OK if result.get("ok") else HTTPStatus.UNPROCESSABLE_ENTITY
             )
+            _json_response(self, status, result)
+            return
+
+        if path == "/api/history/import":
+            entries = payload.get("entries")
+            if not isinstance(entries, list):
+                _json_response(
+                    self,
+                    HTTPStatus.BAD_REQUEST,
+                    {"ok": False, "error": "entries must be a list"},
+                )
+                return
+            _json_response(
+                self,
+                HTTPStatus.OK,
+                service.import_history_entries(entries),
+            )
+            return
+
+        if path == "/api/history/delete":
+            if payload.get("all"):
+                _json_response(
+                    self,
+                    HTTPStatus.OK,
+                    service.clear_history_records(),
+                )
+                return
+            record_id = str(payload.get("id") or "").strip()
+            result = service.delete_history_record(record_id)
+            status = HTTPStatus.OK if result.get("ok") else HTTPStatus.NOT_FOUND
             _json_response(self, status, result)
             return
 

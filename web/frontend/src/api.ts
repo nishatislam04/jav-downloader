@@ -198,3 +198,47 @@ export function cleanupJob(jobId: string) {
     body: JSON.stringify({ job_id: jobId }),
   });
 }
+
+export type HistoryEntry = {
+  id: string;
+  url: string;
+  title: string;
+  thumbnail: string;
+  downloadedAt: number;
+  status?: string;
+  updatedAt?: number;
+};
+
+export function fetchHistory(limit = 5000, offset = 0) {
+  const qs = new URLSearchParams({
+    limit: String(limit),
+    offset: String(offset),
+  });
+  return request<{ ok: boolean; entries?: HistoryEntry[]; error?: string }>(
+    `/api/history?${qs.toString()}`,
+  );
+}
+
+export function deleteHistoryEntry(id: string) {
+  return request<{ ok: boolean; error?: string }>("/api/history/delete", {
+    method: "POST",
+    body: JSON.stringify({ id }),
+  });
+}
+
+export function clearHistoryApi() {
+  return request<{ ok: boolean; error?: string }>("/api/history/delete", {
+    method: "POST",
+    body: JSON.stringify({ all: true }),
+  });
+}
+
+export function importHistoryEntries(entries: HistoryEntry[]) {
+  return request<{ ok: boolean; imported?: number; error?: string }>(
+    "/api/history/import",
+    {
+      method: "POST",
+      body: JSON.stringify({ entries }),
+    },
+  );
+}

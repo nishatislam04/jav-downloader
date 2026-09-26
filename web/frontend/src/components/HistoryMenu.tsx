@@ -1,11 +1,12 @@
 import { createEffect, createSignal, For, onCleanup, Show } from "solid-js";
 import {
-  clearHistory,
+  clearHistoryOnServer,
   cropHistoryTitle,
-  deleteHistory,
+  deleteHistoryOnServer,
   formatHistoryWhen,
   type HistoryEntry,
-  loadHistory,
+  historyStatusLabel,
+  loadHistoryFromServer,
 } from "../lib/history";
 import ConfirmDialog from "./ConfirmDialog";
 import { CloseIcon, HistoryIcon, TrashIcon } from "./IconButton";
@@ -19,16 +20,22 @@ type PendingDelete = { type: "entry"; id: string } | { type: "all" };
 
 export default function HistoryMenu(props: Props) {
   const [open, setOpen] = createSignal(false);
-  const [entries, setEntries] = createSignal<HistoryEntry[]>(loadHistory());
+  const [entries, setEntries] = createSignal<HistoryEntry[]>([]);
+  const [loading, setLoading] = createSignal(false);
   const [pending, setPending] = createSignal<PendingDelete | null>(null);
   const [pendingLoad, setPendingLoad] = createSignal<HistoryEntry | null>(null);
 
-  function refresh() {
-    setEntries(loadHistory());
+  async function refresh() {
+    setLoading(true);
+    try {
+      setEntries(await loadHistoryFromServer());
+    } finally {
+      setLoading(false);
+    }
   }
 
   function toggle() {
-    refresh();
+    void refresh();
     setOpen((value) => !value);
   }
 
@@ -38,8 +45,6 @@ export default function HistoryMenu(props: Props) {
 
   function onDocClick(event: MouseEvent) {
     const target = event.target as Node | null;
-    // Confirm-dialog cancel unmounts the clicked button mid-click; the bubbling
-    // event then carries a detached node, which must not close the drawer.
     if (!target?.isConnected) return;
     const root = document.getElementById("history-menu-root");
     if (root && !root.contains(target)) {
@@ -72,15 +77,14 @@ export default function HistoryMenu(props: Props) {
     setPending({ type: "all" });
   }
 
-  function confirmPending() {
+  async function confirmPending() {
     const action = pending();
     if (!action) return;
     if (action.type === "entry") {
-      setEntries(deleteHistory(action.id));
+      setEntries(await deleteHistoryOnServer(action.id));
     } else {
-      setEntries(clearHistory());
+      setEntries(await clearHistoryOnServer());
     }
-    // Drawer stays open so more entries can be managed.
     setPending(null);
   }
 
@@ -125,43 +129,51 @@ export default function HistoryMenu(props: Props) {
             </button>
           </div>
           <div class="history-drawer-body">
-            <Show when={entries().length} fallback={<p class="history-empty">No downloads yet</p>}>
-              <For each={entries()}>
-                {(entry) => (
-                  <div class="history-item">
-                    <button
-                      type="button"
-                      class="history-item-main"
-                      role="menuitem"
-                      onClick={() => setPendingLoad(entry)}
-                    >
-                      <Show when={entry.thumbnail}>
-                        <img
-                          src={thumbnailSrc(entry.thumbnail)}
-                          alt=""
-                          class="history-item-thumb"
-                          loading="lazy"
-                        />
-                      </Show>
-                      <span class="history-item-body">
-                        <span class="history-item-title">{entry.title.trim() || "Untitled"}</span>
-                        <span class="history-item-when">
-                          {formatHistoryWhen(entry.downloadedAt)}
+            <Show
+              when={!loading()}
+              fallback={<p class="history-empty">Loading…</p>}
+            >
+              <Show when={entries().length} fallback={<p class="history-empty">No downloads yet</p>}>
+                <For each={entries()}>
+                  {(entry) => (
+                    <div class="history-item">
+                      <button
+                        type="button"
+                        class="history-item-main"
+                        role="menuitem"
+                        onClick={() => setPendingLoad(entry)}
+                      >
+                        <Show when={entry.thumbnail}>
+                          <img
+                            src={thumbnailSrc(entry.thumbnail)}
+                            alt=""
+                            class="history-item-thumb"
+                            loading="lazy"
+                          />
+                        </Show>
+                        <span class="history-item-body">
+                          <span class="history-item-title">{entry.title.trim() || "Untitled"}</span>
+                          <span class="history-item-when">
+                            {formatHistoryWhen(entry.downloadedAt)}
+                            <Show when={historyStatusLabel(entry.status)}>
+                              {(label) => <> · {label()}</>}
+                            </Show>
+                          </span>
                         </span>
-                      </span>
-                    </button>
-                    <button
-                      type="button"
-                      class="history-item-del"
-                      aria-label="Delete entry"
-                      title="Delete"
-                      onClick={() => removeEntry(entry.id)}
-                    >
-                      <TrashIcon />
-                    </button>
-                  </div>
-                )}
-              </For>
+                      </button>
+                      <button
+                        type="button"
+                        class="history-item-del"
+                        aria-label="Delete entry"
+                        title="Delete"
+                        onClick={() => removeEntry(entry.id)}
+                      >
+                        <TrashIcon />
+                      </button>
+                    </div>
+                  )}
+                </For>
+              </Show>
             </Show>
           </div>
           <Show when={entries().length}>
@@ -195,7 +207,7 @@ export default function HistoryMenu(props: Props) {
                 : "This download will be removed from your history."
             }
             confirmLabel="Delete"
-            onConfirm={confirmPending}
+            onConfirm={() => void confirmPending()}
             onCancel={cancelPending}
           />
         )}

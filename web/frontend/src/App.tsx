@@ -39,7 +39,7 @@ import ProgressCard from "./components/ProgressCard";
 import ProgressRing from "./components/ProgressRing";
 import SummaryCard from "./components/SummaryCard";
 import SupportedSites from "./components/SupportedSites";
-import { appendHistory } from "./lib/history";
+import { importLocalHistoryOnce } from "./lib/history";
 import {
   type AudioSettings,
   DEFAULT_AUDIO_SETTINGS,
@@ -131,6 +131,7 @@ export default function App() {
 
   onMount(async () => {
     urlInput?.focus();
+    void importLocalHistoryOnce();
     const [health, caps] = await Promise.all([
       fetchHealth(),
       fetchEncodingCapabilities().catch(() => null),
@@ -523,13 +524,6 @@ export default function App() {
       if (!data.ok || !data.job) return;
       setJob(data.job);
       if (data.job.status === "completed") {
-        const meta = resolved();
-        appendHistory({
-          url: meta?.url || url().trim(),
-          title: meta?.title || data.job.title || "",
-          thumbnail: meta?.thumbnail || data.job.thumbnail || "",
-          downloadedAt: Date.now(),
-        });
         setDownloadComplete(true);
         setCompletedRename(customTitle().trim());
         setStatusMessage("", "");
