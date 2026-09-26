@@ -58,6 +58,7 @@ export default function ProgressCard(props: Props) {
   const [logIdle, setLogIdle] = createSignal(false);
   const [copied, setCopied] = createSignal(false);
   const [logFull, setLogFull] = createSignal(false);
+  const [playOpen, setPlayOpen] = createSignal(false);
   let idleTimer: ReturnType<typeof setTimeout> | undefined;
   let copiedTimer: ReturnType<typeof setTimeout> | undefined;
   let lastLogKey = "";
@@ -139,6 +140,8 @@ export default function ProgressCard(props: Props) {
   const outputFile = () => props.job.output_file || "";
   const phaseText = () => formatProgressPhase(props.job);
   const totalTime = () => formatDuration(props.job.elapsed_sec);
+  const mediaUrl = () => `/api/jobs/${props.job.id}/media`;
+
   const phaseTimes = () => {
     const dl = props.job.download_phase_sec ?? 0;
     const enc = props.job.encode_phase_sec ?? 0;
@@ -192,16 +195,29 @@ export default function ProgressCard(props: Props) {
         <div class="progress-head-left">
           <p class="label">Progress</p>
           <Show when={isCompleted() && (totalTime() || phaseTimes())}>
-            <span class="total-time mono">
-              {totalTime()}
-              <Show when={phaseTimes()}>
-                <span class="phase-times"> ({phaseTimes()})</span>
+            <div class="progress-timing mono">
+              <Show when={totalTime()}>
+                <span class="total-time">{totalTime()}</span>
               </Show>
-            </span>
+              <Show when={phaseTimes()}>
+                <span class="phase-times">{phaseTimes()}</span>
+              </Show>
+            </div>
           </Show>
         </div>
-        <Show when={showControls() || (isCompleted() && outputFile() && props.onReveal)}>
+        <Show when={showControls() || (isCompleted() && outputFile())}>
           <div class="progress-actions">
+            <Show when={isCompleted() && outputFile()}>
+              <button
+                type="button"
+                class="tool-btn subtle reveal-btn"
+                title="Play encoded output in this browser"
+                onClick={() => setPlayOpen(true)}
+              >
+                <PlayIcon />
+                <span>Play</span>
+              </button>
+            </Show>
             <Show when={isCompleted() && outputFile() && props.onReveal}>
               <button
                 type="button"
@@ -256,6 +272,30 @@ export default function ProgressCard(props: Props) {
           </div>
         </Show>
       </div>
+      <Show when={playOpen() && isCompleted() && outputFile()}>
+        <div
+          class="video-play-overlay"
+          role="dialog"
+          aria-label="Play video"
+          onClick={() => setPlayOpen(false)}
+        >
+          <div class="video-play-panel" onClick={(event) => event.stopPropagation()}>
+            <video
+              class="video-play-player"
+              controls
+              playsinline
+              preload="metadata"
+              src={mediaUrl()}
+            />
+            <p class="hint video-play-hint">
+              Encoded output · keep_both saves a separate original on disk
+            </p>
+            <button type="button" class="tool-btn subtle" onClick={() => setPlayOpen(false)}>
+              Close
+            </button>
+          </div>
+        </div>
+      </Show>
       <div class="progress-body">
         <Show when={!isCancelled()}>
           <div class="bar-track" aria-hidden="true">
