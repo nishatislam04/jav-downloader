@@ -382,19 +382,16 @@ export default function HistoryMenu(props: Props) {
                             aria-expanded={expandedUrls().has(group.url)}
                             onClick={() => toggleGroupExpand(group.url)}
                           >
-                            <span class="history-group-expand-count">
-                              {moreRunsLabel(group.count)}
-                            </span>
-                            <span class="history-group-expand-chevron" aria-hidden="true">
-                              {expandedUrls().has(group.url) ? "▾" : "▸"}
-                            </span>
+                            {moreRunsLabel(group.count)}
                           </button>
                         </Show>
                         {renderEntry(group.latest)}
                         <Show when={expandedUrls().has(group.url) && group.count > 1}>
-                          <For each={group.runs.slice(1)}>
-                            {(entry) => renderEntry(entry, true)}
-                          </For>
+                          <div class="history-nested-runs">
+                            <For each={group.runs.slice(1)}>
+                              {(entry) => renderEntry(entry, true)}
+                            </For>
+                          </div>
                         </Show>
                       </div>
                     )}
