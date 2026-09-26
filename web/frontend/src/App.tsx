@@ -8,6 +8,7 @@ import {
   untrack,
 } from "solid-js";
 import {
+  type AppSettings,
   cancelJob,
   cleanupJob,
   type EncodingCapabilities,
@@ -40,21 +41,17 @@ import ProgressRing from "./components/ProgressRing";
 import SummaryCard from "./components/SummaryCard";
 import SettingsDrawer from "./components/SettingsDrawer";
 import SupportedSites from "./components/SupportedSites";
+import {
+  applyServerSettings,
+  buildSettingsPatch,
+  migrateToolSettingsFromLocalStorage,
+} from "./lib/appSettings";
 import { importLocalHistoryOnce } from "./lib/history";
 import {
   type AudioSettings,
   DEFAULT_AUDIO_SETTINGS,
   DEFAULT_ENCODE_SETTINGS,
   type EncodeSettings,
-  loadAudioSettings,
-  loadEncodeSettings,
-  loadRememberAudio,
-  loadRememberEncode,
-  loadRememberSavePath,
-  loadSavedPath,
-  persistAudioSettings,
-  persistEncodeSettings,
-  persistSavePath,
 } from "./lib/persist";
 import { siteFaviconSrc, siteFromLabel } from "./lib/sites";
 import {
@@ -87,16 +84,16 @@ export default function App() {
   );
   const [savePath, setSavePath] = createSignal("");
   const [savePathCustom, setSavePathCustom] = createSignal(false);
-  const [rememberSavePath, setRememberSavePath] = createSignal(loadRememberSavePath());
+  const [rememberSavePath, setRememberSavePath] = createSignal(false);
   const [customTitle, setCustomTitle] = createSignal("");
-  const [audioSettings, setAudioSettings] = createSignal<AudioSettings>(
-    loadRememberAudio() ? loadAudioSettings() : { ...DEFAULT_AUDIO_SETTINGS },
-  );
-  const [rememberAudio, setRememberAudio] = createSignal(loadRememberAudio());
-  const [encodeSettings, setEncodeSettings] = createSignal<EncodeSettings>(
-    loadRememberEncode() ? loadEncodeSettings() : { ...DEFAULT_ENCODE_SETTINGS },
-  );
-  const [rememberEncode, setRememberEncode] = createSignal(loadRememberEncode());
+  const [audioSettings, setAudioSettings] = createSignal<AudioSettings>({
+    ...DEFAULT_AUDIO_SETTINGS,
+  });
+  const [rememberAudio, setRememberAudio] = createSignal(false);
+  const [encodeSettings, setEncodeSettings] = createSignal<EncodeSettings>({
+    ...DEFAULT_ENCODE_SETTINGS,
+  });
+  const [rememberEncode, setRememberEncode] = createSignal(false);
   const [encodingCapabilities, setEncodingCapabilities] = createSignal<EncodingCapabilities | null>(
     null,
   );
@@ -119,6 +116,7 @@ export default function App() {
   const [historyRefreshKey, setHistoryRefreshKey] = createSignal(0);
   const [historyDbWarning, setHistoryDbWarning] = createSignal("");
   const [hideThumbnails, setHideThumbnails] = createSignal(false);
+  const [historyGroupByUrl, setHistoryGroupByUrl] = createSignal(false);
   const [settingsSaving, setSettingsSaving] = createSignal(false);
 
   let urlInput: HTMLInputElement | undefined;
@@ -134,6 +132,31 @@ export default function App() {
     if (editResolveTimer) clearTimeout(editResolveTimer);
   });
 
+  function applyToolSettings(raw?: AppSettings | null) {
+    const applied = applyServerSettings(raw);
+    setHideThumbnails(applied.hideThumbnails);
+    setHistoryGroupByUrl(applied.historyGroupByUrl);
+    setRememberSavePath(applied.rememberSavePath);
+    setRememberAudio(applied.rememberAudio);
+    setAudioSettings(applied.audioSettings);
+    setRememberEncode(applied.rememberEncode);
+    setEncodeSettings(applied.encodeSettings);
+    return applied;
+  }
+
+  async function patchAppSettings(patch: AppSettings) {
+    if (!Object.keys(patch).length) return;
+    setSettingsSaving(true);
+    try {
+      const result = await saveSettings(patch);
+      if (result.settings) {
+        applyToolSettings(result.settings);
+      }
+    } finally {
+      setSettingsSaving(false);
+    }
+  }
+
   onMount(async () => {
     urlInput?.focus();
     void importLocalHistoryOnce();
@@ -141,6 +164,7 @@ export default function App() {
       fetchHealth(),
       fetchEncodingCapabilities().catch(() => null),
     ]);
+    const migrated = await migrateToolSettingsFromLocalStorage();
     if (caps?.ok) setEncodingCapabilities(caps);
     const downloadDir = health.download_dir || "";
     setDefaultDownloadDir(downloadDir);
@@ -150,21 +174,18 @@ export default function App() {
     if (health.history_last_error) {
       setHistoryDbWarning(health.history_last_error);
     }
-    if (health.settings && "hide_thumbnails" in health.settings) {
-      setHideThumbnails(Boolean(health.settings.hide_thumbnails));
-    }
+    const applied = applyToolSettings(migrated ?? health.settings);
 
-    if (rememberSavePath()) {
-      const stored = loadSavedPath().trim();
-      if (stored) {
-        const result = await validateFolder(stored);
-        if (result.ok && result.path) {
-          setSavePath(result.path);
-          setSavePathCustom(true);
-          return;
-        }
-        persistSavePath("", false);
+    if (applied.rememberSavePath && applied.savePath) {
+      const result = await validateFolder(applied.savePath);
+      if (result.ok && result.path) {
+        setSavePath(result.path);
+        setSavePathCustom(true);
+      } else {
         setRememberSavePath(false);
+        void patchAppSettings(
+          buildSettingsPatch({ rememberSavePath: false, savePath: "" }),
+        );
       }
     }
 
@@ -498,32 +519,40 @@ export default function App() {
   function handleAudioSettingsChange(value: AudioSettings) {
     setAudioSettings(value);
     if (rememberAudio()) {
-      persistAudioSettings(value, true);
+      void patchAppSettings(
+        buildSettingsPatch({ rememberAudio: true, audioSettings: value }),
+      );
     }
   }
 
   function handleRememberAudioChange(checked: boolean) {
     setRememberAudio(checked);
     if (checked) {
-      persistAudioSettings(audioSettings(), true);
+      void patchAppSettings(
+        buildSettingsPatch({ rememberAudio: true, audioSettings: audioSettings() }),
+      );
     } else {
-      persistAudioSettings(audioSettings(), false);
+      void patchAppSettings(buildSettingsPatch({ rememberAudio: false }));
     }
   }
 
   function handleEncodeSettingsChange(value: EncodeSettings) {
     setEncodeSettings(value);
     if (rememberEncode()) {
-      persistEncodeSettings(value, true);
+      void patchAppSettings(
+        buildSettingsPatch({ rememberEncode: true, encodeSettings: value }),
+      );
     }
   }
 
   function handleRememberEncodeChange(checked: boolean) {
     setRememberEncode(checked);
     if (checked) {
-      persistEncodeSettings(encodeSettings(), true);
+      void patchAppSettings(
+        buildSettingsPatch({ rememberEncode: true, encodeSettings: encodeSettings() }),
+      );
     } else {
-      persistEncodeSettings(encodeSettings(), false);
+      void patchAppSettings(buildSettingsPatch({ rememberEncode: false }));
     }
   }
 
@@ -697,15 +726,12 @@ export default function App() {
 
   async function handleHideThumbnailsChange(checked: boolean) {
     setHideThumbnails(checked);
-    setSettingsSaving(true);
-    try {
-      const result = await saveSettings({ hide_thumbnails: checked });
-      if (result.settings?.hide_thumbnails !== undefined) {
-        setHideThumbnails(Boolean(result.settings.hide_thumbnails));
-      }
-    } finally {
-      setSettingsSaving(false);
-    }
+    await patchAppSettings(buildSettingsPatch({ hideThumbnails: checked }));
+  }
+
+  async function handleHistoryGroupByUrlChange(checked: boolean) {
+    setHistoryGroupByUrl(checked);
+    await patchAppSettings(buildSettingsPatch({ historyGroupByUrl: checked }));
   }
 
   function selectTool(tool: ToolId) {
@@ -729,7 +755,9 @@ export default function App() {
     setSavePathCustom(true);
     setSavePath(path);
     if (rememberSavePath()) {
-      persistSavePath(path, true);
+      void patchAppSettings(
+        buildSettingsPatch({ rememberSavePath: true, savePath: path }),
+      );
     }
     scheduleEditResolve();
   }
@@ -740,10 +768,10 @@ export default function App() {
       const path = savePath().trim();
       if (path) {
         setSavePathCustom(true);
-        persistSavePath(path, true);
+        void patchAppSettings(buildSettingsPatch({ rememberSavePath: true, savePath: path }));
       }
     } else {
-      persistSavePath("", false);
+      void patchAppSettings(buildSettingsPatch({ rememberSavePath: false, savePath: "" }));
     }
   }
 
@@ -852,6 +880,8 @@ export default function App() {
           <SupportedSites />
           <HistoryMenu
             refreshKey={historyRefreshKey()}
+            groupByUrl={historyGroupByUrl()}
+            onGroupByUrlChange={handleHistoryGroupByUrlChange}
             onSelect={(entry) => setUrl(entry.url)}
           />
           <Show when={historyDbWarning()}>

@@ -3,7 +3,11 @@ from jav_downloader.web.settings_store import SettingsStore
 
 def test_defaults_when_empty(tmp_path):
     store = SettingsStore(appdata=tmp_path)
-    assert store.get_all() == {"hide_thumbnails": False}
+    settings = store.get_all()
+    assert settings["hide_thumbnails"] is False
+    assert settings["history_group_by_url"] is False
+    assert settings["remember_encode"] is False
+    assert settings["encode_settings"]["codec"] == "h264"
 
 
 def test_persist_hide_thumbnails(tmp_path):

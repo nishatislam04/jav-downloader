@@ -1,3 +1,5 @@
+import type { AudioSettings, EncodeSettings } from "./lib/persist";
+
 export type HlsTier = {
   id: string;
   label: string;
@@ -80,6 +82,13 @@ async function request<T>(path: string, options: RequestInit = {}): Promise<T> {
 
 export type AppSettings = {
   hide_thumbnails?: boolean;
+  history_group_by_url?: boolean;
+  remember_save_path?: boolean;
+  save_path?: string;
+  remember_audio?: boolean;
+  audio_settings?: Partial<AudioSettings>;
+  remember_encode?: boolean;
+  encode_settings?: Partial<EncodeSettings>;
 };
 
 export function fetchHealth() {

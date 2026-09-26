@@ -70,7 +70,7 @@ export const DEFAULT_ENCODE_SETTINGS: EncodeSettings = {
   smallFile: false,
 };
 
-function normalizeEncodeSettings(raw: Partial<EncodeSettings> | null): EncodeSettings {
+export function normalizeEncodeSettings(raw: Partial<EncodeSettings> | null): EncodeSettings {
   const base = { ...DEFAULT_ENCODE_SETTINGS };
   if (!raw) return base;
   const codec = raw.codec === "hevc" ? "hevc" : "h264";
@@ -148,25 +148,14 @@ export function loadSavedPath(): string {
   }
 }
 
-export function persistSavePath(path: string, remember: boolean): void {
-  try {
-    if (remember && path.trim()) {
-      localStorage.setItem(REMEMBER_SAVE_PATH_KEY, "1");
-      localStorage.setItem(SAVE_PATH_KEY, path.trim());
-      return;
-    }
-    localStorage.removeItem(REMEMBER_SAVE_PATH_KEY);
-    localStorage.removeItem(SAVE_PATH_KEY);
-  } catch {
-    // ignore quota / private mode
-  }
-}
+/** Legacy localStorage hook; tool prefs persist via POST /api/settings. */
+export function persistSavePath(_path: string, _remember: boolean): void {}
 
 export function clearSavedPath(): void {
   persistSavePath("", false);
 }
 
-function normalizeAudioSettings(raw: Partial<AudioSettings> | null): AudioSettings {
+export function normalizeAudioSettings(raw: Partial<AudioSettings> | null): AudioSettings {
   if (!raw) return { ...DEFAULT_AUDIO_SETTINGS };
   const bitrates: AudioBitrate[] = [96, 128, 192];
   const bitrate = bitrates.includes(raw.bitrate as AudioBitrate)
@@ -202,20 +191,8 @@ export function loadAudioSettings(): AudioSettings {
   }
 }
 
-export function persistAudioSettings(settings: AudioSettings, remember: boolean): void {
-  try {
-    const normalized = normalizeAudioSettings(settings);
-    if (remember) {
-      localStorage.setItem(REMEMBER_AUDIO_KEY, "1");
-      localStorage.setItem(AUDIO_SETTINGS_KEY, JSON.stringify(normalized));
-      return;
-    }
-    localStorage.removeItem(REMEMBER_AUDIO_KEY);
-    localStorage.removeItem(AUDIO_SETTINGS_KEY);
-  } catch {
-    // ignore quota / private mode
-  }
-}
+/** Legacy localStorage hook; tool prefs persist via POST /api/settings. */
+export function persistAudioSettings(_settings: AudioSettings, _remember: boolean): void {}
 
 export function loadRememberEncode(): boolean {
   try {
@@ -235,17 +212,5 @@ export function loadEncodeSettings(): EncodeSettings {
   }
 }
 
-export function persistEncodeSettings(settings: EncodeSettings, remember: boolean): void {
-  try {
-    const normalized = normalizeEncodeSettings(settings);
-    if (remember) {
-      localStorage.setItem(REMEMBER_ENCODE_KEY, "1");
-      localStorage.setItem(ENCODE_SETTINGS_KEY, JSON.stringify(normalized));
-      return;
-    }
-    localStorage.removeItem(REMEMBER_ENCODE_KEY);
-    localStorage.removeItem(ENCODE_SETTINGS_KEY);
-  } catch {
-    // ignore quota / private mode
-  }
-}
+/** Legacy localStorage hook; tool prefs persist via POST /api/settings. */
+export function persistEncodeSettings(_settings: EncodeSettings, _remember: boolean): void {}

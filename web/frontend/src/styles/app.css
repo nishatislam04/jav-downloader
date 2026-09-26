@@ -1762,31 +1762,62 @@ button.save-apply-btn:not(:disabled):hover {
   background: rgba(255, 82, 99, 0.14);
 }
 
-.history-group-toggle {
-  margin-right: 4px;
-  padding: 4px 10px;
+.history-view-switch {
+  display: flex;
+  gap: 6px;
+  margin: 0 12px 10px;
+  padding: 4px;
+  border-radius: 10px;
+  background: rgba(255, 255, 255, 0.04);
   border: 1px solid var(--border);
+}
+
+.history-view-switch-btn {
+  flex: 1;
+  padding: 8px 10px;
+  border: none;
   border-radius: 8px;
+  background: transparent;
+  color: var(--muted);
+  font-size: 0.82rem;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.history-view-switch-btn.active {
+  color: var(--text);
+  background: rgba(120, 170, 255, 0.18);
+  box-shadow: 0 1px 0 rgba(0, 0, 0, 0.2);
+}
+
+.history-group-expand {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  width: calc(100% + 12px);
+  margin: 0 0 6px -12px;
+  padding: 6px 12px 6px 0;
+  border: none;
+  border-radius: 0;
   background: transparent;
   color: var(--muted);
   font-size: 0.75rem;
   cursor: pointer;
+  text-align: left;
 }
 
-.history-group-toggle.active {
+.history-group-expand:hover {
   color: var(--text);
-  border-color: rgba(120, 170, 255, 0.45);
+  border-color: rgba(120, 170, 255, 0.35);
 }
 
-.history-group-badge {
-  margin: 0 12px 8px 52px;
-  padding: 4px 8px;
-  border: none;
-  border-radius: 6px;
-  background: rgba(255, 255, 255, 0.06);
-  color: var(--muted);
-  font-size: 0.75rem;
-  cursor: pointer;
+.history-group-expand-count {
+  font-weight: 600;
+}
+
+.history-group-expand-chevron {
+  font-size: 0.7rem;
+  opacity: 0.85;
 }
 
 .history-item-nested {

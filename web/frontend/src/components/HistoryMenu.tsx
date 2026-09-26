@@ -1,6 +1,7 @@
 import { createEffect, createMemo, createSignal, For, onCleanup, Show } from "solid-js";
 import {
   clearHistoryOnServer,
+  cropHistoryTitle,
   deleteHistoryOnServer,
   formatHistoryWhen,
   groupHistoryEntries,
@@ -11,13 +12,14 @@ import {
   loadHistoryFromServer,
 } from "../lib/history";
 import ConfirmDialog from "./ConfirmDialog";
-import HistoryDetailDialog from "./HistoryDetailDialog";
 import { CloseIcon, HistoryIcon, TrashIcon } from "./IconButton";
 import { thumbnailSrc } from "./ThumbnailPreview";
 
 type Props = {
   onSelect: (entry: HistoryEntry) => void;
   refreshKey?: number;
+  groupByUrl: boolean;
+  onGroupByUrlChange: (value: boolean) => void;
 };
 
 type PendingDelete = { type: "entry"; id: string } | { type: "all" };
@@ -29,10 +31,9 @@ export default function HistoryMenu(props: Props) {
   const [hasMore, setHasMore] = createSignal(false);
   const [loading, setLoading] = createSignal(false);
   const [loadingMore, setLoadingMore] = createSignal(false);
-  const [groupByUrl, setGroupByUrl] = createSignal(false);
   const [expandedUrls, setExpandedUrls] = createSignal<Set<string>>(new Set());
   const [pending, setPending] = createSignal<PendingDelete | null>(null);
-  const [detailId, setDetailId] = createSignal<string | null>(null);
+  const [pendingLoad, setPendingLoad] = createSignal<HistoryEntry | null>(null);
 
   let drawerBody: HTMLDivElement | undefined;
   let scrollIdleTimer: ReturnType<typeof setTimeout> | undefined;
@@ -180,7 +181,6 @@ export default function HistoryMenu(props: Props) {
 
   function close() {
     setOpen(false);
-    setDetailId(null);
   }
 
   function toggleGroupExpand(url: string) {
@@ -202,7 +202,7 @@ export default function HistoryMenu(props: Props) {
   }
 
   function onDocKeyDown(event: KeyboardEvent) {
-    if (event.key === "Escape" && !detailId()) {
+    if (event.key === "Escape" && !pendingLoad()) {
       event.preventDefault();
       close();
     }
@@ -260,6 +260,20 @@ export default function HistoryMenu(props: Props) {
     setPending(null);
   }
 
+  function confirmLoad() {
+    const entry = pendingLoad();
+    setPendingLoad(null);
+    if (!entry) return;
+    props.onSelect(entry);
+    close();
+  }
+
+  function moreRunsLabel(count: number): string {
+    const extra = count - 1;
+    if (extra <= 0) return "";
+    return extra === 1 ? "1 more run" : `${extra} more runs`;
+  }
+
   function renderEntry(entry: HistoryEntry, nested = false) {
     return (
       <div class="history-item" classList={{ "history-item-nested": nested }}>
@@ -267,7 +281,7 @@ export default function HistoryMenu(props: Props) {
           type="button"
           class="history-item-main"
           role="menuitem"
-          onClick={() => setDetailId(entry.id)}
+          onClick={() => setPendingLoad(entry)}
         >
           <Show when={entry.thumbnail}>
             <img
@@ -320,16 +334,6 @@ export default function HistoryMenu(props: Props) {
             <p class="history-drawer-title">History</p>
             <button
               type="button"
-              class="history-group-toggle"
-              classList={{ active: groupByUrl() }}
-              aria-pressed={groupByUrl()}
-              title="Group by URL"
-              onClick={() => setGroupByUrl((v) => !v)}
-            >
-              Group
-            </button>
-            <button
-              type="button"
               class="history-drawer-close"
               aria-label="Close history"
               title="Close"
@@ -338,32 +342,55 @@ export default function HistoryMenu(props: Props) {
               <CloseIcon />
             </button>
           </div>
+          <div class="history-view-switch" role="group" aria-label="History layout">
+            <button
+              type="button"
+              class="history-view-switch-btn"
+              classList={{ active: !props.groupByUrl }}
+              aria-pressed={!props.groupByUrl}
+              onClick={() => props.onGroupByUrlChange(false)}
+            >
+              Timeline
+            </button>
+            <button
+              type="button"
+              class="history-view-switch-btn"
+              classList={{ active: props.groupByUrl }}
+              aria-pressed={props.groupByUrl}
+              onClick={() => props.onGroupByUrlChange(true)}
+            >
+              By URL
+            </button>
+          </div>
           <div class="history-drawer-body" ref={drawerBody} onScroll={onDrawerScroll}>
             <Show
               when={entries().length > 0 || !loading()}
               fallback={<p class="history-empty">Loading…</p>}
             >
               <Show when={entries().length} fallback={<p class="history-empty">No downloads yet</p>}>
-                <Show when={!groupByUrl()}>
+                <Show when={!props.groupByUrl}>
                   <For each={entries()}>{(entry) => renderEntry(entry)}</For>
                 </Show>
-                <Show when={groupByUrl()}>
+                <Show when={props.groupByUrl}>
                   <For each={groupedList()}>
                     {(group) => (
                       <div class="history-group">
-                        <div class="history-group-head">
-                          {renderEntry(group.latest)}
-                          <Show when={group.count > 1}>
-                            <button
-                              type="button"
-                              class="history-group-badge"
-                              onClick={() => toggleGroupExpand(group.url)}
-                            >
-                              {group.count} runs
-                              {expandedUrls().has(group.url) ? " ▾" : " ▸"}
-                            </button>
-                          </Show>
-                        </div>
+                        <Show when={group.count > 1}>
+                          <button
+                            type="button"
+                            class="history-group-expand"
+                            aria-expanded={expandedUrls().has(group.url)}
+                            onClick={() => toggleGroupExpand(group.url)}
+                          >
+                            <span class="history-group-expand-count">
+                              {moreRunsLabel(group.count)}
+                            </span>
+                            <span class="history-group-expand-chevron" aria-hidden="true">
+                              {expandedUrls().has(group.url) ? "▾" : "▸"}
+                            </span>
+                          </button>
+                        </Show>
+                        {renderEntry(group.latest)}
                         <Show when={expandedUrls().has(group.url) && group.count > 1}>
                           <For each={group.runs.slice(1)}>
                             {(entry) => renderEntry(entry, true)}
@@ -396,12 +423,15 @@ export default function HistoryMenu(props: Props) {
           </Show>
         </div>
       </Show>
-      <Show when={detailId()}>
-        {(id) => (
-          <HistoryDetailDialog
-            recordId={id()}
-            onClose={() => setDetailId(null)}
-            onLoadUrl={(url) => props.onSelect({ id: id(), url, title: "", thumbnail: "", downloadedAt: 0 })}
+      <Show when={pendingLoad()}>
+        {(entry) => (
+          <ConfirmDialog
+            title="Load this video?"
+            message={`"${cropHistoryTitle(entry().title)}" will be filled into the URL field.`}
+            confirmLabel="Load"
+            confirmClass="confirm-cancel"
+            onConfirm={confirmLoad}
+            onCancel={() => setPendingLoad(null)}
           />
         )}
       </Show>
