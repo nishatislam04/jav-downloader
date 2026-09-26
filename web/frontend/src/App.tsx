@@ -246,6 +246,7 @@ export default function App() {
       encode_hardware_bitrate_kbps?: number;
       encode_hardware_gop?: number;
       encode_hardware_bitrate_mode?: string;
+      encode_small_file?: boolean;
     } = {};
 
     if (includeCuts && !validateCutRanges(durationSec(), cuts())) {
@@ -284,6 +285,9 @@ export default function App() {
         }
         if (encode.hardwareBitrateMode !== "auto") {
           payload.encode_hardware_bitrate_mode = encode.hardwareBitrateMode;
+        }
+        if (encode.smallFile) {
+          payload.encode_small_file = true;
         }
       }
     }

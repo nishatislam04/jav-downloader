@@ -33,6 +33,7 @@ export type EncodeSettings = {
   hardwareBitrateMode: HardwareBitrateMode;
   hardwareBitrateKbps: number;
   hardwareGop: number;
+  smallFile: boolean;
 };
 
 export type AudioBitrate = 96 | 128 | 192;
@@ -66,6 +67,7 @@ export const DEFAULT_ENCODE_SETTINGS: EncodeSettings = {
   hardwareBitrateMode: "auto",
   hardwareBitrateKbps: 0,
   hardwareGop: 0,
+  smallFile: false,
 };
 
 function normalizeEncodeSettings(raw: Partial<EncodeSettings> | null): EncodeSettings {
@@ -126,6 +128,7 @@ function normalizeEncodeSettings(raw: Partial<EncodeSettings> | null): EncodeSet
     hardwareBitrateMode,
     hardwareBitrateKbps,
     hardwareGop,
+    smallFile: Boolean(raw.smallFile),
   };
 }
 

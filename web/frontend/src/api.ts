@@ -46,7 +46,7 @@ export type Job = {
   total?: number;
   speed?: number;
   progress_pct?: number;
-  progress_unit?: "" | "bytes" | "segments";
+  progress_unit?: "" | "bytes" | "segments" | "time";
   progress_phase?: string;
   progress_detail?: string;
   error?: string;
@@ -111,6 +111,7 @@ export type DownloadOptions = {
   encode_hardware_bitrate_kbps?: number;
   encode_hardware_gop?: number;
   encode_hardware_bitrate_mode?: string;
+  encode_small_file?: boolean;
 };
 
 export type HardwareCodecCapability = {

@@ -870,6 +870,26 @@ export default function EditToolsCard(props: Props) {
                             }
                           />
                         </label>
+                        <label class="encode-field encode-field-wide encode-checkbox-row">
+                          <input
+                            type="checkbox"
+                            checked={props.encodeSettings.smallFile}
+                            onChange={(event) =>
+                              props.onEncodeSettingsChange({
+                                ...props.encodeSettings,
+                                smallFile: event.currentTarget.checked,
+                              })
+                            }
+                          />
+                          <span>Smallest file (slow software encode)</span>
+                          <FieldHint label="Smallest file mode">
+                            <p>
+                              Forces software encoding with a slower preset, higher effective CRF,
+                              and a bitrate cap similar to hardware defaults. Much smaller files;
+                              phone will run hot and encoding takes longer.
+                            </p>
+                          </FieldHint>
+                        </label>
                         <label class="encode-field encode-field-wide">
                           <div class="encode-field-head">
                             <span>Software preset</span>
