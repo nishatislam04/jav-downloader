@@ -136,6 +136,26 @@ def decide_encoding(site, media_info: MediaInfo | None) -> EncodingDecision:
     )
 
 
+def _planned_encoder_label(
+        decision: EncodingDecision,
+        site,
+        target_codec: str,
+        codec_label: str) -> str:
+    from jav_downloader.sites.encoding_capabilities import resolve_hardware_encoder
+    from jav_downloader.sites.encoding_strategies import (
+        STRATEGY_HARDWARE,
+        strategy_for_decision,
+    )
+
+    strategy = strategy_for_decision(decision, site)
+    if strategy == STRATEGY_HARDWARE:
+        _, spec, _ = resolve_hardware_encoder(target_codec, validate=False)
+        name = spec.encoder_name if spec else 'mediacodec'
+        return f'{name} (hardware MediaCodec)'
+    lib = 'libx265' if target_codec == 'hevc' else 'libx264'
+    return f'{lib} ({codec_label} software)'
+
+
 def format_encoding_decision_log(
         decision: EncodingDecision,
         media_info: MediaInfo | None,
@@ -162,7 +182,7 @@ def format_encoding_decision_log(
     else:
         action = 're-encode'
         codec_label = 'H.265' if target_codec == 'hevc' else 'H.264'
-        encoder = f'libx{"265" if target_codec == "hevc" else "264"} ({codec_label})'
+        encoder = _planned_encoder_label(decision, site, target_codec, codec_label)
 
     reason = '; '.join(decision.reasons) if decision.reasons else ''
     return (

@@ -89,6 +89,38 @@ def test_probe_unavailable_falls_back_to_encode():
     assert 'source inspection unavailable' in decision.reasons[0]
 
 
+def test_format_encoding_decision_log_shows_hardware_encoder(monkeypatch):
+    from jav_downloader.sites import encoding_capabilities, encoding_strategies
+    from jav_downloader.sites.encoding_capabilities import HardwareEncoderSpec
+
+    site = _site(encode=True, codec='h264', max_height=480)
+    site._encode_engine = 'hardware'
+    monkeypatch.setattr(
+        encoding_strategies,
+        'strategy_for_decision',
+        lambda decision, site=None: encoding_strategies.STRATEGY_HARDWARE,
+    )
+    monkeypatch.setattr(
+        encoding_capabilities,
+        'resolve_hardware_encoder',
+        lambda codec, ffmpeg=None, validate=True: (
+            True,
+            HardwareEncoderSpec('mediacodec', 'h264_mediacodec', 'android'),
+            None,
+        ),
+    )
+    decision = encoding_decision.EncodingDecision(
+        mode=encoding_decision.MODE_SOFTWARE_ENCODE,
+        video_copy=False,
+        scale_needed=True,
+        reasons=('scale',),
+    )
+    line = encoding_decision.format_encoding_decision_log(
+        decision, _media(height=1080), site)
+    assert 'h264_mediacodec' in line
+    assert 'MediaCodec' in line
+
+
 def test_format_encoding_decision_log_skip():
     site = _site(encode=True, codec='h264', max_height=480)
     decision = encoding_decision.decide_encoding(site, _media(height=360))
