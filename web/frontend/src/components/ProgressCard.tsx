@@ -1,3 +1,4 @@
+import type { JSX } from "solid-js";
 import { createEffect, createSignal, For, onCleanup, Show } from "solid-js";
 import type { Job } from "../api";
 import {
@@ -8,14 +9,18 @@ import {
 } from "../lib/format";
 import { classifyLogLine, splitLogStamp } from "../lib/loglevel";
 import IconButton, {
+  ClockIcon,
   CloseIcon,
   CollapseIcon,
   CopyIcon,
+  DownloadIcon,
+  EncodeIcon,
   ExpandIcon,
   FolderIcon,
   PauseIcon,
   PlayIcon,
   RetryIcon,
+  SuccessIcon,
 } from "./IconButton";
 
 type Props = {
@@ -135,6 +140,36 @@ export default function ProgressCard(props: Props) {
   const phaseText = () => formatProgressPhase(props.job);
   const totalTime = () => formatDuration(props.job.elapsed_sec);
 
+  // One glanceable glyph for "what is happening right now".
+  const statusIcon = (): {
+    icon: JSX.Element;
+    cls: string;
+    label: string;
+  } | null => {
+    if (isCancelled()) return null;
+    if (isCompleted()) {
+      return { icon: <SuccessIcon />, cls: "done", label: "Completed" };
+    }
+    if (isFailed()) {
+      return { icon: <CloseIcon />, cls: "failed", label: "Failed" };
+    }
+    if (isPaused()) {
+      return { icon: <PauseIcon />, cls: "paused", label: "Paused" };
+    }
+    if (/encoding/i.test(props.job.progress_phase || "")) {
+      return { icon: <EncodeIcon />, cls: "encoding", label: "Encoding" };
+    }
+    if (isDownloading() && !/^preparing$/i.test(props.job.progress_phase || "")) {
+      return {
+        icon: <DownloadIcon />,
+        cls: "downloading",
+        label: "Downloading",
+      };
+    }
+    return { icon: <ClockIcon />, cls: "pending", label: "Waiting" };
+  };
+  const status = () => statusIcon();
+
   createEffect(() => {
     logLines();
     if (logEl) {
@@ -217,7 +252,21 @@ export default function ProgressCard(props: Props) {
           <p class="progress-phase">{phaseText()}</p>
         </Show>
         <p class="mono progress-text">
-          {isCancelled() ? "Download cancelled" : progressText(props.job)}
+          <Show when={status()} fallback={"Download cancelled"}>
+            {(s) => (
+              <>
+                <span
+                  class={`status-icon status-icon-${s().cls}`}
+                  role="img"
+                  aria-label={s().label}
+                  title={s().label}
+                >
+                  {s().icon}
+                </span>
+                {progressText(props.job)}
+              </>
+            )}
+          </Show>
         </p>
         <Show when={logLines().length > 0}>
           <div class="log-block" classList={{ "log-block-full": logFull() }}>

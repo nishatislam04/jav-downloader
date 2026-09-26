@@ -887,6 +887,65 @@ button.icon-btn-danger:hover:not(:disabled) {
   font-size: 0.84rem;
 }
 
+.status-icon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  margin-right: 8px;
+  vertical-align: -2px;
+}
+
+.status-icon-downloading {
+  color: var(--accent);
+  animation: status-pulse 1.2s ease-in-out infinite;
+}
+
+.status-icon-encoding {
+  color: var(--accent-2);
+  animation: status-spin 1.6s linear infinite;
+}
+
+.status-icon-done {
+  color: var(--ok);
+}
+
+.status-icon-pending {
+  color: var(--muted);
+  opacity: 0.85;
+}
+
+.status-icon-paused {
+  color: var(--accent-2);
+}
+
+.status-icon-failed {
+  color: var(--accent);
+  opacity: 0.9;
+}
+
+@keyframes status-pulse {
+  0%,
+  100% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0.35;
+  }
+}
+
+@keyframes status-spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .status-icon-downloading,
+  .status-icon-encoding {
+    animation: none;
+  }
+}
+
 .edit-tools-heading {
   margin: 0 0 14px;
   font-size: 1.05rem;
