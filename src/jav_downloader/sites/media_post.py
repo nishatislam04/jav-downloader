@@ -398,6 +398,34 @@ def _build_encode_cmd(ffmpeg, site, src_path, dst_path, duration_sec, decision=N
     return cmd
 
 
+def _finalize_encoded_mp4(ffmpeg: str, path: str) -> None:
+    """Remux with faststart so players (e.g. MX Player) can seek reliably."""
+    if not path or not os.path.isfile(path):
+        return
+    dest_dir = os.path.dirname(path) or os.getcwd()
+    fd, tmp = tempfile.mkstemp(suffix='.mp4', prefix='jav-remux-', dir=dest_dir)
+    os.close(fd)
+    cmd = [
+        ffmpeg, '-y', '-hide_banner', '-loglevel', 'error',
+        '-i', path,
+        '-c', 'copy',
+        '-avoid_negative_ts', 'make_zero',
+        '-movflags', '+faststart',
+        tmp,
+    ]
+    proc = subprocess.run(
+        cmd,
+        stdin=subprocess.DEVNULL,
+        capture_output=True,
+        text=True,
+        **_no_window_kwargs(),
+    )
+    if proc.returncode == 0 and os.path.isfile(tmp) and os.path.getsize(tmp) > 0:
+        os.replace(tmp, path)
+    else:
+        _safe_remove(tmp)
+
+
 def _run_ffmpeg(cmd, site, out_path, duration_sec, input_size):
     from jav_downloader.sites.encoding_performance import ffmpeg_work_session
 
@@ -547,6 +575,8 @@ def post_process_media(site, src_path: str, duration_sec: float | None = None) -
             _safe_remove(temp_path)
             detail = stderr_tail.strip() or 'ffmpeg encode failed'
             raise Exception(f'Encode failed: {detail}')
+
+        _finalize_encoded_mp4(ffmpeg, temp_path)
 
         if mode == 'replace':
             os.replace(temp_path, src_path)
