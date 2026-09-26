@@ -870,18 +870,20 @@ export default function EditToolsCard(props: Props) {
                             }
                           />
                         </label>
-                        <label class="encode-field encode-field-wide encode-checkbox-row">
-                          <input
-                            type="checkbox"
-                            checked={props.encodeSettings.smallFile}
-                            onChange={(event) =>
-                              props.onEncodeSettingsChange({
-                                ...props.encodeSettings,
-                                smallFile: event.currentTarget.checked,
-                              })
-                            }
-                          />
-                          <span>Smallest file (slow software encode)</span>
+                        <div class="encode-field encode-field-wide encode-option-row">
+                          <label class="encode-checkbox-label">
+                            <input
+                              type="checkbox"
+                              checked={props.encodeSettings.smallFile}
+                              onChange={(event) =>
+                                props.onEncodeSettingsChange({
+                                  ...props.encodeSettings,
+                                  smallFile: event.currentTarget.checked,
+                                })
+                              }
+                            />
+                            <span>Smallest file (slow software encode)</span>
+                          </label>
                           <FieldHint label="Smallest file mode">
                             <p>
                               Forces software encoding with a slower preset, higher effective CRF,
@@ -889,7 +891,7 @@ export default function EditToolsCard(props: Props) {
                               phone will run hot and encoding takes longer.
                             </p>
                           </FieldHint>
-                        </label>
+                        </div>
                         <label class="encode-field encode-field-wide">
                           <div class="encode-field-head">
                             <span>Software preset</span>

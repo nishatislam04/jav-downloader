@@ -775,6 +775,11 @@ button:disabled {
   white-space: nowrap;
 }
 
+.phase-times {
+  font-weight: 500;
+  opacity: 0.9;
+}
+
 .progress-body {
   display: flex;
   flex-direction: column;
@@ -1815,6 +1820,26 @@ button.confirm-danger:hover {
 
 .encode-field-wide {
   grid-column: 1 / -1;
+}
+
+.encode-option-row {
+  flex-direction: row;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+}
+
+.encode-checkbox-label {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex: 1;
+  min-width: 0;
+  cursor: pointer;
+}
+
+.encode-option-row .field-hint {
+  margin-left: auto;
 }
 
 .encode-field-head {

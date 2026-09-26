@@ -7,14 +7,9 @@ type Props = {
   children: JSX.Element;
 };
 
-function supportsHover() {
-  return (
-    typeof window !== "undefined" && window.matchMedia("(hover: hover) and (pointer: fine)").matches
-  );
-}
-
 function isTouchUi() {
-  return !supportsHover();
+  if (typeof window === "undefined") return true;
+  return !window.matchMedia("(hover: hover) and (pointer: fine)").matches;
 }
 
 export default function FieldHint(props: Props) {
@@ -92,17 +87,7 @@ export default function FieldHint(props: Props) {
   );
 
   return (
-    // biome-ignore lint/a11y/noStaticElementInteractions: hover-only wrapper; all interaction is on the trigger button
-    <div
-      class="field-hint"
-      classList={{ "field-hint-open": open() }}
-      onMouseEnter={() => {
-        if (supportsHover()) setOpen(true);
-      }}
-      onMouseLeave={() => {
-        if (supportsHover()) setOpen(false);
-      }}
-    >
+    <div class="field-hint" classList={{ "field-hint-open": open() }}>
       <button
         type="button"
         class="field-hint-trigger"
