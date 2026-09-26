@@ -17,8 +17,8 @@ from jav_downloader.sites.encoding_capabilities import (
 from jav_downloader.sites.encoding_performance import needs_video_scale
 from jav_downloader.sites.media_post import (
     _append_audio_mapping,
+    effective_encode_crf,
     normalize_encode_codec,
-    normalize_encode_crf,
     normalize_encode_engine,
     normalize_encode_max_height,
     normalize_hardware_bitrate_kbps,
@@ -26,6 +26,8 @@ from jav_downloader.sites.media_post import (
     normalize_hardware_gop,
     resolved_encode_preset,
     resolved_encode_threads,
+    site_wants_small_file,
+    wants_software_bitrate_cap,
 )
 
 STRATEGY_DIRECT = 'direct_remux'
@@ -43,6 +45,8 @@ def strategy_for_decision(decision: EncodingDecision, site=None) -> str:
 
 def resolve_encode_strategy(site) -> str:
     """Pick hardware or software encoder from site engine preference."""
+    if site_wants_small_file(site):
+        return STRATEGY_SOFTWARE
     engine = normalize_encode_engine(getattr(site, '_encode_engine', None))
     if engine == 'direct':
         return STRATEGY_DIRECT
@@ -232,13 +236,25 @@ def build_hardware_encode_cmd(
     return cmd
 
 
+def _software_vbr_cap_args(site) -> list[str]:
+    if not wants_software_bitrate_cap(site):
+        return []
+    max_height = normalize_encode_max_height(getattr(site, '_encode_max_height', None))
+    custom = normalize_hardware_bitrate_kbps(
+        getattr(site, '_encode_hardware_bitrate_kbps', None))
+    bitrate = custom or default_hardware_bitrate_kbps(max_height)
+    if bitrate <= 0:
+        return []
+    return ['-maxrate', f'{bitrate}k', '-bufsize', f'{bitrate * 2}k']
+
+
 def build_software_video_args(
         site,
         source_height: int | None = None) -> list[str]:
     """Return ffmpeg video encoder arguments for software x264/x265."""
     preset = resolved_encode_preset(site)
     codec = normalize_encode_codec(getattr(site, '_encode_codec', None))
-    crf = normalize_encode_crf(getattr(site, '_encode_crf', None))
+    crf = effective_encode_crf(site)
     max_height = normalize_encode_max_height(getattr(site, '_encode_max_height', None))
 
     args = _scale_filter(max_height, source_height)
@@ -246,6 +262,7 @@ def build_software_video_args(
         args.extend(['-c:v', 'libx265', '-crf', str(crf), '-preset', preset])
     else:
         args.extend(['-c:v', 'libx264', '-crf', str(crf), '-preset', preset])
+    args.extend(_software_vbr_cap_args(site))
     return args
 
 
@@ -305,9 +322,15 @@ def encode_strategy_label(strategy: str, site) -> str:
             f'gop {default_gop_size(None)}')
     preset = resolved_encode_preset(site)
     codec = normalize_encode_codec(getattr(site, '_encode_codec', None))
-    crf = normalize_encode_crf(getattr(site, '_encode_crf', None))
+    crf = effective_encode_crf(site)
     height = normalize_encode_max_height(getattr(site, '_encode_max_height', None))
     threads = resolved_encode_threads(site)
     height_label = f'{height}p' if height > 0 else 'original'
     codec_label = 'H.265' if codec == 'hevc' else 'H.264'
-    return f'{codec_label} CRF {crf} · {height_label} · {preset} · {threads} thread(s)'
+    cap = _software_vbr_cap_args(site)
+    cap_label = ''
+    if cap:
+        cap_label = f' · cap {cap[1]}'
+    return (
+        f'{codec_label} CRF {crf} · {height_label} · {preset} · '
+        f'{threads} thread(s){cap_label}')

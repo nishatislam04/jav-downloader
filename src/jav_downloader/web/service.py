@@ -132,6 +132,7 @@ def _encode_options(
     encode_hardware_bitrate_kbps=None,
     encode_hardware_gop=None,
     encode_hardware_bitrate_mode=None,
+    encode_small_file=None,
 ) -> dict:
     return {
         "encode": bool(encode),
@@ -145,6 +146,7 @@ def _encode_options(
         "encode_hardware_bitrate_kbps": _optional_int(encode_hardware_bitrate_kbps),
         "encode_hardware_gop": _optional_int(encode_hardware_gop),
         "encode_hardware_bitrate_mode": _optional_text(encode_hardware_bitrate_mode),
+        "encode_small_file": _optional_bool(encode_small_file),
     }
 
 
@@ -163,6 +165,7 @@ def _encode_options_from_mapping(payload: dict | None) -> dict:
         encode_hardware_bitrate_kbps=payload.get("encode_hardware_bitrate_kbps"),
         encode_hardware_gop=payload.get("encode_hardware_gop"),
         encode_hardware_bitrate_mode=payload.get("encode_hardware_bitrate_mode"),
+        encode_small_file=payload.get("encode_small_file"),
     )
 
 
@@ -174,6 +177,7 @@ def encoding_capabilities_payload() -> dict:
     for codec, info in (summary.get("codecs") or {}).items():
         hardware_codecs[codec] = {
             "available": bool(info.get("available")),
+            "validated": bool(info.get("validated")),
             "encoder": info.get("encoder"),
             "backend": info.get("backend"),
             "reason": info.get("reason"),
@@ -416,6 +420,8 @@ def _config_log_lines(site, output_title=None):
         )
         if settings:
             lines.append(f"[config] encode_options: {settings}")
+        if getattr(site, "_encode_small_file", False):
+            lines.append("[config] encode_small_file: on")
         engine = getattr(site, "_encode_engine", None)
         if engine and engine != "software":
             hw = _kv(
@@ -575,6 +581,8 @@ def _run_download(
             current_detail = job.progress_detail if job else ""
             if unit == "segments" and total > 0:
                 phase, detail = "Downloading", f"{downloaded}/{total} segments"
+            elif unit == "time" and total > 0:
+                phase, detail = "Encoding", current_detail
             elif unit == "bytes" and total > 0:
                 if current_phase == "Encoding":
                     phase, detail = "Encoding", current_detail

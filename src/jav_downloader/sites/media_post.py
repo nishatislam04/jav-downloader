@@ -10,6 +10,7 @@ import re
 import select
 import subprocess
 import tempfile
+import time
 
 from jav_downloader.sites.base import locate_ffmpeg, _no_window_kwargs
 
@@ -47,12 +48,13 @@ def normalize_encode_codec(value) -> str:
     return codec if codec in _VALID_CODECS else 'h264'
 
 
-def normalize_encode_crf(value) -> int:
+def normalize_encode_crf(value, *, ceiling: int = 28) -> int:
     try:
         crf = int(value)
     except (TypeError, ValueError):
         crf = 23
-    return max(18, min(28, crf))
+    cap = max(18, min(32, int(ceiling)))
+    return max(18, min(cap, crf))
 
 
 def normalize_encode_max_height(value) -> int:
@@ -158,7 +160,8 @@ def apply_encode_options(
         encode_engine=None,
         encode_hardware_bitrate_kbps=None,
         encode_hardware_gop=None,
-        encode_hardware_bitrate_mode=None) -> None:
+        encode_hardware_bitrate_mode=None,
+        encode_small_file=None) -> None:
     site._encode_enabled = bool(encode)
     site._encode_codec = normalize_encode_codec(encode_codec)
     site._encode_crf = normalize_encode_crf(encode_crf)
@@ -172,7 +175,29 @@ def apply_encode_options(
     site._encode_hardware_gop = normalize_hardware_gop(encode_hardware_gop)
     site._encode_hardware_bitrate_mode = normalize_hardware_bitrate_mode(
         encode_hardware_bitrate_mode)
+    if encode_small_file is not None:
+        site._encode_small_file = bool(encode_small_file)
     site._encoded_output_path = None
+
+
+def site_wants_small_file(site) -> bool:
+    return bool(getattr(site, '_encode_small_file', False))
+
+
+def effective_encode_crf(site) -> int:
+    ceiling = 32 if site_wants_small_file(site) else 28
+    crf = normalize_encode_crf(getattr(site, '_encode_crf', None), ceiling=ceiling)
+    if site_wants_small_file(site):
+        return max(crf, 30)
+    return crf
+
+
+def wants_software_bitrate_cap(site) -> bool:
+    """VBR cap for software encode when user picked hardware/auto or smallest-file."""
+    if site_wants_small_file(site):
+        return True
+    engine = normalize_encode_engine(getattr(site, '_encode_engine', None))
+    return engine in ('hardware', 'auto')
 
 
 def site_wants_encode(site) -> bool:
@@ -230,6 +255,8 @@ def encode_tag(site) -> str:
 
 
 def resolved_encode_preset(site) -> str:
+    if site_wants_small_file(site):
+        return 'slow'
     preset = normalize_encode_preset(getattr(site, '_encode_preset', None))
     if preset != 'auto':
         return preset
@@ -329,11 +356,23 @@ def _emit_encode_progress(site, out_path, out_time_sec, duration_sec, input_size
     cb = getattr(site, '_progress_callback', None)
     if not cb:
         return
+    duration = float(duration_sec or 0)
+    if duration > 0 and out_time_sec >= 0:
+        now = time.monotonic()
+        last = getattr(site, '_encode_progress_state', None)
+        speed = 0.0
+        if isinstance(last, dict):
+            dt = now - float(last.get('t', now))
+            dout = out_time_sec - float(last.get('out', out_time_sec))
+            if dt > 0.05 and dout > 0:
+                speed = (dout * 1000.0) / dt
+        site._encode_progress_state = {'t': now, 'out': out_time_sec}
+        done_ms = int(min(out_time_sec, duration) * 1000.0)
+        total_ms = max(1, int(duration * 1000.0))
+        cb(done_ms, total_ms, speed, 'time')
+        return
     downloaded = os.path.getsize(out_path) if os.path.isfile(out_path) else 0
     total = input_size if input_size > 0 else downloaded
-    if duration_sec and duration_sec > 0 and out_time_sec > 0 and input_size > 0:
-        total = max(total, int(input_size * min(1.0, out_time_sec / duration_sec)))
-        downloaded = max(downloaded, int(total * min(1.0, out_time_sec / duration_sec)))
     cb(max(downloaded, 0), max(total, 1), 0.0, 'bytes')
 
 
@@ -367,6 +406,7 @@ def _run_ffmpeg(cmd, site, out_path, duration_sec, input_size):
 
 
 def _run_ffmpeg_inner(cmd, site, out_path, duration_sec, input_size):
+    site._encode_progress_state = None
     proc = subprocess.Popen(
         cmd,
         stdin=subprocess.DEVNULL,

@@ -55,6 +55,22 @@ def test_finalize_processed_output_keep_both(tmp_path, monkeypatch):
     assert captured["dst"] == out
 
 
+def test_emit_encode_progress_uses_time_unit():
+    site = DummySite()
+    captured = []
+
+    def _cb(downloaded, total, speed, unit):
+        captured.append((downloaded, total, speed, unit))
+
+    site._progress_callback = _cb
+    media_post._emit_encode_progress(site, '/missing.mp4', 90.0, 600.0, 50_000_000)
+    assert captured
+    downloaded, total, _speed, unit = captured[-1]
+    assert unit == 'time'
+    assert total == 600_000
+    assert downloaded == 90_000
+
+
 def test_apply_encode_options_sets_flags():
     site = DummySite()
     media_post.apply_encode_options(

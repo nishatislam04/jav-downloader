@@ -42,6 +42,21 @@ def test_strategy_for_software_encode():
         encoding_strategies.STRATEGY_SOFTWARE)
 
 
+def test_software_bitrate_cap_when_hardware_engine():
+    site = _site(codec='h264', max_height=480)
+    site._encode_engine = 'hardware'
+    args = encoding_strategies.build_software_video_args(site)
+    assert '-maxrate' in args
+    assert '1000k' in args
+
+
+def test_no_bitrate_cap_explicit_software_engine():
+    site = _site(codec='h264', max_height=480)
+    site._encode_engine = 'software'
+    args = encoding_strategies.build_software_video_args(site)
+    assert '-maxrate' not in args
+
+
 def test_build_software_video_args_h264_scale():
     site = _site(codec='h264', max_height=480)
     args = encoding_strategies.build_software_video_args(site)
