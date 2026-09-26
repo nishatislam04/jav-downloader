@@ -321,7 +321,7 @@ export default function EditToolsCard(props: Props) {
                       <span>Remove audio track (no audio in output)</span>
                     </label>
                     <div class="audio-grid" classList={{ disabled: props.audioSettings.mute }}>
-                      <label class="encode-field">
+                      <div class="encode-field">
                         <div class="encode-field-head">
                           <span>Bitrate</span>
                           <FieldHint label="Audio bitrate">
@@ -365,8 +365,8 @@ export default function EditToolsCard(props: Props) {
                         >
                           {(size) => <span class="audio-size-hint">{size()}</span>}
                         </Show>
-                      </label>
-                      <label class="encode-field">
+                      </div>
+                      <div class="encode-field">
                         <div class="encode-field-head">
                           <span>Volume boost {props.audioSettings.volume.toFixed(1)}×</span>
                           <FieldHint label="Volume boost">
@@ -409,7 +409,7 @@ export default function EditToolsCard(props: Props) {
                             })
                           }
                         />
-                      </label>
+                      </div>
                     </div>
                     <label class="toggle-row" classList={{ disabled: props.audioSettings.mute }}>
                       <input
@@ -466,7 +466,7 @@ export default function EditToolsCard(props: Props) {
                       <span>Re-encode after download (ffmpeg)</span>
                     </label>
                     <div class="encode-grid">
-                      <label class="encode-field">
+                      <div class="encode-field">
                         <div class="encode-field-head">
                           <span>Codec</span>
                           <FieldHint label="Video format (codec)">
@@ -503,8 +503,8 @@ export default function EditToolsCard(props: Props) {
                           <option value="h264">H.264</option>
                           <option value="hevc">H.265 / HEVC</option>
                         </select>
-                      </label>
-                      <label class="encode-field">
+                      </div>
+                      <div class="encode-field">
                         <div class="encode-field-head">
                           <span>Max height</span>
                           <FieldHint label="Max height (resolution)">
@@ -549,8 +549,8 @@ export default function EditToolsCard(props: Props) {
                           <option value="720">720p</option>
                           <option value="1080">1080p</option>
                         </select>
-                      </label>
-                      <label class="encode-field encode-field-wide">
+                      </div>
+                      <div class="encode-field encode-field-wide">
                         <div class="encode-field-head">
                           <span>Output</span>
                           <FieldHint label="Output file choice">
@@ -591,7 +591,7 @@ export default function EditToolsCard(props: Props) {
                           <option value="keep_both">Keep both</option>
                           <option value="suffix">Tagged file only</option>
                         </select>
-                      </label>
+                      </div>
                     </div>
                     <label class="toggle-row">
                       <input
@@ -611,7 +611,7 @@ export default function EditToolsCard(props: Props) {
                       when={props.encodeSettings.advancedEnabled && props.encodeSettings.enabled}
                     >
                       <div class="encode-grid encode-grid-advanced">
-                        <label class="encode-field encode-field-wide">
+                        <div class="encode-field encode-field-wide">
                           <div class="encode-field-head">
                             <span>Encoding engine</span>
                             <FieldHint label="Encoding engine">
@@ -659,8 +659,8 @@ export default function EditToolsCard(props: Props) {
                             <option value="hardware">Hardware</option>
                             <option value="software">Software</option>
                           </select>
-                        </label>
-                        <label class="encode-field">
+                        </div>
+                        <div class="encode-field">
                           <div class="encode-field-head">
                             <span>Hardware codec</span>
                             <FieldHint label="Hardware video format">
@@ -696,8 +696,8 @@ export default function EditToolsCard(props: Props) {
                                 : " (unavailable)"}
                             </option>
                           </select>
-                        </label>
-                        <label class="encode-field">
+                        </div>
+                        <div class="encode-field">
                           <div class="encode-field-head">
                             <span>Hardware bitrate mode</span>
                             <FieldHint label="Hardware bitrate mode">
@@ -737,8 +737,8 @@ export default function EditToolsCard(props: Props) {
                             <option value="vbr">VBR</option>
                             <option value="cbr">CBR</option>
                           </select>
-                        </label>
-                        <label class="encode-field">
+                        </div>
+                        <div class="encode-field">
                           <div class="encode-field-head">
                             <span>Hardware bitrate (kbps)</span>
                             <FieldHint label="Hardware bitrate (kbps)">
@@ -784,8 +784,8 @@ export default function EditToolsCard(props: Props) {
                               })
                             }
                           />
-                        </label>
-                        <label class="encode-field">
+                        </div>
+                        <div class="encode-field">
                           <div class="encode-field-head">
                             <span>GOP / keyframe interval</span>
                             <FieldHint label="Keyframe interval (GOP)">
@@ -826,8 +826,8 @@ export default function EditToolsCard(props: Props) {
                               })
                             }
                           />
-                        </label>
-                        <label class="encode-field">
+                        </div>
+                        <div class="encode-field">
                           <div class="encode-field-head">
                             <span>CRF {props.encodeSettings.crf}</span>
                             <FieldHint label="Software quality (CRF)">
@@ -869,7 +869,7 @@ export default function EditToolsCard(props: Props) {
                               })
                             }
                           />
-                        </label>
+                        </div>
                         <div class="encode-field encode-field-wide encode-option-row">
                           <label class="encode-checkbox-label">
                             <input
@@ -892,7 +892,7 @@ export default function EditToolsCard(props: Props) {
                             </p>
                           </FieldHint>
                         </div>
-                        <label class="encode-field encode-field-wide">
+                        <div class="encode-field encode-field-wide">
                           <div class="encode-field-head">
                             <span>Software preset</span>
                             <FieldHint label="Software encoding speed">
@@ -949,8 +949,8 @@ export default function EditToolsCard(props: Props) {
                             <option value="medium">Medium</option>
                             <option value="slow">Slow</option>
                           </select>
-                        </label>
-                        <label class="encode-field">
+                        </div>
+                        <div class="encode-field">
                           <div class="encode-field-head">
                             <span>Threads</span>
                             <FieldHint label="CPU threads">
@@ -988,7 +988,7 @@ export default function EditToolsCard(props: Props) {
                               })
                             }
                           />
-                        </label>
+                        </div>
                       </div>
                     </Show>
                     <p class="hint encode-hint">
